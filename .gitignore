@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Data files
+*.db
+*.sqlite
+*.csv
+*.xlsx
+
+# Cache directories
+cache/
+backtest_output/
+
+# Configuration files
+*.json
+!strategy_config.json
+!weight_configs.json
+
+# Environment files
+.env
+.venv/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Log files
+*.log
+
+# Token files
+token_config.py

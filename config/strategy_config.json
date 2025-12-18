@@ -1,0 +1,79 @@
+{
+  "version": "1.0.0",
+  "created_at": "2025-12-17T18:58:00.242443",
+  "last_modified": "2025-12-17T18:58:00.243443",
+  "backtest": {
+    "initial_capital": 100000,
+    "commission_ratio": 0.0003,
+    "slippage_ratio": 0.0001,
+    "backtest_days": 360,
+    "max_stocks_to_backtest": 1,
+    "stock_pool_limit": 50
+  },
+  "trading": {
+    "stop_profit_ratio": 0.2,
+    "stop_loss_ratio": -0.1,
+    "max_position_ratio": 1.0,
+    "min_trade_amount": 100
+  },
+  "strategy": {
+    "strategy_id": "zge_strategy_v1",
+    "strategy_type": "碗选股",
+    "weights_config": {
+      "kdj": 25,
+      "macd": 20,
+      "rsi": 15,
+      "boll": 20,
+      "volume": 20
+    },
+    "sub_weights_config": {
+      "kdj": {
+        "sub_weights": {
+          "j_value": 60,
+          "k_d_cross": 40
+        }
+      },
+      "macd": {
+        "sub_weights": {
+          "diff": 40,
+          "dea": 30,
+          "histogram": 30
+        }
+      },
+      "rsi": {
+        "sub_weights": {
+          "rsi6": 40,
+          "rsi12": 30,
+          "rsi24": 30
+        }
+      },
+      "boll": {
+        "sub_weights": {
+          "upper": 35,
+          "middle": 30,
+          "lower": 35
+        }
+      },
+      "volume": {
+        "sub_weights": {
+          "volume_ratio": 60,
+          "volume_trend": 40
+        }
+      }
+    }
+  },
+  "risk_management": {
+    "max_drawdown_limit": -0.15,
+    "max_position_concentration": 0.5,
+    "volatility_limit": 0.1
+  },
+  "fallback": {
+    "fallback_stocks": [
+      "000001.SZ",
+      "000002.SZ",
+      "000858.SZ",
+      "600036.SH",
+      "601318.SH"
+    ]
+  }
+}

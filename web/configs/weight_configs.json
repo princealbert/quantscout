@@ -1,0 +1,264 @@
+{
+  "default": {
+    "id": "default",
+    "name": "默认配置",
+    "description": "系统默认权重配置",
+    "weights": {
+      "kdj_j": 25,
+      "trend": 25,
+      "deepv": 10,
+      "volume": 8,
+      "fundamental": 8,
+      "position": 4,
+      "risk_reward": 20
+    },
+    "sub_weights": {},
+    "created_at": "2025-12-10T18:24:17.393378",
+    "is_default": true
+  },
+  "3b229f1c-7c1a-423b-a572-e82e3d89eb08": {
+    "id": "3b229f1c-7c1a-423b-a572-e82e3d89eb08",
+    "name": "碗选股",
+    "description": "z哥综合策略 (KDJ+知行趋势+深V信号) - 碗选股",
+    "weights": {
+      "kdj_j": 10,
+      "trend": 30,
+      "deepv": 0,
+      "volume": 20,
+      "fundamental": 10,
+      "position": 10,
+      "risk_reward": 20
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "total_weight": 10,
+        "sub_weights": {
+          "j_0_20": 0,
+          "j_-10_0": 1,
+          "j_-20_-10": 2,
+          "j_-30_-20": 3,
+          "j_below_-30": 4
+        }
+      },
+      "trend": {
+        "total_weight": 30,
+        "sub_weights": {
+          "up_trend": 15,
+          "volume_price_rise": 7,
+          "volume_contraction": 8
+        }
+      },
+      "volume": {
+        "total_weight": 20,
+        "sub_weights": {
+          "big_volume": 6,
+          "volume_anomaly": 6,
+          "volume_breathing": 8
+        }
+      },
+      "fundamental": {
+        "total_weight": 10,
+        "sub_weights": {
+          "pe_positive": 1,
+          "pe_low": 4,
+          "market_cap": 3,
+          "volume_threshold": 2
+        }
+      },
+      "position": {
+        "total_weight": 10,
+        "sub_weights": {
+          "above_white": 4,
+          "between_lines": 5,
+          "below_yellow": 1
+        }
+      }
+    },
+    "created_at": "2025-12-10T00:09:43.820442",
+    "updated_at": "2025-12-10T00:09:43.820442",
+    "is_default": false
+  },
+  "52fbc8d1-635f-4159-ac25-d948ef7984e5": {
+    "id": "52fbc8d1-635f-4159-ac25-d948ef7984e5",
+    "name": "配置_20251214_161151",
+    "description": "子权重调整",
+    "weights": {
+      "kdj_j": 10,
+      "trend": 30,
+      "deepv": 0,
+      "volume": 20,
+      "fundamental": 10,
+      "position": 10,
+      "risk_reward": 20
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "total_weight": 10,
+        "sub_weights": {
+          "j_0_20": 0,
+          "j_-10_0": 1,
+          "j_-20_-10": 4,
+          "j_-30_-20": 5,
+          "j_below_-30": 0
+        }
+      },
+      "trend": {
+        "total_weight": 30,
+        "sub_weights": {
+          "up_trend": 20,
+          "volume_price_rise": 0,
+          "volume_contraction": 10
+        }
+      },
+      "volume": {
+        "total_weight": 20,
+        "sub_weights": {
+          "big_volume": 10,
+          "volume_anomaly": 6,
+          "volume_breathing": 4
+        }
+      },
+      "fundamental": {
+        "total_weight": 10,
+        "sub_weights": {
+          "pe_positive": 0,
+          "pe_low": 1,
+          "market_cap": 7,
+          "volume_threshold": 2
+        }
+      },
+      "position": {
+        "total_weight": 10,
+        "sub_weights": {
+          "above_white": 4,
+          "between_lines": 6,
+          "below_yellow": 0
+        }
+      }
+    },
+    "created_at": "2025-12-14T16:11:51.933072",
+    "is_default": false
+  },
+  "a08629ca-5a17-4ee0-9a8b-a160f07901b0": {
+    "id": "a08629ca-5a17-4ee0-9a8b-a160f07901b0",
+    "name": "配置_20251214_225429",
+    "description": "减趋势加盈亏比",
+    "weights": {
+      "kdj_j": 10,
+      "trend": 25,
+      "deepv": 0,
+      "volume": 20,
+      "fundamental": 10,
+      "position": 10,
+      "risk_reward": 25
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "total_weight": 10,
+        "sub_weights": {
+          "j_0_20": 0,
+          "j_-10_0": 1,
+          "j_-20_-10": 4,
+          "j_-30_-20": 5,
+          "j_below_-30": 0
+        }
+      },
+      "trend": {
+        "total_weight": 30,
+        "sub_weights": {
+          "up_trend": 20,
+          "volume_price_rise": 0,
+          "volume_contraction": 5
+        }
+      },
+      "volume": {
+        "total_weight": 20,
+        "sub_weights": {
+          "big_volume": 12,
+          "volume_anomaly": 5,
+          "volume_breathing": 3
+        }
+      },
+      "fundamental": {
+        "total_weight": 10,
+        "sub_weights": {
+          "pe_positive": 0,
+          "pe_low": 2,
+          "market_cap": 7,
+          "volume_threshold": 1
+        }
+      },
+      "position": {
+        "total_weight": 10,
+        "sub_weights": {
+          "above_white": 4,
+          "between_lines": 6,
+          "below_yellow": 0
+        }
+      }
+    },
+    "created_at": "2025-12-14T22:54:29.493587",
+    "is_default": false
+  },
+  "dbcc7f4f-e542-4ec0-8c30-246958e6afdf": {
+    "id": "dbcc7f4f-e542-4ec0-8c30-246958e6afdf",
+    "name": "配置_20251216_000440",
+    "description": "盈亏比",
+    "weights": {
+      "kdj_j": 10,
+      "trend": 15,
+      "deepv": 0,
+      "volume": 20,
+      "fundamental": 10,
+      "position": 10,
+      "risk_reward": 35
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "total_weight": 10,
+        "sub_weights": {
+          "j_0_20": 0,
+          "j_-10_0": 1,
+          "j_-20_-10": 4,
+          "j_-30_-20": 5,
+          "j_below_-30": 0
+        }
+      },
+      "trend": {
+        "total_weight": 30,
+        "sub_weights": {
+          "up_trend": 15,
+          "volume_price_rise": 0,
+          "volume_contraction": 0
+        }
+      },
+      "volume": {
+        "total_weight": 20,
+        "sub_weights": {
+          "big_volume": 12,
+          "volume_anomaly": 5,
+          "volume_breathing": 3
+        }
+      },
+      "fundamental": {
+        "total_weight": 10,
+        "sub_weights": {
+          "pe_positive": 0,
+          "pe_low": 2,
+          "market_cap": 7,
+          "volume_threshold": 1
+        }
+      },
+      "position": {
+        "total_weight": 10,
+        "sub_weights": {
+          "above_white": 4,
+          "between_lines": 6,
+          "below_yellow": 0
+        }
+      }
+    },
+    "created_at": "2025-12-16T00:04:40.304730",
+    "is_default": false
+  }
+}

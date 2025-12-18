@@ -5,7 +5,7 @@ KDJ指标计算模块
 
 import pandas as pd
 from typing import Dict, List
-from emgm.config.weights_config import weight_config
+from config.weights_config import weight_config
 
 
 class KDJCalculator:

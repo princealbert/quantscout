@@ -13,14 +13,14 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from gm.api import *
-from emgm.strategy_engine import BacktestRunner, run_backtest
-from emgm.strategy_engine.config_manager import FrontendConfigLoader
+from strategy_engine import BacktestRunner, run_backtest
+from strategy_engine.config_manager import FrontendConfigLoader
 
 
 def init(context):
     """策略初始化 - 使用解耦后的策略引擎"""
     # 导入参数配置系统
-    from emgm.config.strategy_params import get_current_params
+    from config.strategy_params import get_current_params
     
     # 获取当前策略参数（从配置文件加载的）
     strategy_params = get_current_params()
@@ -111,8 +111,8 @@ if __name__ == '__main__':
 def quick_test():
     """快速测试函数 - 用于验证模块功能"""
     try:
-        from emgm.strategy_engine import ConfigManager, ReportGenerator
-        from emgm.strategy_engine.strategy import BacktestStrategy
+        from strategy_engine import ConfigManager, ReportGenerator
+        from strategy_engine.strategy import BacktestStrategy
         
         print("\n🔧 模块功能测试:")
         

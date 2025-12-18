@@ -13,6 +13,7 @@ __pycache__/
 # Cache directories
 cache/
 backtest_output/
+stock_data_cache.db
 
 # Configuration files
 *.json

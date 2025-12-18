@@ -10,16 +10,16 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # 导入各模块
-from emgm.strategy_controller.ui.header_component import setup_page, display_header
-from emgm.strategy_controller.ui.sidebar_component import display_strategy_selector, display_screening_parameters
-from emgm.strategy_controller.ui.weight_config import display_weight_configuration, get_weights_from_session, get_sub_weights_from_session
-from emgm.strategy_controller.ui.config_manager import display_config_manager
-from emgm.strategy_controller.ui.backtest_component import display_backtest_button
-from emgm.strategy_controller.ui.optimization_component import display_configuration_panel
-from emgm.strategy_controller.presentation.data_table import display_stock_results
-from emgm.strategy_controller.business.strategy_executor import run_strategy
-from emgm.strategy_controller.business.report_generator import save_report
-from emgm.strategy_controller.utils.logger import logger
+from strategy_controller.ui.header_component import setup_page, display_header
+from strategy_controller.ui.sidebar_component import display_strategy_selector, display_screening_parameters
+from strategy_controller.ui.weight_config import display_weight_configuration, get_weights_from_session, get_sub_weights_from_session
+from strategy_controller.ui.config_manager import display_config_manager
+from strategy_controller.ui.backtest_component import display_backtest_button
+from strategy_controller.ui.optimization_component import display_configuration_panel
+from strategy_controller.presentation.data_table import display_stock_results
+from strategy_controller.business.strategy_executor import run_strategy
+from strategy_controller.business.report_generator import save_report
+from strategy_controller.utils.logger import logger
 
 
 def main():

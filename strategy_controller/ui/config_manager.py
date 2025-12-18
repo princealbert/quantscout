@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 # 导入配置管理器
-from emgm.strategy_controller.utils.config_manager import ConfigManager
+from strategy_controller.utils.config_manager import ConfigManager
 
 # 创建配置管理器实例
 config_manager = ConfigManager()

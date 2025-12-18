@@ -15,13 +15,13 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from emgm.strategy_controller.utils.logger import logger
-from emgm.strategy_controller.utils.time_formatter import format_time
+from strategy_controller.utils.logger import logger
+from strategy_controller.utils.time_formatter import format_time
 
 # 导入选股策略（带错误处理）- 更新为重构后的模块
 try:
     # 导入重构后的策略模块
-    from emgm.strategies.zge_strategy import ZGeStrategyScreener, run_zge_strategy_screener
+    from strategies.zge_strategy import ZGeStrategyScreener, run_zge_strategy_screener
     STRATEGY_IMPORT_SUCCESS = True
 except ImportError as e:
     print(f"[WARNING] 策略模块导入失败: {e}")
@@ -30,10 +30,12 @@ except ImportError as e:
     
     # 创建空的占位类
     class ZGeStrategyScreener:
-        def __init__(self, batch_size=500, max_workers=6, weights_config=None):
+        def __init__(self, batch_size=500, max_workers=6, weights_config=None, sub_weights_config=None):
             self.batch_size = batch_size
             self.max_workers = max_workers
             self.weights_config = weights_config
+            self.sub_weights_config = sub_weights_config
+            self.batch_processor = None
         
         def get_latest_trading_date(self):
             # 使用正确的交易日获取逻辑
@@ -63,7 +65,7 @@ except ImportError as e:
                 yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
                 return yesterday.strftime("%Y-%m-%d")
         
-        def get_stock_pool(self, skip_st=True):
+        def get_stock_pool(self, skip_st=True, stock_pool_type='全量A股', custom_symbols=None):
             return []
         
         def process_stock_batch(self, symbols, trade_date):
@@ -71,6 +73,18 @@ except ImportError as e:
         
         def filter_stocks(self, stocks):
             return []
+        
+        def screen_stocks_batch(self, max_results=50, test_mode=False, skip_st=True):
+            return []
+        
+        def screen_stocks_parallel(self, max_results=50, test_mode=False, skip_st=True):
+            return []
+        
+        def display_results(self, results, show_all=False):
+            pass
+        
+        def save_results(self, results, filename=None):
+            return None
     
     def run_zge_strategy_screener(*args, **kwargs):
         st.error("策略模块不可用")

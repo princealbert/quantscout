@@ -21,7 +21,7 @@ class BacktestStrategy:
             strategy_params: 策略参数配置对象
         """
         # 导入参数配置系统
-        from emgm.config.strategy_params import StrategyParams
+        from config.strategy_params import StrategyParams
         
         # 使用传入参数或默认参数
         self.params = strategy_params if strategy_params else StrategyParams()
@@ -49,8 +49,8 @@ class BacktestStrategy:
             try:
                 import json
                 import os
-                from emgm.strategies.zge_strategy import ZGeStrategyScreener
-                from emgm.scoring.comprehensive_scorer import ComprehensiveScorer
+                from strategies.zge_strategy import ZGeStrategyScreener
+                from scoring.comprehensive_scorer import ComprehensiveScorer
                 
                 # 加载权重配置 - 使用参数化配置
                 weights_config = self.params.weights_config

@@ -69,7 +69,7 @@ def start_controller():
         env['PYTHONUTF8'] = '1'
         
         # 直接在当前终端启动Streamlit headless版本
-        cmd = f'"{sys.executable}" -m streamlit run emgm/strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        cmd = f'"{sys.executable}" -m streamlit run strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info'
         
         print("🌐 在当前终端启动Streamlit服务器...")
         print("📱 请在浏览器中访问: http://localhost:8502")
@@ -111,7 +111,7 @@ def run_backend_test():
     print("🔧 测试后端选股功能...")
     
     try:
-        from emgm.strategies.zge_strategy import run_zge_strategy_screener
+        from strategies.zge_strategy import run_zge_strategy_screener
         
         print("测试z哥综合策略...")
         

@@ -15,11 +15,11 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from emgm.data.stock_data_provider import StockDataProvider
-from emgm.indicators.kdj_calculator import KDJCalculator
-from emgm.indicators.trend_indicators import TrendIndicators
-from emgm.indicators.deepv_calculator import DeepVCalculator
-from emgm.scoring.comprehensive_scorer import ComprehensiveScorer
+from data.stock_data_provider import StockDataProvider
+from indicators.kdj_calculator import KDJCalculator
+from indicators.trend_indicators import TrendIndicators
+from indicators.deepv_calculator import DeepVCalculator
+from scoring.comprehensive_scorer import ComprehensiveScorer
 from cache.data_cache import stock_cache
 from cache.preload_manager import preload_manager
 

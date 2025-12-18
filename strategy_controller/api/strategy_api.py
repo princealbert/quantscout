@@ -214,7 +214,7 @@ def main():
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
     
-    from emgm.config.strategy_params import StrategyParams
+    from config.strategy_params import StrategyParams
     
     # 创建基于用户配置的参数化配置
     strategy_params = StrategyParams(

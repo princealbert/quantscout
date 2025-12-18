@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Tuple, List
-from emgm.config.weights_config import weight_config
+from config.weights_config import weight_config
 
 
 class WeightScorer:

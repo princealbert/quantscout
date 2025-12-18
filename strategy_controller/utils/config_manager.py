@@ -15,7 +15,7 @@ from pathlib import Path
 class ConfigManager:
     """配置管理器"""
     
-    def __init__(self, config_dir: str = "emgm/web/configs"):
+    def __init__(self, config_dir: str = "web/configs"):
         """初始化配置管理器"""
         self.config_dir = Path(config_dir)
         self.config_file = self.config_dir / "weight_configs.json"

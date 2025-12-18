@@ -4,8 +4,8 @@
 """
 
 from typing import Dict, Any
-from emgm.config.weights_config import weight_config
-from emgm.scoring.weight_scorer import WeightScorer
+from config.weights_config import weight_config
+from scoring.weight_scorer import WeightScorer
 
 
 class ComprehensiveScorer:

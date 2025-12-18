@@ -5,7 +5,7 @@
 
 import pandas as pd
 from typing import Dict, Any
-from emgm.config.weights_config import weight_config
+from config.weights_config import weight_config
 
 
 class TrendIndicators:

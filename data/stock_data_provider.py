@@ -7,7 +7,7 @@ import datetime
 import pandas as pd
 from typing import List, Dict, Any
 from gm.api import get_symbol_infos, history, stk_get_daily_valuation_pt, stk_get_daily_mktvalue_pt, stk_get_daily_basic_pt, set_token, get_previous_trading_date, get_next_trading_date
-from emgm.config.weights_config import weight_config
+from config.weights_config import weight_config
 # 确保正确导入缓存模块
 import sys
 import os

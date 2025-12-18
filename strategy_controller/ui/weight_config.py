@@ -8,7 +8,7 @@ import streamlit as st
 from typing import Dict, Any
 
 # 导入配置管理器
-from emgm.strategy_engine.config_manager import get_current_config
+from strategy_engine.config_manager import get_current_config
 
 
 def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:

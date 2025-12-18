@@ -22,7 +22,7 @@ class BacktestRunner:
             strategy_params: 策略参数配置对象
         """
         # 导入参数配置系统
-        from emgm.config.strategy_params import StrategyParams
+        from config.strategy_params import StrategyParams
         
         # 使用传入参数或默认参数
         self.params = strategy_params if strategy_params else StrategyParams()
@@ -294,7 +294,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     # 检查是否提供了前端配置文件路径
     if config_path:
         try:
-            from emgm.strategy_engine.config_manager import FrontendConfigLoader
+            from strategy_engine.config_manager import FrontendConfigLoader
             
             # 加载前端配置文件
             frontend_config = FrontendConfigLoader.load_frontend_config(config_path)
@@ -324,13 +324,13 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
                     start_date = end_date - timedelta(days=strategy_params.get('backtest_days', 90))
                     
                     # 导入参数配置系统
-                    from emgm.config.strategy_params import set_current_params
+                    from config.strategy_params import set_current_params
                     
                     # 设置当前策略参数
                     set_current_params(strategy_params)
                     
                     # 获取当前策略参数
-                    from emgm.config.strategy_params import get_current_params
+                    from config.strategy_params import get_current_params
                     params = get_current_params()
                     
                 else:
@@ -344,7 +344,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     else:
         # 使用参数化配置系统
         try:
-            from emgm.config.strategy_params import get_current_params
+            from config.strategy_params import get_current_params
             
             # 获取当前策略参数
             params = get_current_params()
@@ -368,7 +368,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
         except ImportError as e:
             print(f"⚠️ 参数配置系统导入失败，使用默认参数: {e}")
             # 使用默认参数作为后备
-            from emgm.config.strategy_params import default_params
+            from config.strategy_params import default_params
             params = default_params
             
             end_date = datetime.now()
@@ -376,7 +376,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     
     # 使用token管理器获取token
     try:
-        from emgm.strategy_engine.token_manager import get_token
+        from strategy_engine.token_manager import get_token
         actual_token = get_token()
         print(f"✅ Token验证通过，长度: {len(actual_token)}位")
     except Exception as e:

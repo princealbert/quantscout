@@ -61,8 +61,8 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
     with col1:
         backtest_days = st.selectbox(
             "回测天数",
-            [30, 60, 90, 180],
-            index=2,
+            [30, 60, 90, 180, 360],
+            index=3,
             help="选择回测的时间长度"
         )
     
@@ -84,6 +84,29 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
             help="选择排名前几的股票进行回测"
         )
     
+    # 止盈止损配置
+    col4, col5 = st.columns(2)
+    
+    with col4:
+        stop_profit = st.slider(
+            "止盈比例 (%)",
+            1.0,
+            20.0,
+            3.0,
+            0.5,
+            help="当盈利达到该比例时自动卖出"
+        )
+    
+    with col5:
+        stop_loss = st.slider(
+            "止损比例 (%)",
+            -20.0,
+            -1.0,
+            -2.0,
+            0.5,
+            help="当亏损达到该比例时自动卖出"
+        )
+    
     # 回测参数说明
     st.info("💡 回测将使用选股结果中排名靠前的股票，基于东财掘金API进行历史回测")
     
@@ -97,7 +120,9 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
                 weights_config,
                 sub_weights_config,
                 backtest_days,
-                initial_capital
+                initial_capital,
+                stop_profit,
+                stop_loss
             )
     
     with col2:
@@ -110,7 +135,9 @@ def _execute_backtest(stocks_to_backtest: List[Dict[str, Any]],
                      weights_config: Dict[str, int],
                      sub_weights_config: Dict[str, Any],
                      backtest_days: int,
-                     initial_capital: float) -> None:
+                     initial_capital: float,
+                     stop_profit: float,
+                     stop_loss: float) -> None:
     """
     执行回测操作
     
@@ -139,6 +166,8 @@ def _execute_backtest(stocks_to_backtest: List[Dict[str, Any]],
         print(f"[DEBUG] 策略类型: {strategy_type}")
         print(f"[DEBUG] 回测天数: {backtest_days}")
         print(f"[DEBUG] 初始资金: {initial_capital}")
+        print(f"[DEBUG] 止盈比例: {stop_profit}%")
+        print(f"[DEBUG] 止损比例: {stop_loss}%")
         print(f"[DEBUG] 股票数量: {len(stocks_to_backtest)}")
         print(f"[DEBUG] 权重配置类型: {type(weights_config)}")
         print(f"[DEBUG] 权重配置内容: {weights_config}")
@@ -176,7 +205,9 @@ def _execute_backtest(stocks_to_backtest: List[Dict[str, Any]],
             weights_config,
             sub_weights_config,
             backtest_days,
-            initial_capital
+            initial_capital,
+            stop_profit,
+            stop_loss
         )
         
         # 检查配置创建结果
@@ -220,7 +251,9 @@ def _create_backtest_config(stocks_to_backtest: List[Dict[str, Any]],
                            weights_config: Dict[str, int],
                            sub_weights_config: Dict[str, Any],
                            backtest_days: int,
-                           initial_capital: float) -> Dict[str, Any]:
+                           initial_capital: float,
+                           stop_profit: float,
+                           stop_loss: float) -> Dict[str, Any]:
     """创建回测配置文件"""
     
     config = {
@@ -228,12 +261,16 @@ def _create_backtest_config(stocks_to_backtest: List[Dict[str, Any]],
             "strategy_type": strategy_type,
             "backtest_days": backtest_days,
             "initial_capital": initial_capital,
+            "stop_profit": stop_profit,
+            "stop_loss": stop_loss,
             "created_at": datetime.now().isoformat(),
             "selected_stocks_count": len(stocks_to_backtest)
         },
         "strategy_config": {
             "weights": weights_config,
-            "sub_weights": sub_weights_config or {}
+            "sub_weights": sub_weights_config or {},
+            "stop_profit_ratio": stop_profit / 100.0,
+            "stop_loss_ratio": stop_loss / 100.0
         },
         "selected_stocks": [
             {
@@ -299,7 +336,9 @@ def _generate_backtest_script(config: Dict[str, Any]) -> str:
         "strategy": {
             "strategy_type": config['backtest_info']['strategy_type'],
             "weights_config": config['strategy_config']['weights'],
-            "sub_weights_config": config['strategy_config']['sub_weights']
+            "sub_weights_config": config['strategy_config']['sub_weights'],
+            "stop_profit_ratio": config['strategy_config']['stop_profit_ratio'],
+            "stop_loss_ratio": config['strategy_config']['stop_loss_ratio']
         },
         "selected_stocks": config['selected_stocks'],
         "meta": {

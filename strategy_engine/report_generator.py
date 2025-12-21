@@ -68,6 +68,8 @@ class ReportGenerator:
         print(f"年化收益率: {annual_return_pct:.2f}%")
         print(f"最大回撤: {max_drawdown:.2f}%")
         print(f"交易次数: {len(trades_df)}次")
+        print(f"止盈比例: {strategy.params.stop_profit_ratio*100:.2f}%")
+        print(f"止损比例: {strategy.params.stop_loss_ratio*100:.2f}%")
         
         # 显示交易记录
         if len(trades_df) > 0:
@@ -85,6 +87,8 @@ class ReportGenerator:
             'annual_return': annual_return_pct,
             'max_drawdown': max_drawdown,
             'trades_count': len(trades_df),
+            'stop_profit_ratio': strategy.params.stop_profit_ratio,
+            'stop_loss_ratio': strategy.params.stop_loss_ratio,
             'trading_records': trades_df.to_dict('records'),
             'portfolio_values': portfolio_df.to_dict('records')
         }
@@ -317,6 +321,10 @@ def generate_backtest_summary(strategy) -> str:
 - 年化收益率: {report['annual_return']:.2f}%
 - 最大回撤: {report['max_drawdown']:.2f}%
 - 交易次数: {report['trades_count']}次
+
+⚙️ 策略配置
+- 止盈比例: {report['stop_profit_ratio']*100:.2f}%
+- 止损比例: {report['stop_loss_ratio']*100:.2f}%
 
 💡 策略表现评估
 - 收益率表现: {'优秀' if report['total_return'] > 20 else '良好' if report['total_return'] > 0 else '一般' if report['total_return'] > -10 else '较差'}

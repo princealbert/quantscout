@@ -294,8 +294,8 @@ class FrontendConfigLoader:
             'initial_capital': backtest.get('initial_capital', 100000),
             'commission_ratio': 0.0003,  # 默认值
             'backtest_days': backtest.get('backtest_days', 90),
-            'stop_profit_ratio': 0.03,  # 默认值
-            'stop_loss_ratio': -0.02,   # 默认值
+            'stop_profit_ratio': strategy.get('stop_profit_ratio', 0.03),
+            'stop_loss_ratio': strategy.get('stop_loss_ratio', -0.02),
             'strategy_id': backtest.get('strategy_id', f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
             'strategy_type': strategy.get('strategy_type', 'zge_strategy'),
             'max_stocks_to_backtest': backtest.get('max_stocks_to_backtest', len(selected_stocks)),

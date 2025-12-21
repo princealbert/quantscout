@@ -17,8 +17,10 @@ class ConfigManager:
     
     def __init__(self, config_dir: str = "web/configs"):
         """初始化配置管理器"""
-        self.config_dir = Path(config_dir)
+        # 确保使用绝对路径
+        self.config_dir = Path(__file__).parent.parent.parent / config_dir
         self.config_file = self.config_dir / "weight_configs.json"
+        print(f"📁 [CONFIG_MANAGER] 配置文件绝对路径: {self.config_file}")
         self._ensure_config_dir()
         self._ensure_default_config()
     
@@ -80,8 +82,21 @@ class ConfigManager:
     
     def _save_configs(self, configs: Dict[str, Any]):
         """保存配置到文件"""
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            json.dump(configs, f, ensure_ascii=False, indent=2)
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(configs, f, ensure_ascii=False, indent=2)
+            print(f"💾 [CONFIG_MANAGER] 配置保存成功到: {self.config_file}")
+            print(f"📊 [CONFIG_MANAGER] 保存的配置数量: {len(configs)}")
+        except IOError as e:
+            print(f"❌ [CONFIG_MANAGER] 配置保存失败: {str(e)}")
+            import traceback
+            print(f"🔍 [CONFIG_MANAGER] 异常详情: {traceback.format_exc()}")
+            raise
+        except Exception as e:
+            print(f"❌ [CONFIG_MANAGER] 配置保存失败（未知错误）: {str(e)}")
+            import traceback
+            print(f"🔍 [CONFIG_MANAGER] 异常详情: {traceback.format_exc()}")
+            raise
     
     def get_all_configs(self) -> List[Dict[str, Any]]:
         """获取所有配置列表"""

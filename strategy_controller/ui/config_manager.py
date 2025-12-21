@@ -216,11 +216,21 @@ def _display_config_operations(current_weights: Dict[str, int], current_sub_weig
 def _show_save_config_modal(current_weights: Dict[str, int], current_sub_weights: Dict[str, Any] = None):
     """显示保存配置模态框"""
     
+    # 使用session state存储用户输入的配置名称，避免每次渲染都重置
+    if 'temp_config_name' not in st.session_state:
+        st.session_state.temp_config_name = f"配置_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if 'temp_config_description' not in st.session_state:
+        st.session_state.temp_config_description = ""
+    
     with st.form("save_config_form"):
         st.subheader("💾 保存配置")
         
-        config_name = st.text_input("配置名称", value=f"配置_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        config_description = st.text_area("配置描述", placeholder="请输入配置描述...")
+        config_name = st.text_input("配置名称", value=st.session_state.temp_config_name)
+        config_description = st.text_area("配置描述", value=st.session_state.temp_config_description, placeholder="请输入配置描述...")
+        
+        # 更新session state中的值
+        st.session_state.temp_config_name = config_name
+        st.session_state.temp_config_description = config_description
         
         # 显示当前权重预览
         st.write("当前权重设置:")
@@ -243,12 +253,19 @@ def _show_save_config_modal(current_weights: Dict[str, int], current_sub_weights
                 )
                 st.success(f"✅ 配置 '{config_name}' 保存成功！")
                 
-                # 清除所有模态框标记并刷新页面
+                # 清除所有模态框标记和临时值
                 st.session_state.selected_config_id = config_id
                 st.session_state.show_save_modal = False
                 st.session_state.show_duplicate_modal = False
                 st.session_state.show_delete_modal = False
-                print("🏷️ [SAVE] 清除所有模态框标记")
+                
+                # 清除临时输入值
+                if 'temp_config_name' in st.session_state:
+                    del st.session_state.temp_config_name
+                if 'temp_config_description' in st.session_state:
+                    del st.session_state.temp_config_description
+                
+                print("🏷️ [SAVE] 清除所有模态框标记和临时输入值")
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ 保存失败: {str(e)}")
@@ -264,11 +281,21 @@ def _show_duplicate_config_modal():
         st.error("当前配置不存在")
         return
     
+    # 使用session state存储用户输入的配置名称和描述，避免每次渲染都重置
+    if 'temp_duplicate_name' not in st.session_state:
+        st.session_state.temp_duplicate_name = f"{selected_config['name']}_副本"
+    if 'temp_duplicate_description' not in st.session_state:
+        st.session_state.temp_duplicate_description = selected_config.get('description', '')
+    
     with st.form("duplicate_config_form"):
         st.subheader("📋 复制配置")
         
-        new_name = st.text_input("新配置名称", value=f"{selected_config['name']}_副本")
-        new_description = st.text_area("新配置描述", value=selected_config.get('description', ''))
+        new_name = st.text_input("新配置名称", value=st.session_state.temp_duplicate_name)
+        new_description = st.text_area("新配置描述", value=st.session_state.temp_duplicate_description)
+        
+        # 更新session state中的值
+        st.session_state.temp_duplicate_name = new_name
+        st.session_state.temp_duplicate_description = new_description
         
         submitted = st.form_submit_button("复制")
         
@@ -301,13 +328,20 @@ def _show_duplicate_config_modal():
                 print(f"✅ [DUPLICATE] 复制成功，新配置ID: {new_config_id}")
                 st.success(f"✅ 配置复制成功！")
                 
-                # 清除所有模态框标记并刷新页面
+                # 清除所有模态框标记和临时值
                 st.session_state.selected_config_id = new_config_id
                 st.session_state.config_loaded = False
                 st.session_state.show_duplicate_modal = False
                 st.session_state.show_save_modal = False
                 st.session_state.show_delete_modal = False
-                print("🏷️ [DUPLICATE] 清除所有模态框标记")
+                
+                # 清除临时输入值
+                if 'temp_duplicate_name' in st.session_state:
+                    del st.session_state.temp_duplicate_name
+                if 'temp_duplicate_description' in st.session_state:
+                    del st.session_state.temp_duplicate_description
+                
+                print("🏷️ [DUPLICATE] 清除所有模态框标记和临时输入值")
                 st.rerun()
             except Exception as e:
                 print(f"❌ [DUPLICATE] 复制失败: {str(e)}")
@@ -321,10 +355,13 @@ def _show_delete_config_modal(config_id: str):
     
     print(f"🔍 [DELETE_MODAL] 显示删除模态框，配置ID: {config_id}")
     
+    # 检查配置是否存在
     config = config_manager.get_config(config_id)
     if not config:
         st.error("配置不存在")
         print(f"❌ [DELETE_MODAL] 配置不存在: {config_id}")
+        # 清除删除模态框标记，避免持续显示
+        st.session_state.show_delete_modal = False
         return
     
     st.subheader("🗑️ 删除配置")
@@ -356,6 +393,9 @@ def _show_delete_config_modal(config_id: str):
                     # 更新session state
                     st.session_state.selected_config_id = 'default'
                     st.session_state.config_loaded = False
+                    
+                    # 清除删除模态框标记
+                    st.session_state.show_delete_modal = False
                     
                     # 设置删除标记，让页面在下一次渲染时刷新
                     st.session_state.config_just_deleted = True

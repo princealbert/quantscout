@@ -20,6 +20,7 @@ def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:
     
     # 初始化session state中的权重值
     if 'weights_initialized' not in st.session_state:
+        # 尝试从最新的配置中获取权重值，如果没有则使用默认值
         default_weights = {
             'kdj_j': 25,
             'trend': 25,
@@ -29,6 +30,14 @@ def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:
             'position': 4,
             'risk_reward': 20
         }
+        
+        # 如果有当前配置，使用配置中的权重值
+        if config_loaded and current_config:
+            config_weights = current_config.get('weights', {})
+            if config_weights:
+                print("📊 [WEIGHT_CONFIG] 使用配置中的权重值初始化")
+                default_weights.update(config_weights)
+        
         for key, value in default_weights.items():
             slider_key = f"{key}_weight"
             if slider_key not in st.session_state:

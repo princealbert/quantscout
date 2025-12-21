@@ -137,12 +137,25 @@ def display_sub_weight_configuration(main_weights: Dict[str, int], existing_conf
                 for sub_key, weight in sub_weights.items():
                     if sub_key in config.sub_indicators[main_key]['sub_weights']:
                         name, _ = config.sub_indicators[main_key]['sub_weights'][sub_key]
+                        # 优先使用session state中的值，如果存在的话
+                        slider_key = f"sub_weight_{main_key}_{sub_key}"
+                        
+                        # 首先检查session state中是否有值
+                        if slider_key in st.session_state:
+                            session_value = st.session_state[slider_key]
+                            print(f"🎛️ [SUB_WEIGHT] 使用session state值: {slider_key} = {session_value}")
+                        else:
+                            # 如果没有，使用现有配置中的值，并同时设置到session state中
+                            session_value = weight
+                            st.session_state[slider_key] = session_value
+                            print(f"🎛️ [SUB_WEIGHT] 使用现有配置值并设置到session state: {slider_key} = {session_value}")
+                        
                         adjusted_weight = st.slider(
                             f"{name}权重",
                             min_value=0,
                             max_value=main_weight,
-                            value=weight,
-                            key=f"sub_weight_{main_key}_{sub_key}",
+                            value=session_value,
+                            key=slider_key,
                             help=f"调整{name}的权重分配，总权重不能超过{main_weight}分"
                         )
                         sub_weights[sub_key] = adjusted_weight

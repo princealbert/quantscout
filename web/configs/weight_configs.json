@@ -78,67 +78,6 @@
     "updated_at": "2025-12-10T00:09:43.820442",
     "is_default": false
   },
-  "52fbc8d1-635f-4159-ac25-d948ef7984e5": {
-    "id": "52fbc8d1-635f-4159-ac25-d948ef7984e5",
-    "name": "配置_20251214_161151",
-    "description": "子权重调整",
-    "weights": {
-      "kdj_j": 10,
-      "trend": 30,
-      "deepv": 0,
-      "volume": 20,
-      "fundamental": 10,
-      "position": 10,
-      "risk_reward": 20
-    },
-    "sub_weights": {
-      "kdj_j": {
-        "total_weight": 10,
-        "sub_weights": {
-          "j_0_20": 0,
-          "j_-10_0": 1,
-          "j_-20_-10": 4,
-          "j_-30_-20": 5,
-          "j_below_-30": 0
-        }
-      },
-      "trend": {
-        "total_weight": 30,
-        "sub_weights": {
-          "up_trend": 20,
-          "volume_price_rise": 0,
-          "volume_contraction": 10
-        }
-      },
-      "volume": {
-        "total_weight": 20,
-        "sub_weights": {
-          "big_volume": 10,
-          "volume_anomaly": 6,
-          "volume_breathing": 4
-        }
-      },
-      "fundamental": {
-        "total_weight": 10,
-        "sub_weights": {
-          "pe_positive": 0,
-          "pe_low": 1,
-          "market_cap": 7,
-          "volume_threshold": 2
-        }
-      },
-      "position": {
-        "total_weight": 10,
-        "sub_weights": {
-          "above_white": 4,
-          "between_lines": 6,
-          "below_yellow": 0
-        }
-      }
-    },
-    "created_at": "2025-12-14T16:11:51.933072",
-    "is_default": false
-  },
   "a08629ca-5a17-4ee0-9a8b-a160f07901b0": {
     "id": "a08629ca-5a17-4ee0-9a8b-a160f07901b0",
     "name": "配置_20251214_225429",

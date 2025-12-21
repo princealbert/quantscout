@@ -39,6 +39,7 @@ def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:
     if st.session_state.get('config_just_loaded', False):
         print("🔄 [WEIGHT_CONFIG] 检测到配置刚加载，同步滑块值")
         if current_config and config_loaded:
+            # 同步主权重滑块
             weights = current_config.get('weights', {})
             for key, value in weights.items():
                 # 统一使用{key}_weight格式
@@ -48,6 +49,18 @@ def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:
                 if current_value != value:
                     st.session_state[slider_key] = value
                     print(f"🎛️ [WEIGHT_CONFIG] 同步滑块 {slider_key}: {current_value} -> {value}")
+            
+            # 同步子权重滑块
+            sub_weights_config = current_config.get('sub_weights', {})
+            for main_key, main_sub_config in sub_weights_config.items():
+                sub_weights = main_sub_config.get('sub_weights', {})
+                for sub_key, value in sub_weights.items():
+                    slider_key = f"sub_weight_{main_key}_{sub_key}"
+                    current_value = st.session_state.get(slider_key)
+                    
+                    if current_value != value:
+                        st.session_state[slider_key] = value
+                        print(f"🎛️ [WEIGHT_CONFIG] 同步子权重滑块 {slider_key}: {current_value} -> {value}")
         
         # 清除标记，避免重复同步
         st.session_state.config_just_loaded = False
@@ -128,10 +141,10 @@ def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:
             # 如果已加载配置，传递配置中的子权重信息
             if current_config and config_loaded:
                 sub_weights_config = current_config.get('sub_weights', {})
-                # 更新session state中的子权重配置
-                st.session_state.sub_weights_config = sub_weights_config
-                # 显示子指标配置界面，传递已加载的配置
-                display_sub_weight_configuration(main_weights, sub_weights_config)
+                # 显示子指标配置界面，传递已加载的配置，并获取用户修改后的配置
+                updated_sub_weights = display_sub_weight_configuration(main_weights, sub_weights_config)
+                # 将用户修改后的子权重配置保存到session state
+                st.session_state.sub_weights_config = updated_sub_weights
             else:
                 sub_weights_config = display_sub_weight_configuration(main_weights)
                 # 将子权重配置保存到session state

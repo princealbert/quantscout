@@ -410,6 +410,13 @@ def _load_config(config_id: str):
     if sub_weights:
         print(f"🔧 [LOAD] 更新子权重: {sub_weights}")
         st.session_state.sub_weights_config = sub_weights
+        # 直接更新子权重滑块的session state值
+        for main_key, main_sub_config in sub_weights.items():
+            sub_weights_dict = main_sub_config.get('sub_weights', {})
+            for sub_key, value in sub_weights_dict.items():
+                slider_key = f"sub_weight_{main_key}_{sub_key}"
+                st.session_state[slider_key] = value
+                print(f"🎛️ [LOAD] 设置子权重滑块 {slider_key} = {value}")
     
     # 设置配置加载标记，用于权重组件检测
     st.session_state.last_loaded_config = config_id

@@ -87,7 +87,7 @@ class BacktestRunner:
             # 获取当日评分最高的股票
             top_stock = strategy.get_top_stock(context)
             
-            if top_stock and strategy.should_buy(context, top_stock):
+            if top_stock and strategy.should_buy(context, top_stock['symbol']):
                 self._execute_buy(context, top_stock)
         
         # 记录当日组合价值
@@ -106,9 +106,12 @@ class BacktestRunner:
         
         print(f"💰 当日组合价值: {portfolio_value_num:,.2f}元")
     
-    def _execute_buy(self, context, symbol: str) -> bool:
+    def _execute_buy(self, context, stock_info: Dict[str, str]) -> bool:
         """执行买入操作"""
         try:
+            symbol = stock_info['symbol']
+            sec_name = stock_info.get('sec_name', symbol)
+            
             # 获取当前价格
             current_data = current(symbol)
             if not current_data:
@@ -156,6 +159,7 @@ class BacktestRunner:
             trade_record = {
                 'date': context.now,
                 'symbol': symbol,
+                'sec_name': sec_name,
                 'action': 'BUY',
                 'price': current_price,
                 'quantity': quantity,
@@ -163,7 +167,7 @@ class BacktestRunner:
             }
             self.strategy.trading_records.append(trade_record)
             
-            print(f"买入成功: {symbol} {quantity}股, 价格{current_price:.2f}元")
+            print(f"买入成功: {symbol} ({sec_name}) {quantity}股, 价格{current_price:.2f}元")
             return True
             
         except Exception as e:
@@ -221,10 +225,19 @@ class BacktestRunner:
                     # 其他错误继续抛出
                     raise
             
+            # 尝试获取股票名称
+            sec_name = symbol
+            # 从最新的买入记录中查找该股票的名称
+            for trade in reversed(self.strategy.trading_records):
+                if trade['symbol'] == symbol and trade['action'] == 'BUY':
+                    sec_name = trade.get('sec_name', symbol)
+                    break
+            
             # 记录交易
             trade_record = {
                 'date': context.now,
                 'symbol': symbol,
+                'sec_name': sec_name,
                 'action': 'SELL',
                 'price': current_price,
                 'quantity': volume_value,
@@ -232,7 +245,7 @@ class BacktestRunner:
             }
             self.strategy.trading_records.append(trade_record)
             
-            print(f"卖出成功: {symbol} {volume_value}股, 价格{current_price:.2f}元")
+            print(f"卖出成功: {symbol} ({sec_name}) {volume_value}股, 价格{current_price:.2f}元")
             return True
             
         except Exception as e:

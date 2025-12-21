@@ -91,6 +91,7 @@ class BacktestAnalyzer:
                     profit_ratio = (sell_trade['price'] - buy_trade['price']) / buy_trade['price'] * 100
                     trade_profits.append({
                         'symbol': buy_trade['symbol'],
+                        'sec_name': buy_trade.get('sec_name', buy_trade['symbol']),
                         'profit': profit,
                         'profit_ratio': profit_ratio,
                         'buy_date': buy_trade['date'],
@@ -225,12 +226,24 @@ class BacktestAnalyzer:
         # 1. 交易时间分布
         plt.subplot(2, 2, 1)
         buy_trades['weekday'] = buy_trades['date'].dt.day_name()
+        # 将英文星期转换为中文（只保留工作日）
+        weekday_mapping = {
+            'Monday': '周一',
+            'Tuesday': '周二',
+            'Wednesday': '周三',
+            'Thursday': '周四',
+            'Friday': '周五'
+        }
+        buy_trades['weekday'] = buy_trades['weekday'].replace(weekday_mapping)
         weekday_counts = buy_trades['weekday'].value_counts()
+        # 按周一到周五排序
+        weekday_order = ['周一', '周二', '周三', '周四', '周五']
+        weekday_counts = weekday_counts.reindex(weekday_order, fill_value=0)
         weekday_counts.plot(kind='bar', color='skyblue')
         plt.title('交易日期分布')
         plt.xlabel('星期')
         plt.ylabel('交易次数')
-        plt.xticks(rotation=45)
+        plt.xticks(rotation=0)
         
         # 2. 交易金额分布
         plt.subplot(2, 2, 2)
@@ -241,10 +254,11 @@ class BacktestAnalyzer:
         
         # 3. 股票交易频次
         plt.subplot(2, 2, 3)
-        symbol_counts = self.trades_df['symbol'].value_counts().head(10)
-        symbol_counts.plot(kind='bar', color='orange')
+        # 使用股票名称而不是代码
+        name_counts = self.trades_df['sec_name'].value_counts().head(10)
+        name_counts.plot(kind='bar', color='orange')
         plt.title('股票交易频次 (Top 10)')
-        plt.xlabel('股票代码')
+        plt.xlabel('股票名称')
         plt.ylabel('交易次数')
         plt.xticks(rotation=45)
         

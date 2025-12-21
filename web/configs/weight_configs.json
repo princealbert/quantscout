@@ -199,5 +199,66 @@
     },
     "created_at": "2025-12-16T00:04:40.304730",
     "is_default": false
+  },
+  "c02b800c-130f-4c3e-92a4-6e0344626f35": {
+    "id": "c02b800c-130f-4c3e-92a4-6e0344626f35",
+    "name": "新碗选股策略",
+    "description": "降低盈亏比，增加J，微调子权重",
+    "weights": {
+      "kdj_j": 20,
+      "trend": 30,
+      "deepv": 0,
+      "volume": 20,
+      "fundamental": 10,
+      "position": 10,
+      "risk_reward": 10
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "total_weight": 20,
+        "sub_weights": {
+          "j_0_20": 1,
+          "j_-10_0": 3,
+          "j_-20_-10": 7,
+          "j_-30_-20": 8,
+          "j_below_-30": 1
+        }
+      },
+      "trend": {
+        "total_weight": 30,
+        "sub_weights": {
+          "up_trend": 15,
+          "volume_price_rise": 5,
+          "volume_contraction": 10
+        }
+      },
+      "volume": {
+        "total_weight": 20,
+        "sub_weights": {
+          "big_volume": 10,
+          "volume_anomaly": 2,
+          "volume_breathing": 8
+        }
+      },
+      "fundamental": {
+        "total_weight": 10,
+        "sub_weights": {
+          "pe_positive": 1,
+          "pe_low": 2,
+          "market_cap": 5,
+          "volume_threshold": 2
+        }
+      },
+      "position": {
+        "total_weight": 10,
+        "sub_weights": {
+          "above_white": 2,
+          "between_lines": 8,
+          "below_yellow": 0
+        }
+      }
+    },
+    "created_at": "2025-12-21T12:24:37.279583",
+    "is_default": false
   }
 }

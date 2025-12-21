@@ -33,13 +33,13 @@ class BacktestStrategy:
         self.portfolio_values = []
         self.daily_returns = []
     
-    def get_top_stock(self, context) -> Optional[str]:
+    def get_top_stock(self, context) -> Optional[Dict[str, str]]:
         """
         获取当日综合评分最高的股票
         集成现有的zge选股系统
         
         Returns:
-            str: 股票代码，如果没有符合条件的股票则返回None
+            Dict: 包含股票代码和名称的字典，如果没有符合条件的股票则返回None
         """
         try:
             # 获取当前日期
@@ -108,7 +108,10 @@ class BacktestStrategy:
                         sec_name = top_stock.get('sec_name', '未知股票')
                         
                         print(f"[{current_date}] 选股结果: {symbol} ({sec_name}), 评分: {score:.2f}")
-                        return symbol
+                        return {
+                            'symbol': symbol,
+                            'sec_name': sec_name
+                        }
                     else:
                         print(f"[{current_date}] 未找到符合条件的股票")
                         return None
@@ -123,7 +126,10 @@ class BacktestStrategy:
                 selected_symbol = random.choice(self.params.fallback_stocks)
                 
                 print(f"[{current_date}] 备用选股结果: {selected_symbol}")
-                return selected_symbol
+                return {
+                    'symbol': selected_symbol,
+                    'sec_name': selected_symbol  # 备用方案下，股票名称使用代码
+                }
             
         except Exception as e:
             print(f"选股失败: {e}")

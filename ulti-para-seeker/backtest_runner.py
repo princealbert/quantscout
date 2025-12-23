@@ -22,14 +22,20 @@ class BacktestRunner:
             strategy_params: 策略参数配置对象
         """
         # 导入参数配置系统
-        from config.strategy_params import StrategyParams
+        try:
+            from .config.strategy_params import StrategyParams
+        except ImportError:
+            from config.strategy_params import StrategyParams
         
         # 使用传入参数或默认参数
         self.params = strategy_params if strategy_params else StrategyParams()
         
         # 导入策略类
-        from .strategy import BacktestStrategy
-        self.strategy = BacktestStrategy(strategy_params)
+        try:
+            from .strategy import BacktestStrategy
+        except ImportError:
+            from strategy import BacktestStrategy
+        self.strategy = BacktestStrategy(self.params)
     
     def init(self, context):
         """策略初始化"""
@@ -267,41 +273,17 @@ class BacktestRunner:
         # 回测结束时不执行强制平仓操作，因为回测服务已停止接受新订单
         # 回测引擎会自动处理所有未平仓头寸
         
-        # 生成详细分析报告
+        # 生成基础报告（不使用可视化分析器）
         try:
-            from backtest_analyzer import analyze_backtest_results
-            
-            analyzer = analyze_backtest_results(
-                trading_records=self.strategy.trading_records,
-                portfolio_values=self.strategy.portfolio_values,
-                initial_capital=self.params.initial_capital
-            )
-            
-            # 生成Excel报告
-            import os
-            report_file = os.path.join(os.path.dirname(__file__), 'backtest_report.xlsx')
-            analyzer.generate_excel_report(report_file)
-            
-        except ImportError as e:
-            print(f"分析器导入失败，使用基础报告: {e}")
-            # 生成基础报告
             from .report_generator import ReportGenerator
             report_generator = ReportGenerator()
             # 生成并保存基础报告
             import os
             report_data = report_generator.generate_basic_report(self.strategy)
-            report_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_report.json')
-            report_generator._save_report_to_file(report_data, report_file)
+            report_generator._save_report_to_file(report_data)
+            print("基础报告已生成")
         except Exception as e:
-            print(f"详细分析失败: {e}")
-            # 生成基础报告
-            from .report_generator import ReportGenerator
-            report_generator = ReportGenerator()
-            # 生成并保存基础报告
-            import os
-            report_data = report_generator.generate_basic_report(self.strategy)
-            report_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_report.json')
-            report_generator._save_report_to_file(report_data, report_file)
+            print(f"生成基础报告失败: {e}")
 
 
 def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
@@ -315,7 +297,10 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     # 检查是否提供了前端配置文件路径
     if config_path:
         try:
-            from strategy_engine.config_manager import FrontendConfigLoader
+            try:
+                from .config_manager import FrontendConfigLoader
+            except ImportError:
+                from config_manager import FrontendConfigLoader
             
             # 加载前端配置文件
             frontend_config = FrontendConfigLoader.load_frontend_config(config_path)
@@ -345,13 +330,19 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
                     start_date = end_date - timedelta(days=strategy_params.get('backtest_days', 90))
                     
                     # 导入参数配置系统
-                    from config.strategy_params import set_current_params
+                    try:
+                        from .config.strategy_params import set_current_params
+                    except ImportError:
+                        from config.strategy_params import set_current_params
                     
                     # 设置当前策略参数
                     set_current_params(strategy_params)
                     
                     # 获取当前策略参数
-                    from config.strategy_params import get_current_params
+                    try:
+                        from .config.strategy_params import get_current_params
+                    except ImportError:
+                        from config.strategy_params import get_current_params
                     params = get_current_params()
                     
                 else:
@@ -365,7 +356,10 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     else:
         # 使用参数化配置系统
         try:
-            from config.strategy_params import get_current_params
+            try:
+                from .config.strategy_params import get_current_params
+            except ImportError:
+                from config.strategy_params import get_current_params
             
             # 获取当前策略参数
             params = get_current_params()
@@ -389,7 +383,10 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
         except ImportError as e:
             print(f"⚠️ 参数配置系统导入失败，使用默认参数: {e}")
             # 使用默认参数作为后备
-            from config.strategy_params import default_params
+            try:
+                from .config.strategy_params import default_params
+            except ImportError:
+                from config.strategy_params import default_params
             params = default_params
             
             end_date = datetime.now()
@@ -397,7 +394,10 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     
     # 使用token管理器获取token
     try:
-        from strategy_engine.token_manager import get_token
+        try:
+            from .token_manager import get_token
+        except ImportError:
+            from token_manager import get_token
         actual_token = get_token()
         print(f"✅ Token验证通过，长度: {len(actual_token)}位")
     except Exception as e:
@@ -405,10 +405,27 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
         print("请检查token_config.py文件中的TOKEN配置")
         return
     
-    # 运行回测
+    # 保存参数到文件（用于解决进程间参数传递问题）
+    try:
+        try:
+            # 尝试相对导入
+            from .config.strategy_params import save_params_to_file
+        except ImportError:
+            # 如果相对导入失败，尝试绝对导入，确保使用正确的路径
+            import sys
+            import os
+            # 将当前文件所在目录添加到sys.path，确保能找到正确的config模块
+            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+            from config.strategy_params import save_params_to_file
+        save_params_to_file(params)
+    except Exception as e:
+        print(f"⚠️ 保存参数到文件失败: {e}")
+    
+    # 运行回测 - 使用当前目录下的main.py
+    # 确保使用正确的工作目录和文件名格式
     run(
         strategy_id=params.strategy_id,
-        filename='main.py',
+        filename='ulti-para-seeker/main.py',
         mode=MODE_BACKTEST,
         token=actual_token,
         backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),

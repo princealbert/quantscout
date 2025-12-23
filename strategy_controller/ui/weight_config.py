@@ -102,19 +102,19 @@ def display_weight_configuration(strategy_type: str) -> Dict[str, Any]:
         
         with col1:
             st.markdown("**技术指标权重**")
-            kdj_weight = st.slider("KDJ J值权重", 0, 50, default_weights['kdj_j'], key="kdj_j_weight")
-            trend_weight = st.slider("趋势权重", 0, 50, default_weights['trend'], key="trend_weight")
-            deepv_weight = st.slider("深V信号权重", 0, 20, default_weights['deepv'], key="deepv_weight")
+            kdj_weight = st.slider("KDJ J值权重", 0, 100, default_weights['kdj_j'], key="kdj_j_weight")
+            trend_weight = st.slider("趋势权重", 0, 100, default_weights['trend'], key="trend_weight")
+            deepv_weight = st.slider("深V信号权重", 0, 100, default_weights['deepv'], key="deepv_weight")
         
         with col2:
             st.markdown("**市场数据权重**")
-            volume_weight = st.slider("成交量权重", 0, 20, default_weights['volume'], key="volume_weight")
-            fundamental_weight = st.slider("基本面权重", 0, 20, default_weights['fundamental'], key="fundamental_weight")
-            position_weight = st.slider("位置权重", 0, 10, default_weights['position'], key="position_weight")
+            volume_weight = st.slider("成交量权重", 0, 100, default_weights['volume'], key="volume_weight")
+            fundamental_weight = st.slider("基本面权重", 0, 100, default_weights['fundamental'], key="fundamental_weight")
+            position_weight = st.slider("位置权重", 0, 100, default_weights['position'], key="position_weight")
         
         with col3:
             st.markdown("**风险控制权重**")
-            risk_reward_weight = st.slider("盈亏比权重", 0, 40, default_weights['risk_reward'], key="risk_reward_weight")
+            risk_reward_weight = st.slider("盈亏比权重", 0, 100, default_weights['risk_reward'], key="risk_reward_weight")
             
             # 显示权重总和
             total_weight = kdj_weight + trend_weight + deepv_weight + volume_weight + fundamental_weight + position_weight + risk_reward_weight

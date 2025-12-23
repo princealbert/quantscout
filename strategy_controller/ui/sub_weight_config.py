@@ -153,10 +153,10 @@ def display_sub_weight_configuration(main_weights: Dict[str, int], existing_conf
                         adjusted_weight = st.slider(
                             f"{name}权重",
                             min_value=0,
-                            max_value=main_weight,
+                            max_value=100,
                             value=session_value,
                             key=slider_key,
-                            help=f"调整{name}的权重分配，总权重不能超过{main_weight}分"
+                            help=f"调整{name}的权重分配，总权重不能超过100分"
                         )
                         sub_weights[sub_key] = adjusted_weight
                         
@@ -165,14 +165,14 @@ def display_sub_weight_configuration(main_weights: Dict[str, int], existing_conf
                 
                 # 验证权重总和
                 sub_total = sum(sub_weights.values())
-                if sub_total != main_weight:
-                    st.warning(f"⚠️ 子权重总和为{sub_total}，与主权重{main_weight}不匹配")
-                    st.info("💡 建议调整权重使总和等于主权重")
+                if sub_total != 100:
+                    st.warning(f"⚠️ 子权重总和为{sub_total}，与总权重100不匹配")
+                    st.info("💡 建议调整权重使总和等于100分")
                 else:
                     st.success(f"✅ 权重配置正确，总和: {sub_total}分")
                 
                 final_sub_config[main_key] = {
-                    'total_weight': main_weight,
+                    'total_weight': 100,
                     'sub_weights': sub_weights
                 }
             else:

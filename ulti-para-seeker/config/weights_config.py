@@ -74,13 +74,33 @@ class WeightConfig:
         if custom_sub_weights and 'kdj_j' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['kdj_j']['sub_weights']
-            dynamic_weights = [
-                (0, 20, sub_weights.get('j_0_20', 1)),
-                (-10, 0, sub_weights.get('j_-10_0', 2)),
-                (-20, -10, sub_weights.get('j_-20_-10', 3)),
-                (-30, -20, sub_weights.get('j_-30_-20', 4)),
-                (-999, -30, sub_weights.get('j_below_-30', 5))
-            ]
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            
+            # 只有当总和不为0时才进行缩放
+            if custom_total > 0:
+                # 计算缩放因子，使自定义子权重总和等于主权重
+                scale_factor = kdj_j_total_weight / custom_total
+                dynamic_weights = [
+                    (0, 20, int(sub_weights.get('j_0_20', 1) * scale_factor)),
+                    (-10, 0, int(sub_weights.get('j_-10_0', 2) * scale_factor)),
+                    (-20, -10, int(sub_weights.get('j_-20_-10', 3) * scale_factor)),
+                    (-30, -20, int(sub_weights.get('j_-30_-20', 4) * scale_factor)),
+                    (-999, -30, int(sub_weights.get('j_below_-30', 5) * scale_factor))
+                ]
+            else:
+                # 如果自定义子权重总和为0，使用默认权重
+                base_weights = [1, 2, 3, 4, 5]
+                base_total = sum(base_weights)
+                scale_factor = kdj_j_total_weight / base_total
+                dynamic_weights = [
+                    (0, 20, int(1 * scale_factor)),
+                    (-10, 0, int(2 * scale_factor)),
+                    (-20, -10, int(3 * scale_factor)),
+                    (-30, -20, int(4 * scale_factor)),
+                    (-999, -30, int(5 * scale_factor))
+                ]
         else:
             # 使用默认权重
             base_weights = [1, 2, 3, 4, 5]  # 基础权重：5个区间
@@ -104,11 +124,27 @@ class WeightConfig:
         if custom_sub_weights and 'position' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['position']['sub_weights']
-            dynamic_weights = {
-                'above_white': sub_weights.get('above_white', 3),
-                'between_lines': sub_weights.get('between_lines', 2),
-                'below_yellow': sub_weights.get('below_yellow', 1)
-            }
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            
+            # 只有当总和不为0时才进行缩放
+            if custom_total > 0:
+                # 计算缩放因子，使自定义子权重总和等于主权重
+                scale_factor = position_total_weight / custom_total
+                dynamic_weights = {
+                    'above_white': int(sub_weights.get('above_white', 3) * scale_factor),
+                    'between_lines': int(sub_weights.get('between_lines', 2) * scale_factor),
+                    'below_yellow': int(sub_weights.get('below_yellow', 1) * scale_factor)
+                }
+            else:
+                # 如果自定义子权重总和为0，使用默认权重
+                base_weights = {'above_white': 3, 'between_lines': 2, 'below_yellow': 1}
+                base_total = sum(base_weights.values())
+                scale_factor = position_total_weight / base_total
+                dynamic_weights = {}
+                for key, value in base_weights.items():
+                    dynamic_weights[key] = int(value * scale_factor)
         else:
             # 使用默认权重
             base_weights = {'above_white': 3, 'between_lines': 2, 'below_yellow': 1}
@@ -127,11 +163,27 @@ class WeightConfig:
         if custom_sub_weights and 'volume' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['volume']['sub_weights']
-            dynamic_weights = {
-                'big_volume': sub_weights.get('big_volume', 2),
-                'volume_anomaly': sub_weights.get('volume_anomaly', 2),
-                'volume_breathing': sub_weights.get('volume_breathing', 1)
-            }
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            
+            # 只有当总和不为0时才进行缩放
+            if custom_total > 0:
+                # 计算缩放因子，使自定义子权重总和等于主权重
+                scale_factor = volume_total_weight / custom_total
+                dynamic_weights = {
+                    'big_volume': int(sub_weights.get('big_volume', 2) * scale_factor),
+                    'volume_anomaly': int(sub_weights.get('volume_anomaly', 2) * scale_factor),
+                    'volume_breathing': int(sub_weights.get('volume_breathing', 1) * scale_factor)
+                }
+            else:
+                # 如果自定义子权重总和为0，使用默认权重
+                base_weights = {'big_volume': 2, 'volume_anomaly': 2, 'volume_breathing': 1}
+                base_total = sum(base_weights.values())
+                scale_factor = volume_total_weight / base_total
+                dynamic_weights = {}
+                for key, value in base_weights.items():
+                    dynamic_weights[key] = int(value * scale_factor)
         else:
             # 使用默认权重
             base_weights = {'big_volume': 2, 'volume_anomaly': 2, 'volume_breathing': 1}
@@ -150,12 +202,28 @@ class WeightConfig:
         if custom_sub_weights and 'fundamental' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['fundamental']['sub_weights']
-            dynamic_weights = {
-                'pe_positive': sub_weights.get('pe_positive', 1),
-                'pe_low': sub_weights.get('pe_low', 2),
-                'market_cap': sub_weights.get('market_cap', 1),
-                'volume_threshold': sub_weights.get('volume_threshold', 1)
-            }
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            
+            # 只有当总和不为0时才进行缩放
+            if custom_total > 0:
+                # 计算缩放因子，使自定义子权重总和等于主权重
+                scale_factor = fundamental_total_weight / custom_total
+                dynamic_weights = {
+                    'pe_positive': int(sub_weights.get('pe_positive', 1) * scale_factor),
+                    'pe_low': int(sub_weights.get('pe_low', 2) * scale_factor),
+                    'market_cap': int(sub_weights.get('market_cap', 1) * scale_factor),
+                    'volume_threshold': int(sub_weights.get('volume_threshold', 1) * scale_factor)
+                }
+            else:
+                # 如果自定义子权重总和为0，使用默认权重
+                base_weights = {'pe_positive': 1, 'pe_low': 2, 'market_cap': 1, 'volume_threshold': 1}
+                base_total = sum(base_weights.values())
+                scale_factor = fundamental_total_weight / base_total
+                dynamic_weights = {}
+                for key, value in base_weights.items():
+                    dynamic_weights[key] = int(value * scale_factor)
         else:
             # 使用默认权重
             base_weights = {'pe_positive': 1, 'pe_low': 2, 'market_cap': 1, 'volume_threshold': 1}
@@ -174,11 +242,27 @@ class WeightConfig:
         if custom_sub_weights and 'trend' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['trend']['sub_weights']
-            dynamic_weights = {
-                'up_trend': sub_weights.get('up_trend', 2),
-                'volume_price_rise': sub_weights.get('volume_price_rise', 1),
-                'volume_contraction': sub_weights.get('volume_contraction', 1)
-            }
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            
+            # 只有当总和不为0时才进行缩放
+            if custom_total > 0:
+                # 计算缩放因子，使自定义子权重总和等于主权重
+                scale_factor = trend_total_weight / custom_total
+                dynamic_weights = {
+                    'up_trend': int(sub_weights.get('up_trend', 2) * scale_factor),
+                    'volume_price_rise': int(sub_weights.get('volume_price_rise', 1) * scale_factor),
+                    'volume_contraction': int(sub_weights.get('volume_contraction', 1) * scale_factor)
+                }
+            else:
+                # 如果自定义子权重总和为0，使用默认权重
+                base_weights = {'up_trend': 2, 'volume_price_rise': 1, 'volume_contraction': 1}
+                base_total = sum(base_weights.values())
+                scale_factor = trend_total_weight / base_total
+                dynamic_weights = {}
+                for key, value in base_weights.items():
+                    dynamic_weights[key] = int(value * scale_factor)
         else:
             # 使用默认权重
             base_weights = {'up_trend': 2, 'volume_price_rise': 1, 'volume_contraction': 1}

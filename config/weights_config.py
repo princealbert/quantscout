@@ -62,7 +62,7 @@ class WeightConfig:
             if total_weight != 100:
                 scale_factor = 100.0 / total_weight
                 for key in weights:
-                    weights[key] = int(weights[key] * scale_factor)
+                    weights[key] = round(weights[key] * scale_factor, 1)
         else:
             weights = cls.DEFAULT_WEIGHTS.copy()
         
@@ -74,12 +74,21 @@ class WeightConfig:
         if custom_sub_weights and 'kdj_j' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['kdj_j']['sub_weights']
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            if custom_total == 0:
+                custom_total = 1  # 避免除零错误
+            
+            # 按比例调整权重，确保总权重等于kdj_j_total_weight
+            scale_factor = kdj_j_total_weight / custom_total
+            
             dynamic_weights = [
-                (0, 20, sub_weights.get('j_0_20', 1)),
-                (-10, 0, sub_weights.get('j_-10_0', 2)),
-                (-20, -10, sub_weights.get('j_-20_-10', 3)),
-                (-30, -20, sub_weights.get('j_-30_-20', 4)),
-                (-999, -30, sub_weights.get('j_below_-30', 5))
+                (0, 20, round(sub_weights.get('j_0_20', 1) * scale_factor, 1)),
+                (-10, 0, round(sub_weights.get('j_-10_0', 2) * scale_factor, 1)),
+                (-20, -10, round(sub_weights.get('j_-20_-10', 3) * scale_factor, 1)),
+                (-30, -20, round(sub_weights.get('j_-30_-20', 4) * scale_factor, 1)),
+                (-999, -30, round(sub_weights.get('j_below_-30', 5) * scale_factor, 1))
             ]
         else:
             # 使用默认权重
@@ -89,11 +98,11 @@ class WeightConfig:
             # 按比例调整权重
             scale_factor = kdj_j_total_weight / base_total
             dynamic_weights = [
-                (0, 20, int(1 * scale_factor)),
-                (-10, 0, int(2 * scale_factor)),
-                (-20, -10, int(3 * scale_factor)),
-                (-30, -20, int(4 * scale_factor)),
-                (-999, -30, int(5 * scale_factor))
+                (0, 20, round(1 * scale_factor, 1)),
+                (-10, 0, round(2 * scale_factor, 1)),
+                (-20, -10, round(3 * scale_factor, 1)),
+                (-30, -20, round(4 * scale_factor, 1)),
+                (-999, -30, round(5 * scale_factor, 1))
             ]
         
         return dynamic_weights
@@ -104,10 +113,19 @@ class WeightConfig:
         if custom_sub_weights and 'position' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['position']['sub_weights']
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            if custom_total == 0:
+                custom_total = 1  # 避免除零错误
+            
+            # 按比例调整权重
+            scale_factor = position_total_weight / custom_total
+            
             dynamic_weights = {
-                'above_white': sub_weights.get('above_white', 3),
-                'between_lines': sub_weights.get('between_lines', 2),
-                'below_yellow': sub_weights.get('below_yellow', 1)
+                'above_white': round(sub_weights.get('above_white', 3) * scale_factor, 1),
+                'between_lines': round(sub_weights.get('between_lines', 2) * scale_factor, 1),
+                'below_yellow': round(sub_weights.get('below_yellow', 1) * scale_factor, 1)
             }
         else:
             # 使用默认权重
@@ -117,7 +135,7 @@ class WeightConfig:
             scale_factor = position_total_weight / base_total
             dynamic_weights = {}
             for key, value in base_weights.items():
-                dynamic_weights[key] = int(value * scale_factor)
+                dynamic_weights[key] = round(value * scale_factor, 1)
         
         return dynamic_weights
     
@@ -127,10 +145,19 @@ class WeightConfig:
         if custom_sub_weights and 'volume' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['volume']['sub_weights']
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            if custom_total == 0:
+                custom_total = 1  # 避免除零错误
+            
+            # 按比例调整权重
+            scale_factor = volume_total_weight / custom_total
+            
             dynamic_weights = {
-                'big_volume': sub_weights.get('big_volume', 2),
-                'volume_anomaly': sub_weights.get('volume_anomaly', 2),
-                'volume_breathing': sub_weights.get('volume_breathing', 1)
+                'big_volume': round(sub_weights.get('big_volume', 2) * scale_factor, 1),
+                'volume_anomaly': round(sub_weights.get('volume_anomaly', 2) * scale_factor, 1),
+                'volume_breathing': round(sub_weights.get('volume_breathing', 1) * scale_factor, 1)
             }
         else:
             # 使用默认权重
@@ -140,7 +167,7 @@ class WeightConfig:
             scale_factor = volume_total_weight / base_total
             dynamic_weights = {}
             for key, value in base_weights.items():
-                dynamic_weights[key] = int(value * scale_factor)
+                dynamic_weights[key] = round(value * scale_factor, 1)
         
         return dynamic_weights
     
@@ -150,11 +177,20 @@ class WeightConfig:
         if custom_sub_weights and 'fundamental' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['fundamental']['sub_weights']
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            if custom_total == 0:
+                custom_total = 1  # 避免除零错误
+            
+            # 按比例调整权重
+            scale_factor = fundamental_total_weight / custom_total
+            
             dynamic_weights = {
-                'pe_positive': sub_weights.get('pe_positive', 1),
-                'pe_low': sub_weights.get('pe_low', 2),
-                'market_cap': sub_weights.get('market_cap', 1),
-                'volume_threshold': sub_weights.get('volume_threshold', 1)
+                'pe_positive': round(sub_weights.get('pe_positive', 1) * scale_factor, 1),
+                'pe_low': round(sub_weights.get('pe_low', 2) * scale_factor, 1),
+                'market_cap': round(sub_weights.get('market_cap', 1) * scale_factor, 1),
+                'volume_threshold': round(sub_weights.get('volume_threshold', 1) * scale_factor, 1)
             }
         else:
             # 使用默认权重
@@ -164,7 +200,7 @@ class WeightConfig:
             scale_factor = fundamental_total_weight / base_total
             dynamic_weights = {}
             for key, value in base_weights.items():
-                dynamic_weights[key] = int(value * scale_factor)
+                dynamic_weights[key] = round(value * scale_factor, 1)
         
         return dynamic_weights
     
@@ -174,10 +210,19 @@ class WeightConfig:
         if custom_sub_weights and 'trend' in custom_sub_weights:
             # 使用自定义子权重
             sub_weights = custom_sub_weights['trend']['sub_weights']
+            
+            # 计算自定义子权重总和
+            custom_total = sum(sub_weights.values())
+            if custom_total == 0:
+                custom_total = 1  # 避免除零错误
+            
+            # 按比例调整权重
+            scale_factor = trend_total_weight / custom_total
+            
             dynamic_weights = {
-                'up_trend': sub_weights.get('up_trend', 2),
-                'volume_price_rise': sub_weights.get('volume_price_rise', 1),
-                'volume_contraction': sub_weights.get('volume_contraction', 1)
+                'up_trend': round(sub_weights.get('up_trend', 2) * scale_factor, 1),
+                'volume_price_rise': round(sub_weights.get('volume_price_rise', 1) * scale_factor, 1),
+                'volume_contraction': round(sub_weights.get('volume_contraction', 1) * scale_factor, 1)
             }
         else:
             # 使用默认权重
@@ -187,7 +232,7 @@ class WeightConfig:
             scale_factor = trend_total_weight / base_total
             dynamic_weights = {}
             for key, value in base_weights.items():
-                dynamic_weights[key] = int(value * scale_factor)
+                dynamic_weights[key] = round(value * scale_factor, 1)
         
         return dynamic_weights
 

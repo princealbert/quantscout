@@ -26,27 +26,29 @@ class ComprehensiveScorer:
             
             # 1. KDJ J值权重
             j_value = float(stock_data.get('kdj_j', 50))
-            kdj_weight = float(self.weight_scorer.calculate_kdj_j_weight(j_value))
-            kdj_final_score = kdj_weight * (self.score_weights['kdj_j'] / 5)  # 最大权重5分
+            kdj_final_score = float(self.weight_scorer.calculate_kdj_j_weight(j_value))
             score_details['kdj_score'] = kdj_final_score
             
             # 调试KDJ评分计算
-            print(f"[DEBUG] KDJ J值: {j_value}, KDJ权重: {kdj_weight}, KDJ总分: {kdj_final_score}")
+            print(f"[DEBUG] KDJ J值: {j_value}, KDJ总分: {kdj_final_score}")
             
             # 2. 趋势权重
             trend_score = self.weight_scorer.calculate_trend_score(stock_data)
-            score_details['trend_score'] = trend_score * self.score_weights['trend'] / 4  # 归一化
+            score_details['trend_score'] = trend_score
+            print(f"[DEBUG] 趋势总分: {trend_score}")
             
             # 3. 深V信号权重
             deepv_data = stock_data.get('deepv', {})
             deepv_signal = deepv_data.get('deepv_signal', False)
             deepv_score = 1 if deepv_signal else 0
-            score_details['deepv_score'] = deepv_score * self.score_weights['deepv']
+            score_details['deepv_score'] = round(deepv_score * self.score_weights['deepv'], 1)
+            print(f"[DEBUG] 深V信号: {deepv_signal}, 深V总分: {score_details['deepv_score']}")
             
             # 4. 成交量权重
             volume_analysis = stock_data.get('volume_analysis', {})
-            volume_weight = self.weight_scorer.calculate_volume_weight(volume_analysis)
-            score_details['volume_score'] = volume_weight * (self.score_weights['volume'] / 5)  # 归一化
+            volume_score = self.weight_scorer.calculate_volume_weight(volume_analysis)
+            score_details['volume_score'] = volume_score
+            print(f"[DEBUG] 成交量总分: {volume_score}")
             
             # 5. 基本面权重
             fundamental_data = {
@@ -55,31 +57,33 @@ class ComprehensiveScorer:
                 'volume_threshold': stock_data.get('volume_threshold', False)
             }
             fundamental_score = self.weight_scorer.calculate_fundamental_score(fundamental_data)
-            score_details['fundamental_score'] = fundamental_score * self.score_weights['fundamental'] / 4  # 归一化
+            score_details['fundamental_score'] = fundamental_score
+            print(f"[DEBUG] 基本面总分: {fundamental_score}")
             
             # 6. 位置权重
             close_price = float(stock_data.get('close', 0))
             zhi_xing_data = stock_data.get('zhi_xing', {})
             white_line = zhi_xing_data.get('white_line')
             yellow_line = zhi_xing_data.get('yellow_line')
-            position_weight, position_desc = self.weight_scorer.calculate_position_weight(
+            position_score, position_desc = self.weight_scorer.calculate_position_weight(
                 close_price, white_line, yellow_line
             )
-            position_score = float(position_weight) / 3  # 转换为0-1范围
-            score_details['position_score'] = position_score * self.score_weights['position']
+            score_details['position_score'] = float(position_score)
             score_details['position_desc'] = position_desc
+            print(f"[DEBUG] 位置: {position_desc}, 位置总分: {position_score}")
             
             # 7. 盈亏比权重
             risk_reward_data = self._calculate_risk_reward_ratio(stock_data)
             risk_reward_score = risk_reward_data.get('risk_reward_score', 0)
-            score_details['risk_reward_score'] = risk_reward_score * self.score_weights['risk_reward']
+            score_details['risk_reward_score'] = round(risk_reward_score * self.score_weights['risk_reward'], 1)
+            print(f"[DEBUG] 盈亏比: {risk_reward_data.get('risk_reward_ratio', 0)}, 盈亏比总分: {score_details['risk_reward_score']}")
             
             # 将盈亏比数据添加到股票数据中
             stock_data['risk_reward_data'] = risk_reward_data
             
             # 总分（百分制）
             total_score = sum([float(v) for v in score_details.values() if isinstance(v, (int, float))])
-            score_details['total_score'] = min(total_score, 100)  # 限制最高100分
+            score_details['total_score'] = round(min(total_score, 100), 1)  # 限制最高100分并保留1位小数
             
             return score_details
             

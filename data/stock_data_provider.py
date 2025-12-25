@@ -245,19 +245,21 @@ class StockDataProvider:
     
     def get_stock_kline_data(self, symbol: str, trade_date: str, days: int = 180, 
                             incremental: bool = True, batch_prefix: str = "", 
-                            progress_callback: callable = None) -> pd.DataFrame:
+                            progress_callback: callable = None, counter: int = 0, total: int = 0) -> pd.DataFrame:
         """获取股票K线数据 - 优化缓存和API调用"""
         try:
             # 首先尝试从缓存获取
             cached_data = stock_cache.get_cached_kline_data(symbol, trade_date, days)
             if cached_data is not None:
                 if len(batch_prefix) > 0:
-                    print(f"📊 [{batch_prefix}] {symbol} 缓存命中 - 使用缓存数据 ({len(cached_data)}条)")
+                    count_info = f" ({counter}/{total})" if total > 0 else ""  # 添加计数信息
+                    print(f"📊 [{batch_prefix}] {symbol} 缓存命中 - 使用缓存数据 ({len(cached_data)}条){count_info}", end='\r', flush=True)
                 return cached_data
             
             # 缓存未命中，从API获取
             if len(batch_prefix) > 0:
-                print(f"🌐 [{batch_prefix}] {symbol} 缓存未命中 - 调用API获取数据")
+                count_info = f" ({counter}/{total})" if total > 0 else ""  # 添加计数信息
+                print(f"🌐 [{batch_prefix}] {symbol} 缓存未命中 - 调用API获取数据{count_info}", end='\r', flush=True)
             start_date = (datetime.datetime.strptime(trade_date, "%Y-%m-%d") - 
                          datetime.timedelta(days=days)).strftime("%Y-%m-%d")
             

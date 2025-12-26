@@ -21,7 +21,8 @@ def check_dependencies():
         "plotly", 
         "pandas",
         "numpy",
-        "gm"
+        "gm",
+        "openpyxl"  # Excel文件处理
     ]
     
     missing_packages = []
@@ -106,6 +107,64 @@ def start_controller():
         return False
 
 
+def start_parameter_optimizer():
+    """启动参数优化器 - 在当前终端启动headless版本"""
+    print("🚀 启动参数优化器...")
+    print("=" * 60)
+    print("🎯 参数优化器")
+    print("=" * 60)
+    print("功能特色:")
+    print("• 参数组合生成与优化")
+    print("• 支持暴力搜索和遗传算法")
+    print("• 回测结果可视化")
+    print("• 支持从Excel文件读取回测结果")
+    print("=" * 60)
+    
+    try:
+        # 设置环境变量强制使用UTF-8编码
+        import os
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUTF8'] = '1'
+        
+        # 构建启动命令
+        app_path = os.path.join(os.path.dirname(__file__), "ulti-para-seeker", "app.py")
+        cmd = f'"{sys.executable}" -m streamlit run "{app_path}" --server.port 8501 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        
+        print("🌐 在当前终端启动Streamlit服务器...")
+        print("📱 请在浏览器中访问: http://localhost:8501")
+        print("📊 服务器日志将显示在当前终端中")
+        print("⏹️  按 Ctrl+C 停止服务器")
+        print("=" * 60)
+        
+        # 等待2秒后打开浏览器
+        import time
+        time.sleep(2)
+        webbrowser.open("http://localhost:8501")
+        
+        # 启动Streamlit服务器
+        print("🚀 启动参数优化器服务器...")
+        print("=" * 60)
+        
+        result = subprocess.run(cmd, shell=True, env=env)
+        
+        if result.returncode == 0:
+            print("✅ 参数优化器服务器已正常停止")
+        else:
+            print(f"⚠️  参数优化器服务器异常退出，返回码: {result.returncode}")
+        
+        return True
+            
+    except KeyboardInterrupt:
+        print("\n👋 用户中断，服务器已停止")
+        return True
+    except Exception as e:
+        print(f"❌ 启动失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def run_backend_test():
     """运行后端测试 - 增强错误处理和用户体验"""
     print("🔧 测试后端选股功能...")
@@ -158,13 +217,87 @@ def run_backend_test():
         return False
 
 
+def start_all_applications():
+    """同时启动策略控制器和参数优化器"""
+    print("🚀 同时启动策略控制器和参数优化器...")
+    print("=" * 60)
+    print("🎯 多应用启动模式")
+    print("=" * 60)
+    print("• 策略控制器: http://localhost:8502")
+    print("• 参数优化器: http://localhost:8501")
+    print("• 两个应用将同时运行在不同端口")
+    print("=" * 60)
+    
+    try:
+        # 设置环境变量强制使用UTF-8编码
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUTF8'] = '1'
+        
+        # 启动参数优化器 (端口8501) - 添加详细日志级别
+        optimizer_path = os.path.join(os.path.dirname(__file__), "ulti-para-seeker", "app.py")
+        optimizer_cmd = f'"{sys.executable}" -m streamlit run "{optimizer_path}" --server.port 8501 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        
+        # 启动策略控制器 (端口8502) - 添加详细日志级别
+        controller_cmd = f'"{sys.executable}" -m streamlit run strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        
+        print("🌐 启动参数优化器服务器...")
+        print(f"   命令: {optimizer_cmd}")
+        # 直接输出到当前终端，不重定向
+        optimizer_process = subprocess.Popen(optimizer_cmd, shell=True, env=env)
+        
+        print("🌐 启动策略控制器服务器...")
+        print(f"   命令: {controller_cmd}")
+        # 直接输出到当前终端，不重定向
+        controller_process = subprocess.Popen(controller_cmd, shell=True, env=env)
+        
+        # 等待2秒后打开浏览器
+        import time
+        time.sleep(2)
+        
+        print("📱 打开浏览器窗口...")
+        webbrowser.open("http://localhost:8501")  # 参数优化器
+        webbrowser.open("http://localhost:8502")  # 策略控制器
+        
+        print("\n✅ 两个应用已成功启动！")
+        print("📊 服务器日志将输出到后台")
+        print("⏹️  按 Ctrl+C 停止所有服务器")
+        print("=" * 60)
+        
+        # 等待用户中断
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n👋 用户中断，正在停止所有服务器...")
+            
+            # 尝试优雅关闭
+            optimizer_process.terminate()
+            controller_process.terminate()
+            
+            # 等待进程结束
+            optimizer_process.wait(timeout=5)
+            controller_process.wait(timeout=5)
+            
+            print("✅ 所有服务器已停止")
+            return True
+            
+    except Exception as e:
+        print(f"❌ 启动失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def display_help():
     """显示帮助信息"""
     print("\n📚 使用说明:")
     print("1. 策略控制器 - 完整的Web界面，支持权重配置和可视化")
-    print("2. 后端测试 - 测试选股策略功能")
-    print("3. 帮助 - 显示使用说明")
-    print("\n💡 推荐使用策略控制器，提供最佳用户体验")
+    print("2. 参数优化器 - 参数组合生成与优化，回测结果可视化")
+    print("3. 同时启动 - 一键启动策略控制器和参数优化器")
+    print("4. 后端测试 - 测试选股策略功能")
+    print("5. 帮助 - 显示使用说明")
+    print("\n💡 推荐使用同时启动模式，提供完整的策略分析体验")
 
 
 def main():
@@ -179,23 +312,31 @@ def main():
     
     while True:
         print("\n📋 请选择操作:")
-        print("1. 🚀 启动策略控制器 (推荐)")
-        print("2. 🔧 测试后端选股功能")
-        print("3. 📚 显示帮助信息")
-        print("4. 👋 退出")
+        print("1. 🚀 启动策略控制器")
+        print("2. 🎯 启动参数优化器")
+        print("3. 🤖 同时启动两个应用")
+        print("4. 🔧 测试后端选股功能")
+        print("5. 📚 显示帮助信息")
+        print("6. 👋 退出")
         
         try:
-            choice = input("\n请输入选择 (1-4): ").strip()
+            choice = input("\n请输入选择 (1-6): ").strip()
             
             if choice == "1":
                 start_controller()
                 break
             elif choice == "2":
-                run_backend_test()
+                start_parameter_optimizer()
                 break
             elif choice == "3":
-                display_help()
+                start_all_applications()
+                break
             elif choice == "4":
+                run_backend_test()
+                break
+            elif choice == "5":
+                display_help()
+            elif choice == "6":
                 print("👋 再见！")
                 break
             else:

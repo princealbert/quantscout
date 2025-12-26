@@ -19,13 +19,16 @@ if project_root not in sys.path:
 try:
     # 直接导入缓存模块
     from cache.data_cache import StockDataCache
-    stock_cache = StockDataCache()
-    print("[INFO] 缓存模块导入成功")
+    import os
+    # 使用根目录下的stock_data_cache.db
+    stock_cache = StockDataCache(db_path=os.path.join(project_root, "stock_data_cache.db"))
+    print(f"[INFO] 缓存模块导入成功，数据库路径: {os.path.join(project_root, 'stock_data_cache.db')}")
 except ImportError as e:
     print(f"[ERROR] 缓存模块导入失败: {e}")
     # 创建空的占位对象（重命名避免类型冲突）
     class FallbackStockDataCache:
         def __init__(self, db_path="stock_data_cache.db"):
+            self.db_path = db_path
             pass
         def get_cached_kline_data(self, *args, **kwargs):
             return None
@@ -38,7 +41,8 @@ except ImportError as e:
         def cache_basic_info(self, *args, **kwargs):
             pass
     
-    stock_cache = FallbackStockDataCache()
+    # 使用根目录下的stock_data_cache.db
+    stock_cache = FallbackStockDataCache(db_path=os.path.join(project_root, "stock_data_cache.db"))
 
 
 class StockDataProvider:

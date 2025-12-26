@@ -37,9 +37,51 @@ class OptimizedReportGenerator:
         
         # 获取账户信息
         account_info = context.account()
-        final_capital = account_info.cash
-        # 确保final_capital和self.initial_capital不为None
-        final_capital = 0.0 if final_capital is None else float(final_capital)
+        
+        # 计算最终资金（现金+持仓市值）
+        final_capital = 0.0
+        
+        # 安全获取现金数值
+        cash = account_info.cash
+        if isinstance(cash, dict):
+            # 优先使用可用资金
+            cash_value = float(cash.get('available', 0.0))
+        elif hasattr(cash, 'available'):
+            cash_value = float(cash.available)
+        elif hasattr(cash, 'value'):
+            cash_value = float(cash.value)
+        elif hasattr(cash, 'amount'):
+            cash_value = float(cash.amount)
+        else:
+            # 尝试直接转换，如果失败则使用安全默认值
+            cash_value = float(cash) if cash else 0.0
+        
+        final_capital += cash_value
+        
+        # 加上持仓市值
+        try:
+            positions = account_info.positions()
+            for position in positions:
+                # 获取持仓数量
+                volume = position.volume
+                if hasattr(volume, 'value'):
+                    volume_value = float(volume.value)
+                else:
+                    volume_value = float(volume) if volume else 0.0
+                
+                # 获取持仓价格
+                price = position.price
+                if hasattr(price, 'value'):
+                    price_value = float(price.value)
+                else:
+                    price_value = float(price) if price else 0.0
+                
+                # 加上持仓市值
+                final_capital += price_value * volume_value
+        except Exception as e:
+            print(f"调试: report_generator.generate_basic_report - 获取持仓信息失败: {e}")
+        
+        # 确保self.initial_capital不为None
         initial_capital = 0.0 if self.initial_capital is None else float(self.initial_capital)
         print(f"调试: report_generator.generate_basic_report - 账户信息: 初始资金={initial_capital:.2f}元, 最终资金={final_capital:.2f}元")
         
@@ -153,6 +195,54 @@ class ReportGenerator:
         """初始化报告生成器"""
         self.plt_style = 'seaborn-v0_8-whitegrid'
         
+    def _save_report_to_file(self, report_data: Dict[str, Any]):
+        """保存报告到文件"""
+        try:
+            print(f"调试: report_generator._save_report_to_file - 开始保存报告到文件")
+            
+            # 创建报告目录
+            report_dir = "backtest_reports"
+            if not os.path.exists(report_dir):
+                os.makedirs(report_dir)
+                print(f"调试: report_generator._save_report_to_file - 创建报告目录: {report_dir}")
+            
+            # 生成带时间戳的文件名，用于长期保存
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{report_dir}/backtest_report_{timestamp}.json"
+            print(f"调试: report_generator._save_report_to_file - 保存时间戳报告到: {file_name}")
+            
+            # 保存到带时间戳的文件
+            with open(file_name, 'w', encoding='utf-8') as f:
+                json.dump(report_data, f, ensure_ascii=False, indent=2, default=str)
+            print(f"调试: report_generator._save_report_to_file - 时间戳报告保存成功")
+            
+            # 同时保存一个固定名称的文件，用于参数优化器快速读取
+            fixed_file_name = "backtest_report.json"
+            print(f"调试: report_generator._save_report_to_file - 保存固定名称报告到: {fixed_file_name}")
+            
+            # 转换报告数据格式，使其与parameter_optimizer.py的预期一致
+            optimized_report = {
+                "performance_metrics": {
+                    "total_return": report_data.get("total_return", 0.0),
+                    "annual_return": report_data.get("annual_return", 0.0),
+                    "max_drawdown": report_data.get("max_drawdown", 0.0)
+                },
+                "trade_statistics": {
+                    "total_trades": report_data.get("trades_count", 0)
+                }
+            }
+            
+            print(f"调试: report_generator._save_report_to_file - 优化后报告内容: {json.dumps(optimized_report, ensure_ascii=False, indent=2)}")
+            
+            with open(fixed_file_name, 'w', encoding='utf-8') as f:
+                json.dump(optimized_report, f, ensure_ascii=False, indent=2, default=str)
+            print(f"调试: report_generator._save_report_to_file - 固定名称报告保存成功")
+            
+        except Exception as e:
+            print(f"调试: report_generator._save_report_to_file - 保存报告失败: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def generate_basic_report(self, strategy) -> Dict[str, Any]:
         """
         生成基础回测报告
@@ -163,18 +253,29 @@ class ReportGenerator:
         Returns:
             Dict[str, Any]: 回测报告数据
         """
-        # 即使没有交易记录，也生成包含基础信息的报告
+        # 计算回测指标 - 添加空值检查
+        initial_value = strategy.initial_capital
+        initial_value = 0.0 if initial_value is None else float(initial_value)
+        
+        # 即使没有交易记录，也检查组合价值变化
+        final_value = initial_value
+        if hasattr(strategy, 'portfolio_values') and strategy.portfolio_values:
+            try:
+                # 获取最后一个组合价值
+                last_portfolio = strategy.portfolio_values[-1]
+                if isinstance(last_portfolio, dict) and 'value' in last_portfolio:
+                    final_value = last_portfolio['value']
+                    final_value = 0.0 if final_value is None else float(final_value)
+            except (IndexError, TypeError, KeyError):
+                final_value = initial_value
+        
+        # 如果没有交易记录但有组合价值变化
         if not strategy.trading_records:
-            print("没有交易记录，生成基础指标报告")
+            print("没有交易记录，基于组合价值变化生成报告")
             
-            # 计算回测指标 - 添加空值检查
-            initial_value = strategy.initial_capital
-            initial_value = 0.0 if initial_value is None else float(initial_value)
-            
-            final_value = initial_value  # 没有交易时，最终资金等于初始资金
-            total_return = 0.0  # 没有交易时，总收益率为0
-            annual_return_pct = 0  # 没有交易时，年化收益率为0
-            max_drawdown = 0  # 没有交易时，最大回撤为0
+            total_return = (final_value - initial_value) / initial_value * 100 if initial_value > 0 else 0.0
+            annual_return_pct = 0  # 默认年化收益率为0
+            max_drawdown = 0  # 默认最大回撤为0
             
             # 构建基础报告数据
             return {
@@ -187,7 +288,7 @@ class ReportGenerator:
                 'stop_profit_ratio': getattr(strategy.params, 'stop_profit_ratio', 0.0),
                 'stop_loss_ratio': getattr(strategy.params, 'stop_loss_ratio', 0.0),
                 'trading_records': [],
-                'portfolio_values': []
+                'portfolio_values': getattr(strategy, 'portfolio_values', [])
             }
         
         # 转换为DataFrame
@@ -389,10 +490,12 @@ class ReportGenerator:
                         "performance_metrics": {
                             "total_return": report_data.get("total_return", 0.0),
                             "annual_return": report_data.get("annual_return", 0.0),
-                            "max_drawdown": report_data.get("max_drawdown", 0.0)
+                            "max_drawdown": report_data.get("max_drawdown", 0.0),
+                            "sharpe_ratio": report_data.get("sharpe_ratio", 0.0)
                         },
                         "trade_statistics": {
-                            "total_trades": report_data.get("trades_count", 0)
+                            "total_trades": report_data.get("trades_count", 0),
+                            "win_rate": report_data.get("win_rate", 0.0)
                         }
                     }
                     json.dump(optimized_report, f, ensure_ascii=False, indent=2, default=str)

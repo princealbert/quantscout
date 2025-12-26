@@ -275,15 +275,32 @@ class BacktestRunner:
         
         # 生成基础报告（不使用可视化分析器）
         try:
-            from .report_generator import ReportGenerator
+            # 尝试相对导入
+            try:
+                from .report_generator import ReportGenerator
+            except ImportError:
+                # 尝试绝对导入
+                try:
+                    from report_generator import ReportGenerator
+                except ImportError as e1:
+                    # 打印详细的导入错误信息
+                    print(f"调试: 绝对导入report_generator失败: {e1}")
+                    # 尝试使用sys.path导入
+                    import sys
+                    import os
+                    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+                    from report_generator import ReportGenerator
+            
             report_generator = ReportGenerator()
-            # 生成并保存基础报告
+            # 生成并保存详细报告
             import os
-            report_data = report_generator.generate_basic_report(self.strategy)
+            report_data = report_generator.generate_detailed_report(self.strategy)
             report_generator._save_report_to_file(report_data)
-            print("基础报告已生成")
+            print("详细报告已生成")
         except Exception as e:
             print(f"生成基础报告失败: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
@@ -425,7 +442,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     # 确保使用正确的工作目录和文件名格式
     run(
         strategy_id=params.strategy_id,
-        filename='ulti-para-seeker/main.py',
+        filename='main.py',
         mode=MODE_BACKTEST,
         token=actual_token,
         backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),

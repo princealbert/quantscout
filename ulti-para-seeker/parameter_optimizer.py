@@ -50,7 +50,7 @@ class ParameterOptimizer:
         self.start_time = None
         self.end_time = None
         
-    def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, use_advanced_weights: bool = True) -> Dict[str, List[Any]]:
+    def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, use_advanced_weights: bool = True, end_date: str = '2025-12-25') -> Dict[str, List[Any]]:
         """
         定义参数范围
 
@@ -58,19 +58,20 @@ class ParameterOptimizer:
             test_mode: 是否为测试模式（只生成一个简单子权重组合）
             max_sub_combinations: 最大子权重组合数（仅在非测试模式下生效）
             use_advanced_weights: 是否使用高级权重配置模式
+            end_date: 回测终点日期（格式：YYYY-MM-DD）
 
         Returns:
             Dict[str, List[Any]]: 参数范围字典
         """
         print("定义参数范围...")
-        print("- 回测天数固定为90天")
+        print(f"- 回测天数固定为90天，终点日期为{end_date}")
         
         # 根据模式调整参数范围
         if test_mode:
             print("[测试模式] 使用最小参数范围")
             stop_profit_ratio = [0.02]  # 仅测试2%止盈
             stop_loss_ratio = [-0.01]  # 仅测试1%止损
-            weight_step = 100  # 仅测试极端权重配置
+            weight_step = 10  # 使用合理步长以生成有效组合
         else:
             print("- 止盈比例: 3%-15%，步长2%")
             print("- 止损比例: -5%--1%，步长1%")
@@ -92,29 +93,33 @@ class ParameterOptimizer:
         core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
         
         # 生成权重配置
-        if use_advanced_weights and not test_mode:
+        if test_mode:
+            # 测试模式：直接生成一个简单的权重组合
+            print("[测试模式] 直接生成简单权重组合")
+            weights_config = [{
+                'kdj_j': 30,
+                'trend': 20,
+                'volume': 15,
+                'fundamental': 15,
+                'position': 10,
+                'risk_reward': 10
+            }]
+        elif use_advanced_weights:
             # 高级模式：生成基础组合 + 重点指标加权组合
             print("[高级模式] 使用重点指标加权的权重配置")
             
-            # 基础权重组合
-            base_weights = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5)
+            # 基础权重组合 - 限制主权重范围为5%-95%，避免极端值
+            base_weights = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
             
-            # KDJ J值和趋势作为重点指标的组合
+            # 仅保留KDJ J值和趋势作为重点指标的组合（减少组合数）
             kdj_trend_weights = self._generate_custom_weights_combinations(
                 core_indicators, 100, weight_step, 
                 focus_indicators=['kdj_j', 'trend'], 
                 focus_weight_factor=1.5
             )
             
-            # 成交量和风险收益作为重点指标的组合
-            volume_risk_weights = self._generate_custom_weights_combinations(
-                core_indicators, 100, weight_step, 
-                focus_indicators=['volume', 'risk_reward'], 
-                focus_weight_factor=1.5
-            )
-            
-            # 合并所有权重组合并去重
-            all_weights = base_weights + kdj_trend_weights + volume_risk_weights
+            # 合并权重组合并去重
+            all_weights = base_weights + kdj_trend_weights
             
             # 去重
             seen = set()
@@ -127,12 +132,15 @@ class ParameterOptimizer:
             
             weights_config = unique_weights
         else:
-            # 普通模式：仅生成基础权重组合
-            weights_config = self._generate_weights_combinations(core_indicators, 100, weight_step)
+            # 普通模式：仅生成基础权重组合 - 限制主权重范围为5%-95%，避免极端值
+            weights_config = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
         
         return {
             # 回测天数 - 固定为90天（适合超跌反弹策略）
             'backtest_days': [90],
+            
+            # 回测终点日期 - 确保所有组合在相同时间段回测
+            'end_date': [end_date],
             
             # 止盈比例 - 核心回测参数
             'stop_profit_ratio': stop_profit_ratio,
@@ -486,13 +494,13 @@ class ParameterOptimizer:
                     else:  # num_subs == 5
                         step = 10  # 5个子指标，使用10步长
                 
-                # 生成子权重组合，确保每个子指标至少1分
-                sub_weights = self._generate_weights_combinations(subs, 100, step, min_weight=1)
+                # 生成子权重组合，限制子权重范围为5%-90%，避免极端值
+                sub_weights = self._generate_weights_combinations(subs, 100, step, min_weight=5, max_weight=90)
                 
-                # 提前筛选有效的子权重组合
+                # 提前筛选有效的子权重组合 - 确保子权重范围为5%-90%
                 valid_sub_weights = []
                 for sw in sub_weights:
-                    if sum(sw.values()) == 100 and all(w > 0 for w in sw.values()):
+                    if sum(sw.values()) == 100 and all(5 <= w <= 90 for w in sw.values()):
                         valid_sub_weights.append(sw)
                 
                 sub_weights_combinations[main_indicator] = valid_sub_weights
@@ -763,21 +771,162 @@ class ParameterOptimizer:
         print(f"筛选完成：{len(valid_combinations)} 个有效组合 (总 {len(combinations)} 个)")
         return valid_combinations
     
-    def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10) -> List[Dict[str, Any]]:
+    def generate_blueprint(self, test_mode: bool = False, max_sub_combinations: int = 10, blueprint_file: str = "parameter_blueprint.json") -> str:
+        """
+        生成参数组合蓝图文件，存储所有可能的参数组合
+        
+        Args:
+            test_mode: 是否为测试模式
+            max_sub_combinations: 最大子权重组合数
+            blueprint_file: 蓝图文件路径
+            
+        Returns:
+            str: 蓝图文件路径
+        """
+        print("\n=== 生成参数组合蓝图 ===")
+        
+        # 生成所有参数组合
+        param_combinations = self.generate_parameter_combinations(test_mode, max_sub_combinations)
+        
+        # 创建蓝图数据结构
+        blueprint = {
+            "version": "1.0",
+            "generated_at": datetime.now().isoformat(),
+            "total_combinations": len(param_combinations),
+            "test_mode": test_mode,
+            "max_sub_combinations": max_sub_combinations,
+            "combinations": []
+        }
+        
+        # 为每个组合分配唯一ID并添加到蓝图
+        for i, param in enumerate(param_combinations):
+            combination = {
+                "id": i + 1,
+                "params": param,
+                "status": "pending",  # pending, running, completed, failed
+                "result": None
+            }
+            blueprint["combinations"].append(combination)
+        
+        # 保存蓝图文件
+        blueprint_path = os.path.join(current_dir, blueprint_file)
+        with open(blueprint_path, 'w', encoding='utf-8') as f:
+            json.dump(blueprint, f, ensure_ascii=False, indent=2)
+        
+        print(f"✅ 参数组合蓝图已生成: {blueprint_path}")
+        print(f"   总组合数: {len(param_combinations)}")
+        print(f"   蓝图文件大小: {os.path.getsize(blueprint_path) / 1024:.2f} KB")
+        
+        return blueprint_path
+    
+    def load_blueprint(self, blueprint_file: str = "parameter_blueprint.json") -> Dict[str, Any]:
+        """
+        加载参数组合蓝图文件
+        
+        Args:
+            blueprint_file: 蓝图文件路径
+            
+        Returns:
+            Dict[str, Any]: 蓝图数据
+        """
+        blueprint_path = os.path.join(current_dir, blueprint_file)
+        
+        if not os.path.exists(blueprint_path):
+            raise FileNotFoundError(f"蓝图文件不存在: {blueprint_path}")
+        
+        with open(blueprint_path, 'r', encoding='utf-8') as f:
+            blueprint = json.load(f)
+        
+        print(f"✅ 蓝图文件已加载: {blueprint_path}")
+        print(f"   版本: {blueprint.get('version')}")
+        print(f"   总组合数: {blueprint.get('total_combinations')}")
+        print(f"   生成时间: {blueprint.get('generated_at')}")
+        
+        # 统计各状态的组合数
+        status_counts = {}
+        for combo in blueprint['combinations']:
+            status = combo['status']
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        print(f"   状态统计: {status_counts}")
+        
+        return blueprint
+    
+    def get_next_combination(self, blueprint: Dict[str, Any]) -> Tuple[Optional[int], Optional[Dict[str, Any]]]:
+        """
+        获取下一个待处理的参数组合
+        
+        Args:
+            blueprint: 蓝图数据
+            
+        Returns:
+            Tuple[Optional[int], Optional[Dict[str, Any]]]: (组合ID, 参数组合)，如果没有待处理的组合则返回(None, None)
+        """
+        for combo in blueprint['combinations']:
+            if combo['status'] == 'pending':
+                return combo['id'], combo['params']
+        return None, None
+    
+    def update_combination_status(self, blueprint: Dict[str, Any], combo_id: int, status: str, result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        更新参数组合的状态和结果
+        
+        Args:
+            blueprint: 蓝图数据
+            combo_id: 组合ID
+            status: 新状态 (pending, running, completed, failed)
+            result: 回测结果（可选）
+            
+        Returns:
+            Dict[str, Any]: 更新后的蓝图数据
+        """
+        for combo in blueprint['combinations']:
+            if combo['id'] == combo_id:
+                combo['status'] = status
+                combo['result'] = result
+                if result is not None:
+                    combo['completed_at'] = datetime.now().isoformat()
+                break
+        return blueprint
+    
+    def save_blueprint(self, blueprint: Dict[str, Any], blueprint_file: str = "parameter_blueprint.json") -> str:
+        """
+        保存蓝图文件
+        
+        Args:
+            blueprint: 蓝图数据
+            blueprint_file: 蓝图文件路径
+            
+        Returns:
+            str: 保存后的蓝图文件路径
+        """
+        blueprint_path = os.path.join(current_dir, blueprint_file)
+        
+        # 更新最后修改时间
+        blueprint['last_modified'] = datetime.now().isoformat()
+        
+        with open(blueprint_path, 'w', encoding='utf-8') as f:
+            json.dump(blueprint, f, ensure_ascii=False, indent=2)
+        
+        return blueprint_path
+    
+    def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, end_date: str = '2025-12-25') -> List[Dict[str, Any]]:
         """
         生成所有参数组合
 
         Args:
             test_mode: 是否为测试模式（使用最小参数范围，仅生成第一个组合）
             max_sub_combinations: 最大子权重组合数（仅在非测试模式下生效）
+            end_date: 回测终点日期（格式：YYYY-MM-DD）
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations)
+        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, end_date=end_date)
         
         # 计算总组合数（用于进度显示）
         total_combinations = (len(param_ranges['backtest_days']) * 
+                            len(param_ranges['end_date']) * 
                             len(param_ranges['stop_profit_ratio']) * 
                             len(param_ranges['stop_loss_ratio']) * 
                             len(param_ranges['weights_config']) * 
@@ -791,35 +940,37 @@ class ParameterOptimizer:
         
         # 生成所有可能的组合
         for backtest_days in param_ranges['backtest_days']:
-            for stop_profit_ratio in param_ranges['stop_profit_ratio']:
-                for stop_loss_ratio in param_ranges['stop_loss_ratio']:
-                    for weights_config in param_ranges['weights_config']:
-                        for sub_weights_config in param_ranges['sub_weights_config']:
-                            # 确保止盈大于止损
-                            if stop_profit_ratio > stop_loss_ratio:
-                                # 将deepv权重设置为零
-                                weights_config_with_zero_deepv = weights_config.copy()
-                                weights_config_with_zero_deepv['deepv'] = 0
-                                
-                                param_comb = {
-                                    'backtest_days': backtest_days,
-                                    'stop_profit_ratio': stop_profit_ratio,
-                                    'stop_loss_ratio': stop_loss_ratio,
-                                    'weights_config': weights_config_with_zero_deepv,
-                                    'sub_weights_config': sub_weights_config,
-                                    'initial_capital': self.initial_capital
-                                }
-                                combinations.append(param_comb)
-                                current_count += 1
-                                
-                                # 每生成1000个组合显示一次进度
-                                if current_count % 1000 == 0:
-                                    print(f"已生成 {current_count}/{total_combinations} 个参数组合")
-                                
-                                # 测试模式下仅生成第一个组合
-                                if test_mode and current_count >= 1:
-                                    print(f"[测试模式] 仅生成并返回第一个参数组合")
-                                    return combinations
+            for end_date in param_ranges['end_date']:
+                for stop_profit_ratio in param_ranges['stop_profit_ratio']:
+                    for stop_loss_ratio in param_ranges['stop_loss_ratio']:
+                        for weights_config in param_ranges['weights_config']:
+                            for sub_weights_config in param_ranges['sub_weights_config']:
+                                # 确保止盈大于止损
+                                if stop_profit_ratio > stop_loss_ratio:
+                                    # 将deepv权重设置为零
+                                    weights_config_with_zero_deepv = weights_config.copy()
+                                    weights_config_with_zero_deepv['deepv'] = 0
+                                    
+                                    param_comb = {
+                                        'backtest_days': backtest_days,
+                                        'end_date': end_date,
+                                        'stop_profit_ratio': stop_profit_ratio,
+                                        'stop_loss_ratio': stop_loss_ratio,
+                                        'weights_config': weights_config_with_zero_deepv,
+                                        'sub_weights_config': sub_weights_config,
+                                        'initial_capital': self.initial_capital
+                                    }
+                                    combinations.append(param_comb)
+                                    current_count += 1
+                                    
+                                    # 每生成1000个组合显示一次进度
+                                    if current_count % 1000 == 0:
+                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合")
+                                    
+                                    # 测试模式下仅生成第一个组合
+                                    if test_mode and current_count >= 1:
+                                        print(f"[测试模式] 仅生成并返回第一个参数组合")
+                                        return combinations
         
         print(f"总共生成 {len(combinations)} 个参数组合")
         return combinations
@@ -849,11 +1000,17 @@ class ParameterOptimizer:
             # 创建策略ID
             strategy_id = f"optimization_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
             
+            # 计算回测区间
+            end_date = datetime.strptime(params['end_date'], '%Y-%m-%d')
+            start_date = end_date - timedelta(days=params['backtest_days'])
+            
             # 准备符合标准回测要求的配置结构
             frontend_config = {
                 'backtest': {
                     'initial_capital': params['initial_capital'],
                     'backtest_days': params['backtest_days'],
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
                     'max_stocks_to_backtest': 1,
                     'strategy_id': strategy_id,
                     'commission_ratio': 0.0003
@@ -886,21 +1043,35 @@ class ParameterOptimizer:
             
             # 保存原始的sys.argv，避免与gm.api.run()的命令行参数解析冲突
             original_argv = sys.argv.copy()
-            sys.argv = [os.path.join(project_root, 'ulti-para-seeker', 'main.py')]
+            
+            # 调试：打印当前工作目录和文件路径
+            print(f"调试: 当前工作目录={os.getcwd()}")
+            print(f"调试: 项目根目录={project_root}")
             
             try:
                 # 使用标准回测函数运行回测
+                print("🔄 开始执行回测...")
                 import backtest_runner
                 backtest_runner.run_backtest(config_path=temp_config_file)
-            except ImportError:
-                from .backtest_runner import run_backtest
-                run_backtest(config_path=temp_config_file)
+                print("✅ 回测执行完成")
+            except ImportError as e:
+                print(f"⚠️ 导入backtest_runner失败: {e}")
+                try:
+                    from .backtest_runner import run_backtest
+                    run_backtest(config_path=temp_config_file)
+                    print("✅ 回测执行完成（本地导入）")
+                except Exception as e2:
+                    print(f"❌ 本地导入回测失败: {e2}")
+                    raise
+            except Exception as e:
+                print(f"❌ 回测执行失败: {e}")
+                raise
             finally:
                 # 恢复原始的sys.argv
                 sys.argv = original_argv
             
             # 从文件中读取回测结果
-            report_file = 'backtest_report.json'  # 使用与report_generator.py一致的路径
+            report_file = os.path.join(current_dir, 'backtest_report.json')  # 使用绝对路径确保正确读取
             report = {}
             
             if os.path.exists(report_file):
@@ -923,7 +1094,9 @@ class ParameterOptimizer:
                 'total_return': performance_metrics.get('total_return', 0.0),
                 'annual_return': performance_metrics.get('annual_return', 0.0),
                 'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
-                'trades_count': trade_statistics.get('total_trades', 0)
+                'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
+                'trades_count': trade_statistics.get('total_trades', 0),
+                'win_rate': trade_statistics.get('win_rate', 0.0)
             }
             
         except Exception as e:
@@ -939,15 +1112,17 @@ class ParameterOptimizer:
             # 不再删除配置文件，因为它是持久化的参数配置文件
             print(f"✅ 参数组合配置已保留: {temp_config_file}")
     
-    def run_parallel_optimization(self, param_combinations: List[Dict[str, Any]], num_workers: int = 4, batch_size: int = 50, save_interval: int = 1) -> List[Dict[str, Any]]:
+    def run_parallel_optimization(self, param_combinations: List[Dict[str, Any]], num_workers: int = 4, batch_size: int = 50, save_interval: int = 1, blueprint: Optional[Dict[str, Any]] = None, blueprint_file: str = "parameter_blueprint.json") -> List[Dict[str, Any]]:
         """
-        排队运行参数优化（支持每10个组合更新一次Excel结果）
+        排队运行参数优化（支持每10个组合更新一次Excel结果和断点续传）
 
         Args:
             param_combinations: 参数组合列表
             num_workers: 并行工作进程数（已废弃，保留参数兼容性）
             batch_size: 每批处理的参数组合数（已废弃，保留参数兼容性）
             save_interval: 保存中间结果的批次间隔（已废弃，保留参数兼容性）
+            blueprint: 参数组合蓝图数据（用于断点续传）
+            blueprint_file: 蓝图文件路径
 
         Returns:
             List[Dict[str, Any]]: 按收益率排序的结果列表
@@ -960,11 +1135,25 @@ class ParameterOptimizer:
         print(f"开始排队优化，一个组合一个组合处理")
         print(f"总参数组合数: {total_combinations}")
         print(f"每个组合更新一次Excel结果")
+        print(f"支持断点续传: {'是' if blueprint else '否'}")
         print("=" * 50)
         
         # 单个组合逐个处理
         for i, param in enumerate(param_combinations):
             try:
+                # 查找当前参数组合在蓝图中的ID
+                combo_id = None
+                if blueprint:
+                    for combo in blueprint['combinations']:
+                        if combo['params'] == param:
+                            combo_id = combo['id']
+                            # 更新状态为running
+                            combo['status'] = 'running'
+                            combo['started_at'] = datetime.now().isoformat()
+                            # 保存更新后的蓝图
+                            self.save_blueprint(blueprint, blueprint_file)
+                            break
+                
                 # 处理当前组合
                 start_time = datetime.now()
                 result = self.run_backtest(param)
@@ -981,6 +1170,12 @@ class ParameterOptimizer:
                 print(f"   已处理组合数: {len(all_results)}")
                 print(f"   当前组合总收益率: {result['total_return']:.2f}%")
                 
+                # 更新蓝图中的组合状态为completed
+                if blueprint and combo_id is not None:
+                    blueprint = self.update_combination_status(blueprint, combo_id, 'completed', result)
+                    self.save_blueprint(blueprint, blueprint_file)
+                    print(f"   蓝图已更新: 组合 {combo_id} 状态变更为 'completed'")
+                
                 # 每1个组合更新一次Excel结果
                 if processed % 1 == 0 or processed == total_combinations:
                     self._update_excel_results(all_results)
@@ -994,6 +1189,19 @@ class ParameterOptimizer:
             except Exception as e:
                 print(f"\n❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
                 print("   继续处理下一个组合...")
+                
+                # 更新蓝图中的组合状态为failed
+                if blueprint:
+                    combo_id = None
+                    for combo in blueprint['combinations']:
+                        if combo['params'] == param:
+                            combo_id = combo['id']
+                            break
+                    if combo_id is not None:
+                        blueprint = self.update_combination_status(blueprint, combo_id, 'failed')
+                        self.save_blueprint(blueprint, blueprint_file)
+                        print(f"   蓝图已更新: 组合 {combo_id} 状态变更为 'failed'")
+                
                 # 添加失败结果
                 all_results.append({
                     **param,
@@ -1146,36 +1354,68 @@ def main():
     parser.add_argument('--weight-step', type=int, default=20, help='权重配置的步长（百分比）')
     parser.add_argument('--sub-weight-step', type=int, default=20, help='子权重配置的步长（百分比）')
     parser.add_argument('--test-first', action='store_true', help='只测试第一个参数组合的完整流程')
+    parser.add_argument('--blueprint', type=str, default="parameter_blueprint.json", help='参数组合蓝图文件名')
+    parser.add_argument('--generate-only', action='store_true', help='仅生成蓝图文件，不执行回测')
     
     args = parser.parse_args()
     
     # 创建优化器实例
     optimizer = ParameterOptimizer()
     
-    # 生成参数组合
-    print("正在生成参数组合...")
+    # 检查蓝图文件是否存在
+    blueprint_path = os.path.join(current_dir, args.blueprint)
+    blueprint_exists = os.path.exists(blueprint_path)
     
-    # 测试模式：生成最小参数组合集
-    if args.test_first:
-        print("\n=== 测试模式 ===")
-        print("仅测试第一个参数组合的完整回测流程")
-        param_combinations = optimizer.generate_parameter_combinations(test_mode=True)
-        print(f"测试组合: {param_combinations[0]}")
+    if blueprint_exists:
+        print(f"\n蓝图文件已存在: {args.blueprint}")
+        print("将从上次的进度继续优化")
+        # 加载蓝图文件
+        blueprint = optimizer.load_blueprint(args.blueprint)
     else:
-        param_combinations = optimizer.generate_parameter_combinations()
+        print(f"\n蓝图文件不存在，将生成新的蓝图文件: {args.blueprint}")
+        # 生成蓝图文件
+        blueprint_path = optimizer.generate_blueprint(args.test_first, blueprint_file=args.blueprint)
+        # 加载生成的蓝图文件
+        blueprint = optimizer.load_blueprint(args.blueprint)
+    
+    # 如果仅生成蓝图文件，不执行回测
+    if args.generate_only:
+        print("\n仅生成蓝图文件模式，已完成。")
+        print(f"蓝图文件路径: {blueprint_path}")
+        print(f"总组合数: {blueprint['total_combinations']}")
+        print("使用 --blueprint 参数指定此文件可继续优化。")
+        print("=" * 60)
+        return
+    
+    # 并行运行优化（支持从蓝图文件获取待处理组合和断点续传）
+    print("\n正在运行优化（支持断点续传）...")
+    
+    # 获取待处理的参数组合
+    param_combinations = []
+    for combo in blueprint['combinations']:
+        if combo['status'] == 'pending':
+            param_combinations.append(combo['params'])
+    
+    print(f"待处理的参数组合数: {len(param_combinations)}")
     
     # 限制组合数量（可选，用于测试）
     if args.max_combinations > 0 and len(param_combinations) > args.max_combinations:
         print(f"组合数量过多，仅测试前 {args.max_combinations} 个组合")
         param_combinations = param_combinations[:args.max_combinations]
     
-    # 并行运行优化（支持分批处理）
-    print("正在运行并行优化...")
+    if not param_combinations:
+        print("\n所有参数组合都已处理完成！")
+        print("=" * 60)
+        return
+    
+    # 运行优化（传递蓝图信息以支持断点续传）
     results = optimizer.run_parallel_optimization(
         param_combinations,
         num_workers=args.num_workers,
         batch_size=args.batch_size,
-        save_interval=args.save_interval
+        save_interval=args.save_interval,
+        blueprint=blueprint,
+        blueprint_file=args.blueprint
     )
     
     # 导出最终结果到固定Excel文件
@@ -1184,14 +1424,15 @@ def main():
     
     print("=" * 60)
     print("优化完成！")
-    print(f"最佳组合总收益率: {results[0]['total_return']:.2f}%")
-    print(f"最佳组合年化收益率: {results[0]['annual_return']:.2f}%")
-    print("最佳组合参数:")
-    print(f"  - 回测天数: {results[0]['backtest_days']}")
-    print(f"  - 止盈比例: {results[0]['stop_profit_ratio']*100:.1f}%")
-    print(f"  - 止损比例: {results[0]['stop_loss_ratio']*100:.1f}%")
-    print(f"  - 权重配置: {results[0]['weights_config']}")
-    print(f"  - 子权重配置: {results[0]['sub_weights_config']}")
+    if results:
+        print(f"最佳组合总收益率: {results[0]['total_return']:.2f}%")
+        print(f"最佳组合年化收益率: {results[0]['annual_return']:.2f}%")
+        print("最佳组合参数:")
+        print(f"  - 回测天数: {results[0]['backtest_days']}")
+        print(f"  - 止盈比例: {results[0]['stop_profit_ratio']*100:.1f}%")
+        print(f"  - 止损比例: {results[0]['stop_loss_ratio']*100:.1f}%")
+        print(f"  - 权重配置: {results[0]['weights_config']}")
+        print(f"  - 子权重配置: {results[0]['sub_weights_config']}")
     print("=" * 60)
 
 if __name__ == "__main__":

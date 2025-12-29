@@ -12,6 +12,7 @@ import json
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # 导入ReportGenerator
+from datetime import datetime
 try:
     from report_generator import ReportGenerator
 except ImportError as e:
@@ -106,3 +107,56 @@ try:
         print("❌ _save_report_to_file方法不存在")
 except Exception as e:
     print(f"❌ 保存报告失败: {e}")
+
+# 测试用例4: 测试详细报告生成（包含夏普比率和胜率）
+print("\n测试用例4: 测试详细报告生成（包含夏普比率和胜率）")
+
+# 创建模拟的策略对象，包含交易记录
+class MockStrategyWithTrades:
+    def __init__(self):
+        self.initial_capital = 60000
+        self.params = MockParams()
+        # 模拟组合价值变化
+        self.portfolio_values = [
+            {'date': datetime(2025, 12, 1), 'value': 60000},
+            {'date': datetime(2025, 12, 2), 'value': 61500},
+            {'date': datetime(2025, 12, 3), 'value': 63000},
+            {'date': datetime(2025, 12, 4), 'value': 62000},
+            {'date': datetime(2025, 12, 5), 'value': 64500}
+        ]
+        # 模拟交易记录（3笔交易，2赢1输）
+        self.trading_records = [
+            {'date': datetime(2025, 12, 1), 'symbol': 'AAPL', 'action': 'BUY', 'price': 100, 'quantity': 100},
+            {'date': datetime(2025, 12, 2), 'symbol': 'AAPL', 'action': 'SELL', 'price': 102, 'quantity': 100},
+            {'date': datetime(2025, 12, 3), 'symbol': 'MSFT', 'action': 'BUY', 'price': 200, 'quantity': 50},
+            {'date': datetime(2025, 12, 4), 'symbol': 'MSFT', 'action': 'SELL', 'price': 198, 'quantity': 50},
+            {'date': datetime(2025, 12, 4), 'symbol': 'GOOGL', 'action': 'BUY', 'price': 150, 'quantity': 100},
+            {'date': datetime(2025, 12, 5), 'symbol': 'GOOGL', 'action': 'SELL', 'price': 155, 'quantity': 100}
+        ]
+
+try:
+    strategy_with_trades = MockStrategyWithTrades()
+    detailed_report = report_generator.generate_detailed_report(strategy_with_trades)
+    
+    print(f"✅ 详细报告生成成功")
+    print(f"总收益率: {detailed_report.get('total_return', 0.0):.2f}%")
+    print(f"夏普比率: {detailed_report.get('sharpe_ratio', 0.0):.4f}")
+    print(f"胜率: {detailed_report.get('win_rate', 0.0):.2f}%")
+    print(f"交易次数: {detailed_report.get('trades_count', 0)}")
+    
+    # 验证夏普比率和胜率是否已计算
+    if 'sharpe_ratio' in detailed_report and 'win_rate' in detailed_report:
+        print("✅ 夏普比率和胜率已正确添加到报告中")
+    else:
+        print("❌ 夏普比率和胜率未添加到报告中")
+        
+    # 检查夏普比率和胜率的合理性
+    if detailed_report.get('sharpe_ratio', 0.0) > 0:
+        print("✅ 夏普比率为正数，符合预期")
+    if 0 <= detailed_report.get('win_rate', 0.0) <= 100:
+        print("✅ 胜率在合理范围内（0-100%）")
+        
+except Exception as e:
+    print(f"❌ 详细报告生成失败: {e}")
+    import traceback
+    traceback.print_exc()

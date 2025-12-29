@@ -978,13 +978,14 @@ class ParameterOptimizer:
     def run_backtest(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         运行单个参数组合的回测
-        
+
         Args:
             params: 参数组合
             
         Returns:
             Dict[str, Any]: 回测结果
         """
+        temp_config_file = None  # 初始化变量，避免作用域错误
         try:
             import sys
             import os
@@ -1076,13 +1077,20 @@ class ParameterOptimizer:
             
             if os.path.exists(report_file):
                 try:
+                    print(f"调试: parameter_optimizer - 尝试读取报告文件: {report_file}")
                     with open(report_file, 'r', encoding='utf-8') as f:
                         report = json.load(f)
+                    print(f"调试: parameter_optimizer - 成功读取报告文件，内容: {json.dumps(report, ensure_ascii=False, indent=2)}")
                     # 删除结果文件，避免影响下一次回测
                     os.unlink(report_file)
+                    print(f"调试: parameter_optimizer - 已删除临时报告文件: {report_file}")
                 except Exception as e:
-                    print(f"读取报告文件失败: {e}")
+                    print(f"调试: parameter_optimizer - 读取报告文件失败: {e}")
+                    import traceback
+                    traceback.print_exc()
                     report = {}
+            else:
+                print(f"调试: parameter_optimizer - 报告文件不存在: {report_file}")
             
             # 从报告中提取需要的结果
             performance_metrics = report.get('performance_metrics', {})
@@ -1090,27 +1098,30 @@ class ParameterOptimizer:
             
             # 返回结果
             return {
-                **params,
-                'total_return': performance_metrics.get('total_return', 0.0),
-                'annual_return': performance_metrics.get('annual_return', 0.0),
-                'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
-                'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
-                'trades_count': trade_statistics.get('total_trades', 0),
-                'win_rate': trade_statistics.get('win_rate', 0.0)
-            }
+            **(params or {}),
+            'total_return': performance_metrics.get('total_return', 0.0),
+            'annual_return': performance_metrics.get('annual_return', 0.0),
+            'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
+            'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
+            'trades_count': trade_statistics.get('total_trades', 0),
+            'win_rate': trade_statistics.get('win_rate', 0.0)
+        }
             
         except Exception as e:
             print(f"回测失败: {e}")
             return {
-                **params,
+                **(params or {}),
                 'total_return': -100.0,  # 失败时返回极低收益率
                 'annual_return': -100.0,
                 'max_drawdown': -100.0,
-                'trades_count': 0
+                'sharpe_ratio': 0.0,
+                'trades_count': 0,
+                'win_rate': 0.0
             }
         finally:
             # 不再删除配置文件，因为它是持久化的参数配置文件
-            print(f"✅ 参数组合配置已保留: {temp_config_file}")
+            if temp_config_file:
+                print(f"✅ 参数组合配置已保留: {temp_config_file}")
     
     def run_parallel_optimization(self, param_combinations: List[Dict[str, Any]], num_workers: int = 4, batch_size: int = 50, save_interval: int = 1, blueprint: Optional[Dict[str, Any]] = None, blueprint_file: str = "parameter_blueprint.json") -> List[Dict[str, Any]]:
         """
@@ -1208,7 +1219,9 @@ class ParameterOptimizer:
                     'total_return': -100.0,
                     'annual_return': -100.0,
                     'max_drawdown': -100.0,
-                    'trades_count': 0
+                    'sharpe_ratio': 0.0,
+                    'trades_count': 0,
+                    'win_rate': 0.0
                 })
         
         self.end_time = datetime.now()
@@ -1231,10 +1244,12 @@ class ParameterOptimizer:
             results: 回测结果列表
             fixed_file_name: 固定的Excel文件名
         """
-        print(f"\n🔄 更新Excel结果文件: {fixed_file_name}")
+        print(f"\n[Excel导出] 开始更新Excel结果文件: {fixed_file_name}")
+        print(f"[Excel导出] 待处理结果数量: {len(results)}")
         
         # 获取结果文件的完整路径
         file_path = os.path.join(current_dir, fixed_file_name)
+        print(f"[Excel导出] 文件保存路径: {file_path}")
         
         # 转换新结果为DataFrame
         new_df_list = []
@@ -1249,6 +1264,8 @@ class ParameterOptimizer:
                 '总收益率(%)': result['total_return'],
                 '年化收益率(%)': result['annual_return'],
                 '最大回撤(%)': result['max_drawdown'],
+                '夏普比率': result['sharpe_ratio'],
+                '胜率(%)': result['win_rate'],
                 '交易次数': result['trades_count']
             }
             
@@ -1264,37 +1281,41 @@ class ParameterOptimizer:
             new_df_list.append(row)
         
         new_df = pd.DataFrame(new_df_list)
+        print(f"[Excel导出] 新结果DataFrame创建完成，包含 {len(new_df)} 条记录")
         
         # 检查文件是否存在
         if os.path.exists(file_path):
             try:
                 # 读取现有内容
                 existing_df = pd.read_excel(file_path, engine='openpyxl')
-                print(f"📂 找到已有Excel文件，包含 {len(existing_df)} 条记录")
+                print(f"[Excel导出] 找到已有Excel文件，包含 {len(existing_df)} 条记录")
                 
                 # 合并新结果和现有结果
                 combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+                print(f"[Excel导出] 合并新旧结果，共 {len(combined_df)} 条记录")
                 
                 # 按总收益率降序排序
                 combined_df = combined_df.sort_values(by='总收益率(%)', ascending=False)
+                print(f"[Excel导出] 按总收益率降序排序完成")
                 
                 # 重新分配序号
                 combined_df['序号'] = range(1, len(combined_df) + 1)
+                print(f"[Excel导出] 重新分配序号完成")
                 
                 # 导出合并后的结果
                 combined_df.to_excel(file_path, index=False, engine='openpyxl')
-                print(f"✅ Excel文件已更新，当前共 {len(combined_df)} 条记录")
+                print(f"[Excel导出] ✅ Excel文件已更新，当前共 {len(combined_df)} 条记录")
                 
             except Exception as e:
-                print(f"❌ 读取现有Excel文件失败: {e}")
-                print("   将创建新的Excel文件")
+                print(f"[Excel导出] ❌ 读取现有Excel文件失败: {e}")
+                print("[Excel导出]   将创建新的Excel文件")
                 # 导出新结果
                 new_df.to_excel(file_path, index=False, engine='openpyxl')
-                print(f"✅ 新Excel文件已创建，包含 {len(new_df)} 条记录")
+                print(f"[Excel导出] ✅ 新Excel文件已创建，包含 {len(new_df)} 条记录")
         else:
             # 导出新结果
             new_df.to_excel(file_path, index=False, engine='openpyxl')
-            print(f"✅ 新Excel文件已创建，包含 {len(new_df)} 条记录")
+            print(f"[Excel导出] ✅ 新Excel文件已创建，包含 {len(new_df)} 条记录")
     
     def export_to_excel(self, results: List[Dict[str, Any]], file_path: str = "parameter_optimization_results.xlsx"):
         """
@@ -1317,6 +1338,8 @@ class ParameterOptimizer:
                 '总收益率(%)': result['total_return'],
                 '年化收益率(%)': result['annual_return'],
                 '最大回撤(%)': result['max_drawdown'],
+                '夏普比率': result['sharpe_ratio'],
+                '胜率(%)': result['win_rate'],
                 '交易次数': result['trades_count']
             }
             

@@ -295,7 +295,6 @@ class BacktestRunner:
             # 生成并保存详细报告
             import os
             report_data = report_generator.generate_detailed_report(self.strategy)
-            report_generator._save_report_to_file(report_data)
             print("详细报告已生成")
         except Exception as e:
             print(f"生成基础报告失败: {e}")

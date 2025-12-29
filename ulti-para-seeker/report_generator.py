@@ -99,9 +99,70 @@ class OptimizedReportGenerator:
         print(f"调试: report_generator.generate_basic_report - 年化收益率: {annual_return:.2f}%")
         
         # 计算交易次数
-        trades = context.history().transactions
+        # 优先使用strategy.trading_records，因为context.history().transactions可能为空
+        trades = []
+        if hasattr(self, 'trading_records') and self.trading_records:
+            trades = self.trading_records
+            print(f"调试: report_generator.generate_basic_report - 使用strategy.trading_records，交易记录数: {len(trades)}")
+        else:
+            trades = context.history().transactions
+            print(f"调试: report_generator.generate_basic_report - 使用context.history().transactions，交易记录数: {len(trades)}")
         trades_count = len(trades)
-        print(f"调试: report_generator.generate_basic_report - 交易记录数: {trades_count}, 交易列表: {trades}")
+        
+        # 计算胜率
+        win_rate = 0.0
+        if trades_count > 1:
+            # 将交易记录转换为DataFrame以便计算
+            import pandas as pd
+            trades_df = pd.DataFrame(trades)
+            
+            buy_trades = trades_df[trades_df['action'] == 'BUY']
+            sell_trades = trades_df[trades_df['action'] == 'SELL']
+            
+            if len(buy_trades) > 0 and len(sell_trades) > 0:
+                win_trades = 0
+                total_trades = len(sell_trades)
+                
+                for i, sell_trade in sell_trades.iterrows():
+                    symbol = sell_trade['symbol']
+                    # 找到对应的买入交易
+                    matching_buys = buy_trades[buy_trades['symbol'] == symbol]
+                    if not matching_buys.empty:
+                        buy_trade = matching_buys.iloc[-1]  # 使用最后一次买入
+                        if sell_trade['price'] > buy_trade['price']:
+                            win_trades += 1
+                
+                win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0.0
+        print(f"调试: report_generator.generate_basic_report - 胜率: {win_rate:.2f}%")
+        
+        # 计算夏普比率（简化版）
+        sharpe_ratio = 0.0
+        try:
+            # 获取组合价值数据用于计算夏普比率
+            if indicator_data and isinstance(indicator_data, dict):
+                portfolio_values = indicator_data.get('portfolio_values', [])
+                if portfolio_values and len(portfolio_values) > 1:
+                    import pandas as pd
+                    import numpy as np
+                    
+                    # 计算日收益率
+                    values = [float(pv['value']) for pv in portfolio_values if 'value' in pv]
+                    if len(values) > 1:
+                        returns = np.diff(values) / values[:-1]
+                        
+                        # 年化收益率
+                        annual_return_val = annual_return / 100  # 转换为小数
+                        
+                        # 计算年化波动率
+                        annualized_volatility = returns.std() * np.sqrt(252)
+                        
+                        if annualized_volatility > 0:
+                            # 无风险利率假设为2%
+                            risk_free_rate = 0.02
+                            sharpe_ratio = (annual_return_val - risk_free_rate) / annualized_volatility
+        except Exception as e:
+            print(f"调试: report_generator.generate_basic_report - 计算夏普比率失败: {e}")
+        print(f"调试: report_generator.generate_basic_report - 夏普比率: {sharpe_ratio:.2f}")
         
         # 打印基本报告信息
         # 确保所有报告数据字段都不为None，避免后续处理错误
@@ -123,10 +184,13 @@ class OptimizedReportGenerator:
             "total_return": total_return,
             "annual_return": annual_return,
             "max_drawdown": max_drawdown,
+            "sharpe_ratio": sharpe_ratio,
+            "win_rate": win_rate,
             "trades_count": trades_count,
             "stop_profit_ratio": stop_profit_ratio,
             "stop_loss_ratio": stop_loss_ratio,
             "backtest_days": backtest_days,
+            "trading_records": trades,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         print(f"调试: report_generator.generate_basic_report - 完整报告数据: {json.dumps(report_data, ensure_ascii=False, indent=2)}")
@@ -139,7 +203,7 @@ class OptimizedReportGenerator:
         
         return report_data
     
-    def _save_report_to_file(self, report_data: Dict[str, Any]):
+    def _save_report_to_file(self, report_data: Dict[str, Any], save_path: str = None):
         """保存报告到文件"""
         try:
             print(f"调试: report_generator._save_report_to_file - 开始保存报告到文件")
@@ -169,10 +233,12 @@ class OptimizedReportGenerator:
                 "performance_metrics": {
                     "total_return": report_data.get("total_return", 0.0),
                     "annual_return": report_data.get("annual_return", 0.0),
-                    "max_drawdown": report_data.get("max_drawdown", 0.0)
+                    "max_drawdown": report_data.get("max_drawdown", 0.0),
+                    "sharpe_ratio": report_data.get("sharpe_ratio", 0.0)
                 },
                 "trade_statistics": {
-                    "total_trades": report_data.get("trades_count", 0)
+                    "total_trades": report_data.get("trades_count", 0),
+                    "win_rate": report_data.get("win_rate", 0.0)
                 }
             }
             
@@ -225,10 +291,12 @@ class ReportGenerator:
                 "performance_metrics": {
                     "total_return": report_data.get("total_return", 0.0),
                     "annual_return": report_data.get("annual_return", 0.0),
-                    "max_drawdown": report_data.get("max_drawdown", 0.0)
+                    "max_drawdown": report_data.get("max_drawdown", 0.0),
+                    "sharpe_ratio": report_data.get("sharpe_ratio", 0.0)
                 },
                 "trade_statistics": {
-                    "total_trades": report_data.get("trades_count", 0)
+                    "total_trades": report_data.get("trades_count", 0),
+                    "win_rate": report_data.get("win_rate", 0.0)
                 }
             }
             
@@ -284,6 +352,8 @@ class ReportGenerator:
                 'total_return': total_return,
                 'annual_return': annual_return_pct,
                 'max_drawdown': max_drawdown,
+                'sharpe_ratio': 0.0,  # 添加默认夏普比率
+                'win_rate': 0.0,  # 添加默认胜率
                 'trades_count': 0,
                 'stop_profit_ratio': getattr(strategy.params, 'stop_profit_ratio', 0.0),
                 'stop_loss_ratio': getattr(strategy.params, 'stop_loss_ratio', 0.0),
@@ -357,6 +427,8 @@ class ReportGenerator:
             'total_return': total_return,
             'annual_return': annual_return_pct,
             'max_drawdown': max_drawdown,
+            'sharpe_ratio': 0.0,  # 添加默认夏普比率
+            'win_rate': 0.0,  # 添加默认胜率
             'trades_count': len(trades_df),
             'stop_profit_ratio': strategy.params.stop_profit_ratio,
             'stop_loss_ratio': strategy.params.stop_loss_ratio,
@@ -377,19 +449,24 @@ class ReportGenerator:
         Returns:
             Dict[str, Any]: 详细报告数据
         """
+        print(f"[报告生成] 开始生成详细回测报告")
         basic_report = self.generate_basic_report(strategy)
         
         if not basic_report:
+            print(f"[报告生成] 基础报告生成失败，无法生成详细报告")
             return {}
         
         # 计算更多指标
         trades_df = pd.DataFrame(strategy.trading_records)
         portfolio_df = pd.DataFrame(strategy.portfolio_values, columns=['date', 'value'])
+        print(f"[报告生成] 交易记录数: {len(strategy.trading_records)}, 组合价值记录数: {len(strategy.portfolio_values)}")
         
         # 计算胜率
+        print(f"[报告生成] 开始计算胜率")
         if len(trades_df) > 1:
             buy_trades = trades_df[trades_df['action'] == 'BUY']
             sell_trades = trades_df[trades_df['action'] == 'SELL']
+            print(f"[报告生成] 买入交易数: {len(buy_trades)}, 卖出交易数: {len(sell_trades)}")
             
             if len(buy_trades) > 0 and len(sell_trades) > 0:
                 # 简单计算胜率（需要更复杂的逻辑）
@@ -404,25 +481,33 @@ class ReportGenerator:
                         win_trades += 1
                 
                 win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
+                print(f"[报告生成] 胜率计算完成: 盈利交易数={win_trades}, 总交易数={total_trades}, 胜率={win_rate:.2f}%")
             else:
                 win_rate = 0
+                print(f"[报告生成] 买入或卖出交易数不足，无法计算胜率")
         else:
             win_rate = 0
+            print(f"[报告生成] 交易记录数不足，无法计算胜率")
         
         # 计算夏普比率（简化版）
+        print(f"[报告生成] 开始计算夏普比率")
         portfolio_df['daily_return'] = portfolio_df['value'].pct_change()
         daily_returns = portfolio_df['daily_return'].dropna()
         
         if len(daily_returns) > 0:
             annualized_return = basic_report['annual_return'] / 100
             annualized_volatility = daily_returns.std() * np.sqrt(252)
+            print(f"[报告生成] 日收益率记录数: {len(daily_returns)}, 年化收益率: {annualized_return:.4f}, 年化波动率: {annualized_volatility:.4f}")
             
             if annualized_volatility > 0:
                 sharpe_ratio = annualized_return / annualized_volatility
+                print(f"[报告生成] 夏普比率计算完成: {sharpe_ratio:.2f}")
             else:
                 sharpe_ratio = 0
+                print(f"[报告生成] 年化波动率为0，夏普比率设置为0")
         else:
             sharpe_ratio = 0
+            print(f"[报告生成] 日收益率记录不足，夏普比率设置为0")
         
         detailed_report = {
             **basic_report,
@@ -444,8 +529,7 @@ class ReportGenerator:
         print(f"波动率: {detailed_report['volatility']:.2f}%")
         
         # 保存报告到文件
-        if save_path:
-            self._save_report_to_file(detailed_report, save_path)
+        self._save_report_to_file(detailed_report, save_path)
         
         return detailed_report
     
@@ -501,6 +585,9 @@ class ReportGenerator:
                     json.dump(optimized_report, f, ensure_ascii=False, indent=2, default=str)
                 print(f"✅ 固定名称报告已保存到: {fixed_file_name}")
 
+            # 确保带时间戳的报告文件包含所有必要字段
+            report_data['sharpe_ratio'] = report_data.get('sharpe_ratio', 0.0)
+            report_data['win_rate'] = report_data.get('win_rate', 0.0)
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(report_data, f, ensure_ascii=False, indent=2, default=str)
             print(f"✅ 报告已保存到: {file_path}")

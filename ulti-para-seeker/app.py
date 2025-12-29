@@ -59,8 +59,8 @@ def read_results_from_excel(excel_path):
                 'max_drawdown': row['最大回撤(%)'] / 100,  # 转换为小数形式
                 'trades_count': row['交易次数'],
                 # 注意：Excel中可能没有这些字段，需要根据实际情况调整
-                'sharpe_ratio': 0.0,  # 默认值，根据实际情况调整
-                'win_rate': 0.0  # 默认值，根据实际情况调整
+                'sharpe_ratio': row['夏普比率'] if '夏普比率' in row else 0.0,
+                'win_rate': row['胜率(%)'] if '胜率(%)' in row else 0.0
             }
             results.append(result)
         
@@ -270,10 +270,18 @@ if st.button("开始优化"):
         if os.path.exists(blueprint_file):
             blueprint = optimizer.load_blueprint(blueprint_file)
         else:
-            blueprint = optimizer.generate_blueprint(test_mode=is_test_mode, max_sub_combinations=max_sub_combinations)
+            # 生成蓝图文件
+            blueprint_path = optimizer.generate_blueprint(test_mode=is_test_mode, max_sub_combinations=max_sub_combinations)
+            # 加载生成的蓝图
+            blueprint = optimizer.load_blueprint(blueprint_file)
         
         # 开始优化
         st.info("开始参数优化...")
+        
+        # 确保blueprint是字典类型
+        if not isinstance(blueprint, dict):
+            st.error(f"蓝图数据格式错误，预期字典类型，实际得到: {type(blueprint)}")
+            raise TypeError(f"蓝图数据格式错误，预期字典类型，实际得到: {type(blueprint)}")
         
         # 实际执行优化过程
         for combo in blueprint['combinations']:
@@ -331,84 +339,74 @@ if st.button("开始优化"):
 # 显示回测结果
 st.header("回测结果")
 
-# 数据源选择
-results_source = st.radio(
-    "选择结果数据源",
-    ["参数蓝图", "Excel文件"],
-    horizontal=True
-)
-
-# Excel文件路径输入
-excel_results_path = None
-if results_source == "Excel文件":
-    excel_results_path = st.text_input(
-        "Excel文件路径",
-        value="parameter_optimization_results.xlsx"
-    )
-
 # 如果点击了查看按钮或者优化完成，显示结果
 if st.button("查看回测结果") or show_results:
     try:
-        if results_source == "参数蓝图":
-            # 加载蓝图
-            blueprint = optimizer.load_blueprint(blueprint_file)
-            
-            # 提取已完成的组合结果
-            results = []
-            for combo in blueprint['combinations']:
-                if combo['status'] == 'completed' and combo['result']:
-                    result = combo['result']
-                    result['id'] = combo['id']
-                    result['stop_profit_ratio'] = combo['params']['stop_profit_ratio']
-                    result['stop_loss_ratio'] = combo['params']['stop_loss_ratio']
-                    result['weights_config'] = combo['params']['weights_config']
-                    results.append(result)
-        else:
-            # 从Excel文件读取结果
-            if not excel_results_path:
-                st.error("请输入Excel文件路径")
-                results = []
-            else:
-                # 构建完整路径
-                full_excel_path = os.path.join(current_dir, excel_results_path)
-                if not os.path.exists(full_excel_path):
-                    st.error(f"Excel文件不存在: {full_excel_path}")
-                    results = []
-                else:
-                    with st.spinner("正在从Excel文件读取结果..."):
-                        results = read_results_from_excel(full_excel_path)
+        # 从Excel文件读取结果
+        excel_file = os.path.join(current_dir, "parameter_optimization_results.xlsx")
         
-        if results:
-            # 转换为DataFrame
-            df = pd.DataFrame(results)
+        if os.path.exists(excel_file):
+            # 直接读取Excel文件
+            df = pd.read_excel(excel_file, engine='openpyxl')
             
-            # 显示表格
-            st.dataframe(df)
-            
-            # 显示图表
-            st.subheader("收益率分布")
-            st.bar_chart(df[['id', 'total_return_rate']].set_index('id'))
-            
-            # 显示最优结果
-            st.subheader("最优参数组合")
-            best_result = max(results, key=lambda x: x.get('total_return_rate', 0))
-            
-            st.write("参数配置:")
-            st.write(f"止盈: {best_result['stop_profit_ratio']:.2%}")
-            st.write(f"止损: {best_result['stop_loss_ratio']:.2%}")
-            st.write("权重配置:")
-            for k, v in best_result['weights_config'].items():
-                st.write(f"  {k}: {v}%")
-            
-            st.write("回测结果:")
-            st.write(f"总收益率: {best_result.get('total_return_rate', 0):.2%}")
-            st.write(f"最大回撤: {best_result.get('max_drawdown', 0):.2%}")
-            st.write(f"夏普比率: {best_result.get('sharpe_ratio', 0):.2f}")
+            if not df.empty:
+                # 确保所有数值列都有正确的格式
+                df['序号'] = df['序号'].astype(int)
+                df['总收益率(%)'] = df['总收益率(%)'].round(2)
+                df['年化收益率(%)'] = df['年化收益率(%)'].round(2)
+                df['最大回撤(%)'] = df['最大回撤(%)'].round(2)
+                df['夏普比率'] = df['夏普比率'].round(2)
+                df['胜率(%)'] = df['胜率(%)'].round(2)
+                
+                # 显示表格
+                st.dataframe(df)
+                
+                # 显示图表
+                st.subheader("收益率分布")
+                if '总收益率(%)' in df.columns:
+                    st.bar_chart(df[['序号', '总收益率(%)']].set_index('序号'))
+                
+                # 显示最优结果
+                st.subheader("最优参数组合")
+                # 找到总收益率最高的行
+                best_result = df.loc[df['总收益率(%)'].idxmax()]
+                
+                st.write("参数配置:")
+                st.write(f"回测天数: {best_result['回测天数']}天")
+                st.write(f"止盈比例: {best_result['止盈比例(%)']}%")
+                st.write(f"止损比例: {best_result['止损比例(%)']}%")
+                
+                # 显示权重配置
+                st.write("权重配置:")
+                weight_columns = [col for col in df.columns if col.startswith('权重_')]
+                for col in weight_columns:
+                    indicator_name = col.replace('权重_', '')
+                    st.write(f"  {indicator_name}: {best_result[col]}%")
+                
+                # 显示子权重配置
+                sub_weight_columns = [col for col in df.columns if col.startswith('子权重_')]
+                if sub_weight_columns:
+                    st.write("子权重配置:")
+                    for col in sub_weight_columns:
+                        indicator_name = col.replace('子权重_', '')
+                        st.write(f"  {indicator_name}: {best_result[col]}%")
+                
+                st.write("回测结果:")
+                st.write(f"总收益率: {best_result['总收益率(%)']}%")
+                st.write(f"年化收益率: {best_result['年化收益率(%)']}%")
+                st.write(f"最大回撤: {best_result['最大回撤(%)']}%")
+                st.write(f"夏普比率: {best_result['夏普比率']:.2f}")
+                st.write(f"胜率: {best_result['胜率(%)']}%")
+                st.write(f"交易次数: {best_result['交易次数']}")
+            else:
+                st.info("Excel文件为空")
         else:
-            st.info("暂无完成的回测结果")
+            st.info("Excel文件不存在，尚未生成回测结果")
             
     except Exception as e:
         st.error(f"查看回测结果失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 # 页脚信息
 st.markdown("<p style='text-align: center; color: gray;'>参数优化器 © 2024</p>", unsafe_allow_html=True)

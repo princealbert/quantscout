@@ -16,18 +16,18 @@
     "created_at": "2025-12-10T18:24:17.393378",
     "is_default": true
   },
-  "54e6c59a-87f3-48ca-932a-56194b69c112": {
-    "id": "54e6c59a-87f3-48ca-932a-56194b69c112",
-    "name": "百分制碗策略",
-    "description": "",
+  "56af78bc-bc4c-4b5b-81a7-370fbfe31bcd": {
+    "id": "56af78bc-bc4c-4b5b-81a7-370fbfe31bcd",
+    "name": "高盈亏比碗策略",
+    "description": "降低kdj，提高盈亏比",
     "weights": {
-      "kdj_j": 30,
+      "kdj_j": 20,
       "trend": 10,
       "deepv": 0,
-      "volume": 25,
+      "volume": 30,
       "fundamental": 10,
       "position": 15,
-      "risk_reward": 10
+      "risk_reward": 15
     },
     "sub_weights": {
       "kdj_j": {
@@ -51,8 +51,8 @@
       "volume": {
         "total_weight": 100,
         "sub_weights": {
-          "big_volume": 60,
-          "volume_anomaly": 10,
+          "big_volume": 40,
+          "volume_anomaly": 30,
           "volume_breathing": 30
         }
       },
@@ -74,7 +74,7 @@
         }
       }
     },
-    "created_at": "2025-12-23T21:15:24.977968",
+    "created_at": "2025-12-27T11:29:42.416691",
     "is_default": false
   }
 }

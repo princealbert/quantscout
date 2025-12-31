@@ -49,7 +49,7 @@ class ConfigManager:
                 "slippage_ratio": 0.0001,
                 "backtest_days": 360,
                 "max_stocks_to_backtest": 1,
-                "stock_pool_limit": 50
+                "stock_pool_limit": None
             },
             "trading": {
                 "stop_profit_ratio": 0.20,
@@ -305,7 +305,7 @@ class FrontendConfigLoader:
             'strategy_id': backtest.get('strategy_id', f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
             'strategy_type': strategy.get('strategy_type', 'zge_strategy'),
             'max_stocks_to_backtest': backtest.get('max_stocks_to_backtest', len(selected_stocks)),
-            'stock_pool_limit': 100,  # 默认值
+            'stock_pool_limit': None,  # 默认值，None表示不限制
             'weights_config': strategy.get('weights_config', {}),
             'sub_weights_config': strategy.get('sub_weights_config', {}),
             'fallback_stocks': selected_stocks  # 使用前端选择的股票作为备选股票
@@ -432,7 +432,7 @@ def get_strategy_params_compatible() -> Dict[str, Any]:
         'strategy_id': strategy_params.get('strategy_id', 'zge_strategy_v1'),
         'strategy_type': strategy_params.get('strategy_type', '碗选股'),
         'max_stocks_to_backtest': backtest_params.get('max_stocks_to_backtest', 1),
-        'stock_pool_limit': backtest_params.get('stock_pool_limit', 50),
+        'stock_pool_limit': backtest_params.get('stock_pool_limit', None),
         'weights_config': strategy_params.get('weights_config', {}),
         'sub_weights_config': strategy_params.get('sub_weights_config', {}),
         'fallback_stocks': fallback_params.get('fallback_stocks', [])

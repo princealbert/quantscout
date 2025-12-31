@@ -299,7 +299,7 @@ class FrontendConfigLoader:
             'strategy_id': backtest.get('strategy_id', f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
             'strategy_type': strategy.get('strategy_type', 'zge_strategy'),
             'max_stocks_to_backtest': backtest.get('max_stocks_to_backtest', len(selected_stocks)),
-            'stock_pool_limit': 100,  # 默认值
+            'stock_pool_limit': None,  # 默认值
             'weights_config': strategy.get('weights_config', {}),
             'sub_weights_config': strategy.get('sub_weights_config', {}),
             'fallback_stocks': selected_stocks  # 使用前端选择的股票作为备选股票

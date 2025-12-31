@@ -76,5 +76,66 @@
     },
     "created_at": "2025-12-27T11:29:42.416691",
     "is_default": false
+  },
+  "9afb5828-aefa-454b-a39f-e8d5edd519e7": {
+    "id": "9afb5828-aefa-454b-a39f-e8d5edd519e7",
+    "name": "第一版求解",
+    "description": "",
+    "weights": {
+      "kdj_j": 5,
+      "trend": 5,
+      "deepv": 0,
+      "volume": 5,
+      "fundamental": 5,
+      "position": 5,
+      "risk_reward": 75
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "total_weight": 100,
+        "sub_weights": {
+          "j_0_20": 25,
+          "j_-10_0": 5,
+          "j_-20_-10": 25,
+          "j_-30_-20": 5,
+          "j_below_-30": 40
+        }
+      },
+      "trend": {
+        "total_weight": 100,
+        "sub_weights": {
+          "up_trend": 5,
+          "volume_price_rise": 60,
+          "volume_contraction": 35
+        }
+      },
+      "volume": {
+        "total_weight": 100,
+        "sub_weights": {
+          "big_volume": 25,
+          "volume_anomaly": 5,
+          "volume_breathing": 70
+        }
+      },
+      "fundamental": {
+        "total_weight": 100,
+        "sub_weights": {
+          "pe_positive": 30,
+          "pe_low": 5,
+          "market_cap": 60,
+          "volume_threshold": 5
+        }
+      },
+      "position": {
+        "total_weight": 100,
+        "sub_weights": {
+          "above_white": 65,
+          "between_lines": 30,
+          "below_yellow": 5
+        }
+      }
+    },
+    "created_at": "2025-12-31T16:13:17.749871",
+    "is_default": false
   }
 }

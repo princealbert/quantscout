@@ -310,6 +310,8 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
         config: 回测配置参数
         config_path: 前端生成的JSON配置文件路径
     """
+    params = None
+    
     # 检查是否提供了前端配置文件路径
     if config_path:
         try:
@@ -368,6 +370,49 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
                     return
         except Exception as e:
             print(f"❌ 加载前端配置失败: {e}")
+            return
+    elif config:
+        # 使用直接传入的配置参数
+        try:
+            # 导入参数配置系统
+            try:
+                from .config.strategy_params import set_current_params, get_current_params
+            except ImportError:
+                from config.strategy_params import set_current_params, get_current_params
+            
+            # 设置当前策略参数
+            set_current_params(config)
+            
+            # 获取当前策略参数
+            params = get_current_params()
+            
+            print("🎯 z哥选股策略回测系统 - 直接配置模式")
+            print("="*50)
+            print(f"💰 初始资金: {config.get('initial_capital', 100000):,}元")
+            print(f"📊 佣金比例: {config.get('commission_ratio', 0.0003)*10000}‱")
+            print(f"📈 止盈比例: {config.get('stop_profit_ratio', 0.03)*100:.2f}%")
+            print(f"📉 止损比例: {config.get('stop_loss_ratio', -0.02)*100:.2f}%")
+            print(f"📅 回测天数: {config.get('backtest_days', 90)}天")
+            print(f"🎯 策略ID: {config.get('strategy_id', 'zge_strategy')}")
+            print(f"📈 回测股票数量: {config.get('max_stocks_to_backtest', 1)}只")
+            
+            # 显示权重配置信息
+            weights_config = config.get('weights_config', {})
+            sub_weights_config = config.get('sub_weights_config', {})
+            if weights_config:
+                print(f"⚖️ 权重配置: {weights_config}")
+            if sub_weights_config:
+                print(f"🔄 子权重配置: {sub_weights_config}")
+            print("="*50)
+            
+            # 计算回测期间
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=config.get('backtest_days', 90))
+            
+        except Exception as e:
+            print(f"❌ 设置策略参数失败: {e}")
+            import traceback
+            traceback.print_exc()
             return
     else:
         # 使用参数化配置系统

@@ -225,7 +225,10 @@ class OptimizedReportGenerator:
             print(f"调试: report_generator._save_report_to_file - 时间戳报告保存成功")
             
             # 同时保存一个固定名称的文件，用于参数优化器快速读取
-            fixed_file_name = "backtest_report.json"
+            # 获取parameter_optimizer.py所在目录，确保文件保存在正确位置
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            fixed_file_name = os.path.join(current_dir, "backtest_report.json")
             print(f"调试: report_generator._save_report_to_file - 保存固定名称报告到: {fixed_file_name}")
             
             # 转换报告数据格式，使其与parameter_optimizer.py的预期一致
@@ -283,7 +286,10 @@ class ReportGenerator:
             print(f"调试: report_generator._save_report_to_file - 时间戳报告保存成功")
             
             # 同时保存一个固定名称的文件，用于参数优化器快速读取
-            fixed_file_name = "backtest_report.json"
+            # 获取parameter_optimizer.py所在目录，确保文件保存在正确位置
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            fixed_file_name = os.path.join(current_dir, "backtest_report.json")
             print(f"调试: report_generator._save_report_to_file - 保存固定名称报告到: {fixed_file_name}")
             
             # 转换报告数据格式，使其与parameter_optimizer.py的预期一致
@@ -558,6 +564,7 @@ class ReportGenerator:
     def _save_report_to_file(self, report_data: Dict[str, Any], file_path: str = None):
         """保存报告到文件"""
         try:
+            import os
             if not file_path:
                 # 生成带时间戳的文件名，用于长期保存
                 timestamp = report_data.get("timestamp", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
@@ -567,7 +574,9 @@ class ReportGenerator:
                 file_path = f"{report_dir}/backtest_report_{timestamp}.json"
                 
                 # 同时保存一个固定名称的文件，用于参数优化器快速读取
-                fixed_file_name = "backtest_report.json"
+                import os
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                fixed_file_name = os.path.join(current_dir, "backtest_report.json")
                 with open(fixed_file_name, 'w', encoding='utf-8') as f:
                     # 转换报告数据格式，使其与parameter_optimizer.py的预期一致
                     optimized_report = {

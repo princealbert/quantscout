@@ -86,9 +86,11 @@ class BacktestStrategy:
                     return None
                 
                 # 限制股票池大小，加快测试 - 使用参数化配置
-                stock_pool = stock_pool[:self.params.stock_pool_limit]
-                
-                print(f"[{current_date}] 股票池大小: {len(stock_pool)}只 (已限制)")
+                if self.params.stock_pool_limit is not None:
+                    stock_pool = stock_pool[:self.params.stock_pool_limit]
+                    print(f"[{current_date}] 股票池大小: {len(stock_pool)}只 (已限制)")
+                else:
+                    print(f"[{current_date}] 股票池大小: {len(stock_pool)}只 (全量)")
                 
                 # 处理股票数据
                 processed_stocks = screener.process_stock_batch(stock_pool, current_date)

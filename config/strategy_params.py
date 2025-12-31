@@ -36,7 +36,7 @@ class StrategyParams:
         self.strategy_type = kwargs.get('strategy_type', 'zge_strategy')
         
         # 股票池配置
-        self.stock_pool_limit = kwargs.get('stock_pool_limit', 100)  # 限制股票池大小
+        self.stock_pool_limit = kwargs.get('stock_pool_limit', None)  # 股票池大小限制，None表示不限制
         self.max_stocks_to_backtest = kwargs.get('max_stocks_to_backtest', 1)
         
         # 备用股票列表

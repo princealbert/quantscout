@@ -40,12 +40,27 @@ class StrategyParams:
         self.stop_loss_ratio = kwargs.get('stop_loss_ratio', -0.02)     # 止损比例2%
         
         # 选股参数
-        self.weights_config = kwargs.get('weights_config', None)
-        self.sub_weights_config = kwargs.get('sub_weights_config', None)
+        # 确保权重配置中的所有值都是整数
+        weights_config = kwargs.get('weights_config', None)
+        if weights_config:
+            # 将权重配置中的所有值转换为整数
+            for ind, weight in weights_config.items():
+                weights_config[ind] = int(weight)
+        self.weights_config = weights_config
+        
+        # 确保子权重配置中的所有值都是整数
+        sub_weights_config = kwargs.get('sub_weights_config', None)
+        if sub_weights_config:
+            for main_ind, sub_config in sub_weights_config.items():
+                if isinstance(sub_config, dict) and 'sub_weights' in sub_config:
+                    for sub_ind, weight in sub_config['sub_weights'].items():
+                        sub_config['sub_weights'][sub_ind] = int(weight)
+        self.sub_weights_config = sub_weights_config
+        
         self.strategy_type = kwargs.get('strategy_type', 'zge_strategy')
         
         # 股票池配置
-        self.stock_pool_limit = kwargs.get('stock_pool_limit', 100)  # 限制股票池大小
+        self.stock_pool_limit = kwargs.get('stock_pool_limit', None)  # 股票池大小限制，None表示不限制
         self.max_stocks_to_backtest = kwargs.get('max_stocks_to_backtest', 1)
         
         # 备用股票列表

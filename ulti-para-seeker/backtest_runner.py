@@ -484,15 +484,25 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
     
     # 运行回测 - 使用当前目录下的main.py
     # 确保使用正确的工作目录和文件名格式
-    run(
-        strategy_id=params.strategy_id,
-        filename='main.py',
-        mode=MODE_BACKTEST,
-        token=actual_token,
-        backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),
-        backtest_end_time=end_date.strftime('%Y-%m-%d 15:00:00'),
-        backtest_adjust=ADJUST_PREV,
-        backtest_initial_cash=params.initial_capital,
-        backtest_commission_ratio=params.commission_ratio,
-        backtest_slippage_ratio=0.0001
-    )
+    import sys
+    
+    # 保存原始命令行参数并清理，避免gm.api.run()重新解析时出错
+    original_argv = sys.argv.copy()
+    sys.argv = ['backtest_runner.py']  # 只保留文件名，不包含任何命令行参数
+    
+    try:
+        run(
+            strategy_id=params.strategy_id,
+            filename='main.py',  # 直接使用'main.py'，确保当前工作目录是ulti-para-seeker目录
+            mode=MODE_BACKTEST,
+            token=actual_token,
+            backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),
+            backtest_end_time=end_date.strftime('%Y-%m-%d 15:00:00'),
+            backtest_adjust=ADJUST_PREV,
+            backtest_initial_cash=params.initial_capital,
+            backtest_commission_ratio=params.commission_ratio,
+            backtest_slippage_ratio=0.0001
+        )
+    finally:
+        # 恢复原始命令行参数
+        sys.argv = original_argv

@@ -25,7 +25,9 @@ class ResultProcessor:
         Args:
             current_dir: 当前工作目录，默认为None
         """
-        self.current_dir = current_dir or os.path.dirname(os.path.abspath(__file__))
+        # 默认使用项目根目录（ulti-para-seeker），确保与app.py保持一致
+        default_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.current_dir = current_dir or default_dir
     
     def export_to_excel(self, results: List[Dict[str, Any]], file_path: str = "parameter_optimization_results.xlsx"):
         """
@@ -126,6 +128,27 @@ class ResultProcessor:
             print("[Excel导出] ❌ 没有有效结果可导出")
             return
         
+        # 定义固定的列顺序，确保回测指标字段放在一起
+        # 基本参数
+        base_columns = ['序号', '回测天数', '回测起始日期', '回测终止日期', '止盈比例(%)', '止损比例(%)']
+        
+        # 回测指标（放在一起）
+        metric_columns = ['总收益率(%)', '年化收益率(%)', '最大回撤(%)', '夏普比率', '胜率(%)', '交易次数']
+        
+        # 权重配置列
+        weight_columns = [col for col in combined_df.columns if col.startswith('权重_')]
+        
+        # 子权重配置列
+        sub_weight_columns = [col for col in combined_df.columns if col.startswith('子权重_')]
+        
+        # 构建完整的列顺序
+        column_order = base_columns + metric_columns + weight_columns + sub_weight_columns
+        
+        # 确保所有列都包含在column_order中
+        for col in combined_df.columns:
+            if col not in column_order:
+                column_order.append(col)
+        
         # 按总收益率降序排序
         combined_df = combined_df.sort_values(by='总收益率(%)', ascending=False)
         print(f"[Excel导出] 按总收益率降序排序完成")
@@ -133,6 +156,10 @@ class ResultProcessor:
         # 重新分配序号
         combined_df['序号'] = range(1, len(combined_df) + 1)
         print(f"[Excel导出] 重新分配序号完成")
+        
+        # 按固定顺序重新排列列
+        combined_df = combined_df[column_order]
+        print(f"[Excel导出] 列顺序调整完成: {column_order}")
         
         # 保存到Excel文件
         combined_df.to_excel(file_path, index=False, engine='openpyxl')

@@ -7,7 +7,7 @@
 
 from .strategy import BacktestStrategy
 from .backtest_runner import BacktestRunner, run_backtest
-from .report_generator import ReportGenerator, generate_backtest_summary
+from .report_generator import ReportGenerator
 from .config_manager import ConfigManager, get_current_config, update_backtest_config, validate_current_config
 from .token_manager import TokenManager, get_token_manager, get_token, validate_token, update_token, get_token_info
 
@@ -18,7 +18,6 @@ __all__ = [
     'ConfigManager',
     'TokenManager',
     'run_backtest',
-    'generate_backtest_summary',
     'get_current_config',
     'update_backtest_config',
     'validate_current_config',

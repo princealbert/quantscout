@@ -194,8 +194,10 @@ class BaseOptimizer(ABC):
             blueprint["combinations"].append(combination)
         
         # 保存蓝图文件
-        from ..utils.path_utils import get_project_root
-        blueprint_path = os.path.join(get_project_root(), blueprint_file)
+        # 使用当前文件的父目录作为项目根目录，避免依赖不存在的path_utils模块
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        blueprint_path = os.path.join(project_root, blueprint_file)
         with open(blueprint_path, 'w', encoding='utf-8') as f:
             json.dump(blueprint, f, ensure_ascii=False, indent=2)
         
@@ -214,8 +216,9 @@ class BaseOptimizer(ABC):
         import os
         import json
         
-        from ..utils.path_utils import get_project_root
-        blueprint_path = os.path.join(get_project_root(), blueprint_file)
+        # 使用当前文件的父目录作为项目根目录，避免依赖不存在的path_utils模块
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        blueprint_path = os.path.join(project_root, blueprint_file)
         
         if not os.path.exists(blueprint_path):
             raise FileNotFoundError(f"蓝图文件不存在: {blueprint_path}")
@@ -277,8 +280,9 @@ class BaseOptimizer(ABC):
         import os
         import json
         
-        from ..utils.path_utils import get_project_root
-        blueprint_path = os.path.join(get_project_root(), blueprint_file)
+        # 使用当前文件的父目录作为项目根目录，避免依赖不存在的path_utils模块
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        blueprint_path = os.path.join(project_root, blueprint_file)
         
         # 更新最后修改时间
         blueprint['last_modified'] = datetime.now().isoformat()

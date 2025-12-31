@@ -24,6 +24,9 @@ if current_dir not in sys.path:
 from optimizers.brute_force_optimizer import BruteForceOptimizer
 from optimizers.result_processor import ResultProcessor
 
+# 导入蓝图管理器
+from utils.blueprint_manager import BlueprintManager
+
 
 class ParameterOptimizer(BruteForceOptimizer):
     """
@@ -38,6 +41,10 @@ class ParameterOptimizer(BruteForceOptimizer):
         self.start_time = None
         self.end_time = None
         self.result_processor = ResultProcessor(current_dir)
+        # 初始化蓝图管理器
+        self.blueprint_manager = BlueprintManager()
+        # 保存当前目录，用于文件操作
+        self.current_dir = current_dir
     
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                                use_advanced_weights: bool = True, end_date: str = '2025-12-25', 
@@ -151,8 +158,8 @@ class ParameterOptimizer(BruteForceOptimizer):
             weights_config = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
         
         return {
-            # 回测天数 - 固定为90天（适合超跌反弹策略）
-            'backtest_days': [90],
+            # 回测天数 - 测试模式下使用10天，非测试模式下使用90天（适合超跌反弹策略）
+            'backtest_days': [10] if test_mode else [90],
             
             # 回测终点日期 - 确保所有组合在相同时间段回测
             'end_date': [end_date],
@@ -195,7 +202,78 @@ class ParameterOptimizer(BruteForceOptimizer):
         Returns:
             List[Dict[str, Any]]: 所有可能的参数组合列表
         """
-        return super().generate_parameter_combinations(test_mode, max_sub_combinations, end_date)
+        # 使用当前类的define_parameter_ranges方法，确保前端传入的参数范围生效
+        param_ranges = self.define_parameter_ranges(
+            test_mode=test_mode,
+            max_sub_combinations=max_sub_combinations,
+            end_date=end_date,
+            stop_profit_min=stop_profit_min,
+            stop_profit_max=stop_profit_max,
+            stop_profit_step=stop_profit_step,
+            stop_loss_min=stop_loss_min,
+            stop_loss_max=stop_loss_max,
+            stop_loss_step=stop_loss_step,
+            weight_step=weight_step
+        )
+        
+        # 计算总组合数（用于进度显示）
+        total_combinations = (len(param_ranges['backtest_days']) * 
+                            len(param_ranges['end_date']) * 
+                            len(param_ranges['stop_profit_ratio']) * 
+                            len(param_ranges['stop_loss_ratio']) * 
+                            len(param_ranges['weights_config']) * 
+                            len(param_ranges['sub_weights_config']))
+        
+        print(f"开始生成参数组合...")
+        print(f"预计总组合数: {total_combinations}")
+        
+        combinations = []
+        current_count = 0
+        
+        # 生成所有可能的组合
+        for backtest_days in param_ranges['backtest_days']:
+            for end_date in param_ranges['end_date']:
+                for stop_profit_ratio in param_ranges['stop_profit_ratio']:
+                    for stop_loss_ratio in param_ranges['stop_loss_ratio']:
+                        for weights_config in param_ranges['weights_config']:
+                            for sub_weights_config in param_ranges['sub_weights_config']:
+                                # 确保止盈大于止损
+                                if stop_profit_ratio > stop_loss_ratio:
+                                    # 将deepv权重设置为零
+                                    weights_config_with_zero_deepv = weights_config.copy()
+                                    weights_config_with_zero_deepv['deepv'] = 0
+                                    
+                                    # 创建参数组合
+                                    combination = {
+                                        'backtest_days': backtest_days,
+                                        'end_date': end_date,
+                                        'stop_profit_ratio': stop_profit_ratio,
+                                        'stop_loss_ratio': stop_loss_ratio,
+                                        'weights_config': weights_config_with_zero_deepv,
+                                        'sub_weights_config': sub_weights_config
+                                    }
+                                    
+                                    combinations.append(combination)
+                                    current_count += 1
+                                    
+                                    # 每生成1000个组合显示一次进度
+                                    if current_count % 1000 == 0:
+                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合")
+                                    
+                                    # 测试模式下仅生成第一个组合
+                                    if test_mode and len(combinations) >= 1:
+                                        print("[测试模式] 仅生成并返回第一个参数组合")
+                                        return combinations
+        
+        # 如果是遗传算法，只返回指定数量的组合
+        if algorithm == "遗传算法" and total_combinations > 0:
+            print(f"[{algorithm}] 从 {len(combinations)} 个组合中选择 {max_sub_combinations} 个进行优化")
+            # 随机选择max_sub_combinations个组合
+            import random
+            random.shuffle(combinations)
+            return combinations[:max_sub_combinations]
+        
+        return combinations
     
     def run_optimization(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                         end_date: str = '2025-12-25', algorithm: str = "暴力搜索", 
@@ -314,6 +392,62 @@ class ParameterOptimizer(BruteForceOptimizer):
         """
         return self.result_processor.get_best_result(results)
     
+    def generate_blueprint(self, test_mode: bool = False, max_sub_combinations: int = 10, 
+                          end_date: str = '2025-12-25', blueprint_file: str = "parameter_blueprint.json",
+                          algorithm: str = "暴力搜索", stop_profit_min: int = None, stop_profit_max: int = None,
+                          stop_profit_step: int = None, stop_loss_min: int = None, stop_loss_max: int = None,
+                          stop_loss_step: int = None, weight_step: int = None) -> str:
+        """
+        生成参数组合蓝图文件，使用蓝图管理器实现
+        
+        Args:
+            test_mode: 是否为测试模式
+            max_sub_combinations: 最大子权重组合数
+            end_date: 回测终点日期
+            blueprint_file: 蓝图文件路径
+            algorithm: 优化算法
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
+            
+        Returns:
+            蓝图文件路径
+        """
+        # 生成参数组合，使用重写后的方法，确保前端传入的参数范围生效
+        param_combinations = self.generate_parameter_combinations(
+            test_mode=test_mode,
+            max_sub_combinations=max_sub_combinations,
+            end_date=end_date,
+            algorithm=algorithm,
+            stop_profit_min=stop_profit_min,
+            stop_profit_max=stop_profit_max,
+            stop_profit_step=stop_profit_step,
+            stop_loss_min=stop_loss_min,
+            stop_loss_max=stop_loss_max,
+            stop_loss_step=stop_loss_step,
+            weight_step=weight_step
+        )
+        
+        # 使用蓝图管理器生成蓝图
+        blueprint = self.blueprint_manager.generate_blueprint(
+            param_combinations=param_combinations,
+            test_mode=test_mode,
+            max_sub_combinations=max_sub_combinations,
+            end_date=end_date,
+            algorithm=algorithm
+        )
+        
+        # 保存蓝图文件到当前目录
+        blueprint_path = os.path.join(self.current_dir, blueprint_file)
+        self.blueprint_manager.save_blueprint(blueprint, blueprint_path)
+        
+        print(f"蓝图已生成，包含 {len(param_combinations)} 个参数组合")
+        return blueprint_path
+    
     def list_blueprints(self) -> List[Dict[str, Any]]:
         """
         列出所有蓝图文件
@@ -321,46 +455,7 @@ class ParameterOptimizer(BruteForceOptimizer):
         Returns:
             List[Dict[str, Any]]: 蓝图文件列表，每个文件包含filename、size_kb、total_combinations、algorithm等信息
         """
-        blueprints = []
-        
-        # 遍历当前目录下的蓝图文件
-        for filename in os.listdir(current_dir):
-            if filename.startswith('parameter_blueprint') and filename.endswith('.json'):
-                file_path = os.path.join(current_dir, filename)
-                try:
-                    # 获取文件大小
-                    size = os.path.getsize(file_path)
-                    size_kb = round(size / 1024, 2)
-                    
-                    # 读取文件内容，获取蓝图信息
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        blueprint_data = json.load(f)
-                    
-                    # 提取必要信息
-                    total_combinations = blueprint_data.get('total_combinations', 0)
-                    algorithm = blueprint_data.get('algorithm', '未知')
-                    version = blueprint_data.get('version', '1.0')
-                    generated_at = blueprint_data.get('generated_at', '')
-                    
-                    blueprints.append({
-                        'filename': filename,
-                        'size_kb': size_kb,
-                        'total_combinations': total_combinations,
-                        'algorithm': algorithm,
-                        'version': version,
-                        'generated_at': generated_at,
-                        'created_at': generated_at,  # 兼容app.py中的created_at字段
-                        'modified_at': generated_at,  # 兼容app.py中的modified_at字段
-                        'is_index': 'files' in blueprint_data,  # 检查是否为分拆的蓝图索引文件
-                        'file_path': file_path
-                    })
-                except Exception as e:
-                    print(f"读取蓝图文件失败: {filename}, 错误: {e}")
-        
-        # 按生成时间降序排序
-        blueprints.sort(key=lambda x: x.get('generated_at', ''), reverse=True)
-        
-        return blueprints
+        return self.blueprint_manager.list_blueprints(self.current_dir)
     
     def clear_blueprints(self) -> int:
         """
@@ -369,20 +464,7 @@ class ParameterOptimizer(BruteForceOptimizer):
         Returns:
             int: 删除的文件数量
         """
-        deleted_count = 0
-        
-        # 遍历当前目录下的蓝图文件
-        for filename in os.listdir(current_dir):
-            if filename.startswith('parameter_blueprint') and filename.endswith('.json'):
-                file_path = os.path.join(current_dir, filename)
-                try:
-                    os.remove(file_path)
-                    deleted_count += 1
-                    print(f"已删除蓝图文件: {filename}")
-                except Exception as e:
-                    print(f"删除蓝图文件失败: {filename}, 错误: {e}")
-        
-        return deleted_count
+        return self.blueprint_manager.clear_blueprints(self.current_dir)
         
     def delete_blueprint(self, filename: str) -> bool:
         """
@@ -394,25 +476,33 @@ class ParameterOptimizer(BruteForceOptimizer):
         Returns:
             bool: 删除是否成功
         """
-        # 检查文件名格式是否合法
-        if not (filename.startswith('parameter_blueprint') and filename.endswith('.json')):
-            print(f"无效的蓝图文件名: {filename}")
-            return False
+        return self.blueprint_manager.delete_blueprint(filename, self.current_dir)
+    
+    def load_blueprint(self, blueprint_file: str = "parameter_blueprint.json", load_all: bool = True) -> Dict[str, Any]:
+        """
+        加载参数组合蓝图文件，使用蓝图管理器实现
         
-        file_path = os.path.join(current_dir, filename)
+        Args:
+            blueprint_file: 蓝图文件路径
+            load_all: 是否加载所有组合（暂不使用，保持接口兼容）
+            
+        Returns:
+            蓝图数据
+        """
+        blueprint_path = os.path.join(self.current_dir, blueprint_file)
+        return self.blueprint_manager.load_blueprint(blueprint_path)
+    
+    def _count_completed_combinations(self, blueprint: Dict[str, Any]) -> int:
+        """
+        统计已完成的组合数
         
-        try:
-            # 检查文件是否存在
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                print(f"已删除蓝图文件: {filename}")
-                return True
-            else:
-                print(f"蓝图文件不存在: {filename}")
-                return False
-        except Exception as e:
-            print(f"删除蓝图文件失败: {filename}, 错误: {e}")
-            return False
+        Args:
+            blueprint: 蓝图数据
+            
+        Returns:
+            已完成的组合数
+        """
+        return self.blueprint_manager.count_completed_combinations(blueprint)
 
 
 def main():

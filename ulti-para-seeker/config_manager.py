@@ -296,6 +296,9 @@ class FrontendConfigLoader:
         if initial_capital is None:
             initial_capital = frontend_config.get('initial_capital', 100000)
         
+        # 检测是否为测试模式（回测天数为10天）
+        is_test_mode = backtest.get('backtest_days', 90) == 10
+        
         return {
             'initial_capital': initial_capital,
             'commission_ratio': 0.0003,  # 默认值
@@ -304,8 +307,8 @@ class FrontendConfigLoader:
             'stop_loss_ratio': strategy.get('stop_loss_ratio', -0.02),
             'strategy_id': backtest.get('strategy_id', f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
             'strategy_type': strategy.get('strategy_type', 'zge_strategy'),
-            'max_stocks_to_backtest': backtest.get('max_stocks_to_backtest', len(selected_stocks)),
-            'stock_pool_limit': None,  # 默认值，None表示不限制
+            'max_stocks_to_backtest': backtest.get('max_stocks_to_backtest', 100 if is_test_mode else len(selected_stocks)),
+            'stock_pool_limit': 100 if is_test_mode else None,  # 测试模式下限制股票池为100只，非测试模式不限制
             'weights_config': strategy.get('weights_config', {}),
             'sub_weights_config': strategy.get('sub_weights_config', {}),
             'fallback_stocks': selected_stocks  # 使用前端选择的股票作为备选股票

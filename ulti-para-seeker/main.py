@@ -21,11 +21,24 @@ except ImportError:
 
 def init(context):
     """策略初始化 - 参数优化专用"""
+    # 确保ulti-para-seeker目录在sys.path中，避免导入错误的模块
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    
     # 导入参数配置系统
     try:
-        from .config.strategy_params import get_current_params, load_params_from_file
-    except ImportError:
         from config.strategy_params import get_current_params, load_params_from_file
+    except ImportError as e:
+        print(f"从config.strategy_params导入失败: {e}")
+        # 尝试更可靠的导入方式
+        try:
+            from .config.strategy_params import get_current_params, load_params_from_file
+        except ImportError as e2:
+            print(f"从相对路径导入失败: {e2}")
+            raise
     
     # 获取当前策略参数（优先从文件加载）
     strategy_params = get_current_params()

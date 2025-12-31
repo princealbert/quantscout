@@ -402,13 +402,16 @@ class BruteForceOptimizer(BaseOptimizer):
             start_date = end_date - timedelta(days=params['backtest_days'])
             
             # 准备符合标准回测要求的配置结构
+            # 测试模式下使用100只股票，非测试模式下使用1只股票
+            is_test_mode = params.get('backtest_days', 90) == 10  # 检测是否为测试模式
+            # 使用BaseOptimizer类的initial_capital属性，而不是params字典中的值
             frontend_config = {
                 'backtest': {
-                    'initial_capital': params['initial_capital'],
+                    'initial_capital': self.initial_capital,
                     'backtest_days': params['backtest_days'],
                     'start_date': start_date.strftime('%Y-%m-%d'),
                     'end_date': end_date.strftime('%Y-%m-%d'),
-                    'max_stocks_to_backtest': 1,
+                    'max_stocks_to_backtest': 100 if is_test_mode else 1,
                     'strategy_id': strategy_id,
                     'commission_ratio': 0.0003
                 },
@@ -431,6 +434,9 @@ class BruteForceOptimizer(BaseOptimizer):
                 ]
             }
             
+            # 初始化temp_config_file变量，避免在finally块中访问未赋值变量
+            temp_config_file = None
+            
             # 将配置文件保存到求解器目录的config文件夹
             config_dir = os.path.join(self.current_dir, 'config')
             os.makedirs(config_dir, exist_ok=True)
@@ -440,48 +446,87 @@ class BruteForceOptimizer(BaseOptimizer):
             print(f"✅ 参数配置已更新: {config_file_path}")
             temp_config_file = config_file_path
             
-            # 保存原始的sys.argv，避免与gm.api.run()的命令行参数解析冲突
-            original_argv = sys.argv.copy()
-            sys.argv = [os.path.join(project_root, 'ulti-para-seeker', 'main.py')]
-            
             try:
-                # 使用标准回测函数运行回测
-                try:
-                    import backtest_runner
-                    backtest_runner.run_backtest(config_path=temp_config_file)
-                except ImportError:
-                    from .backtest_runner import run_backtest
-                    run_backtest(config_path=temp_config_file)
-            finally:
-                # 恢复原始的sys.argv
-                sys.argv = original_argv
+                # 使用标准回测函数运行回测 - 确保导入正确的ulti-para-seeker目录下的backtest_runner
+                import sys
+                import os
+                
+                # 确保ulti-para-seeker目录在sys.path的最前面
+                current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                if current_dir in sys.path:
+                    sys.path.remove(current_dir)
+                sys.path.insert(0, current_dir)
+                
+                # 使用绝对导入确保获取正确的模块
+                from backtest_runner import run_backtest
+                run_backtest(config_path=temp_config_file)
+            except Exception as e:
+                print(f"调用回测函数失败: {e}")
+                import traceback
+                traceback.print_exc()
             
             # 从文件中读取回测结果
-            report_file = 'backtest_report.json'  # 使用与report_generator.py一致的路径
+            # 报告文件保存在项目根目录（ulti-para-seeker），而不是optimizers目录
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            report_file = os.path.join(project_root, 'backtest_report.json')  # 使用正确的绝对路径
             report = {}
             
+            # 检查报告文件是否存在
+            print(f"[调试] 检查回测报告文件: {report_file}")
             if os.path.exists(report_file):
                 try:
+                    print(f"[调试] 正在读取回测报告文件: {report_file}")
                     with open(report_file, 'r', encoding='utf-8') as f:
                         report = json.load(f)
+                    print(f"[调试] 报告内容: {json.dumps(report, ensure_ascii=False, indent=2)}")
                     # 删除结果文件，避免影响下一次回测
                     os.unlink(report_file)
+                    print(f"[调试] 已删除回测报告文件")
                 except Exception as e:
                     print(f"读取报告文件失败: {e}")
+                    import traceback
+                    traceback.print_exc()
                     report = {}
+            else:
+                print(f"[调试] 回测报告文件不存在: {report_file}")
+                # 检查是否存在其他可能的报告文件位置
+                print(f"[调试] 检查当前目录: {os.getcwd()}")
+                print(f"[调试] 当前目录文件: {os.listdir('.')}")
+                print(f"[调试] 项目根目录文件: {os.listdir(project_root)}")
             
             # 从报告中提取需要的结果
             performance_metrics = report.get('performance_metrics', {})
             trade_statistics = report.get('trade_statistics', {})
             
-            # 返回结果
-            return {
+            # 直接从report中提取数据，处理不同的报告格式
+            if not performance_metrics:
+                # 尝试直接从report中提取数据（兼容旧格式）
+                performance_metrics = {
+                    'total_return': report.get('total_return', 0.0),
+                    'annual_return': report.get('annual_return', 0.0),
+                    'max_drawdown': report.get('max_drawdown', 0.0),
+                    'sharpe_ratio': report.get('sharpe_ratio', 0.0)
+                }
+            
+            if not trade_statistics:
+                # 尝试直接从report中提取数据（兼容旧格式）
+                trade_statistics = {
+                    'total_trades': report.get('trades_count', 0),
+                    'win_rate': report.get('win_rate', 0.0)
+                }
+            
+            # 返回结果，包含完整的回测指标
+            result = {
                 **params,
                 'total_return': performance_metrics.get('total_return', 0.0),
                 'annual_return': performance_metrics.get('annual_return', 0.0),
                 'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
+                'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
+                'win_rate': trade_statistics.get('win_rate', 0.0),
                 'trades_count': trade_statistics.get('total_trades', 0)
             }
+            print(f"[调试] 准备返回的结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            return result
             
         except Exception as e:
             print(f"回测失败: {e}")
@@ -490,11 +535,16 @@ class BruteForceOptimizer(BaseOptimizer):
                 'total_return': -100.0,  # 失败时返回极低收益率
                 'annual_return': -100.0,
                 'max_drawdown': -100.0,
+                'sharpe_ratio': 0.0,
+                'win_rate': 0.0,
                 'trades_count': 0
             }
         finally:
             # 不再删除配置文件，因为它是持久化的参数配置文件
-            print(f"✅ 参数组合配置已保留: {temp_config_file}")
+            if temp_config_file:
+                print(f"✅ 参数组合配置已保留: {temp_config_file}")
+            else:
+                print("✅ 回测完成，无配置文件生成")
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                 end_date: str = '2025-12-25', blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -670,62 +720,16 @@ class BruteForceOptimizer(BaseOptimizer):
         """
         print(f"\n🔄 更新Excel结果文件: {fixed_file_name}")
         
-        # 获取结果文件的完整路径
-        file_path = os.path.join(self.current_dir, fixed_file_name)
+        # 使用ResultProcessor类来处理结果，确保与export_to_excel方法保持一致
+        from .result_processor import ResultProcessor
+        processor = ResultProcessor()
         
-        # 转换新结果为DataFrame
-        new_df_list = []
+        # 获取结果文件的完整路径 - 保存到项目根目录，与app.py保持一致
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        file_path = os.path.join(project_root, fixed_file_name)
         
-        for i, result in enumerate(results):
-            # 提取参数
-            row = {
-                '序号': i + 1,
-                '回测天数': result['backtest_days'],
-                '止盈比例(%)': result['stop_profit_ratio'] * 100,
-                '止损比例(%)': result['stop_loss_ratio'] * 100,
-                '总收益率(%)': result['total_return'],
-                '年化收益率(%)': result['annual_return'],
-                '最大回撤(%)': result['max_drawdown'],
-                '交易次数': result['trades_count']
-            }
-            
-            # 添加权重配置
-            for indicator, weight in result['weights_config'].items():
-                row[f'权重_{indicator}'] = weight
-            
-            # 添加子权重配置
-            for main_indicator, sub_config in result['sub_weights_config'].items():
-                for sub_indicator, weight in sub_config['sub_weights'].items():
-                    row[f'子权重_{main_indicator}_{sub_indicator}'] = weight
-            
-            new_df_list.append(row)
-        
-        new_df = pd.DataFrame(new_df_list)
-        
-        # 检查文件是否存在
-        if os.path.exists(file_path):
-            # 读取已有文件内容
-            try:
-                existing_df = pd.read_excel(file_path)
-                
-                # 合并数据
-                # 注意：这里简单处理，替换已有数据
-                # 在实际应用中，可能需要更复杂的合并逻辑
-                combined_df = new_df
-            except Exception as e:
-                print(f"读取已有文件失败: {e}，将创建新文件")
-                combined_df = new_df
-        else:
-            # 文件不存在，使用新数据
-            combined_df = new_df
-        
-        # 保存结果到Excel文件
-        try:
-            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                combined_df.to_excel(writer, index=False)
-            print(f"✅ Excel结果文件已更新: {file_path}")
-        except Exception as e:
-            print(f"保存Excel文件失败: {e}")
+        # 调用export_to_excel方法，确保字段完整和列顺序一致
+        processor.export_to_excel(results, file_path)
 
 # 测试代码
 if __name__ == "__main__":

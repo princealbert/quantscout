@@ -307,7 +307,7 @@ with tab2:
     st.subheader("加载蓝图")
     
     # 加载蓝图文件
-    blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint_index.json", key="load_blueprint_input")
+    blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint.json", key="load_blueprint_input")
     
     if st.button("加载蓝图"):
         try:
@@ -427,7 +427,7 @@ if blueprint_options:
     )
 else:
     st.warning("暂无蓝图文件，请先生成参数组合")
-    blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint_index.json", key="run_optimization_input")
+    blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint.json", key="run_optimization_input")
 
 # 自动显示结果的标志
 show_results = False
@@ -605,13 +605,23 @@ if st.button("查看回测结果") or show_results:
             df = pd.read_excel(excel_file, engine='openpyxl')
             
             if not df.empty:
-                # 确保所有数值列都有正确的格式
-                df['序号'] = df['序号'].astype(int)
-                df['总收益率(%)'] = df['总收益率(%)'].round(2)
-                df['年化收益率(%)'] = df['年化收益率(%)'].round(2)
-                df['最大回撤(%)'] = df['最大回撤(%)'].round(2)
-                df['夏普比率'] = df['夏普比率'].round(2)
-                df['胜率(%)'] = df['胜率(%)'].round(2)
+                # 确保所有数值列都有正确的格式，处理可能缺失的字段
+                if '序号' in df.columns:
+                    df['序号'] = df['序号'].astype(int)
+                if '总收益率(%)' in df.columns:
+                    df['总收益率(%)'] = df['总收益率(%)'].round(2)
+                if '年化收益率(%)' in df.columns:
+                    df['年化收益率(%)'] = df['年化收益率(%)'].round(2)
+                if '最大回撤(%)' in df.columns:
+                    df['最大回撤(%)'] = df['最大回撤(%)'].round(2)
+                if '夏普比率' in df.columns:
+                    df['夏普比率'] = df['夏普比率'].round(2)
+                else:
+                    df['夏普比率'] = 0.0
+                if '胜率(%)' in df.columns:
+                    df['胜率(%)'] = df['胜率(%)'].round(2)
+                else:
+                    df['胜率(%)'] = 0.0
                 
                 # 显示表格
                 st.dataframe(df)
@@ -677,12 +687,12 @@ if st.button("查看回测结果") or show_results:
                         st.write(f"  {indicator_name}: {best_result[col]}%")
                 
                 st.write("回测结果:")
-                st.write(f"总收益率: {best_result['总收益率(%)']}%")
-                st.write(f"年化收益率: {best_result['年化收益率(%)']}%")
-                st.write(f"最大回撤: {best_result['最大回撤(%)']}%")
-                st.write(f"夏普比率: {best_result['夏普比率']:.2f}")
-                st.write(f"胜率: {best_result['胜率(%)']}%")
-                st.write(f"交易次数: {best_result['交易次数']}")
+                st.write(f"总收益率: {best_result.get('总收益率(%)', 0)}%")
+                st.write(f"年化收益率: {best_result.get('年化收益率(%)', 0)}%")
+                st.write(f"最大回撤: {best_result.get('最大回撤(%)', 0)}%")
+                st.write(f"夏普比率: {best_result.get('夏普比率', 0):.2f}")
+                st.write(f"胜率: {best_result.get('胜率(%)', 0)}%")
+                st.write(f"交易次数: {best_result.get('交易次数', 0)}")
             else:
                 st.info("Excel文件为空")
         else:

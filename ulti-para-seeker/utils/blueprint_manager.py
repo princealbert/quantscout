@@ -335,3 +335,198 @@ class BlueprintManager:
         blueprint['failed_combinations'] = failed
         blueprint['pending_combinations'] = pending
         blueprint['running_combinations'] = running
+    
+    def list_blueprints(self, directory: str = None) -> List[Dict[str, Any]]:
+        """
+        列出所有蓝图文件
+        
+        Args:
+            directory: 蓝图文件所在目录，默认为当前目录
+            
+        Returns:
+            List[Dict[str, Any]]: 蓝图文件列表，每个文件包含filename、size_kb、total_combinations、algorithm等信息
+        """
+        blueprints = []
+        
+        # 使用指定目录或当前目录
+        search_dir = directory or os.path.dirname(os.path.abspath(__file__))
+        
+        # 遍历目录下的蓝图文件
+        for filename in os.listdir(search_dir):
+            if filename.startswith('parameter_blueprint') and filename.endswith('.json'):
+                file_path = os.path.join(search_dir, filename)
+                try:
+                    # 获取文件大小
+                    size = os.path.getsize(file_path)
+                    size_kb = round(size / 1024, 2)
+                    
+                    # 读取文件内容，获取蓝图信息
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        blueprint_data = json.load(f)
+                    
+                    # 提取必要信息
+                    total_combinations = blueprint_data.get('total_combinations', 0)
+                    algorithm = blueprint_data.get('algorithm', '未知')
+                    version = blueprint_data.get('version', '1.0')
+                    generated_at = blueprint_data.get('generated_at', '')
+                    
+                    blueprints.append({
+                        'filename': filename,
+                        'size_kb': size_kb,
+                        'total_combinations': total_combinations,
+                        'algorithm': algorithm,
+                        'version': version,
+                        'generated_at': generated_at,
+                        'created_at': generated_at,  # 兼容app.py中的created_at字段
+                        'modified_at': generated_at,  # 兼容app.py中的modified_at字段
+                        'is_index': 'files' in blueprint_data,  # 检查是否为分拆的蓝图索引文件
+                        'file_path': file_path
+                    })
+                except Exception as e:
+                    print(f"读取蓝图文件失败: {filename}, 错误: {e}")
+        
+        # 按生成时间降序排序
+        blueprints.sort(key=lambda x: x.get('generated_at', ''), reverse=True)
+        
+        return blueprints
+    
+    def clear_blueprints(self, directory: str = None) -> int:
+        """
+        清除所有蓝图文件
+        
+        Args:
+            directory: 蓝图文件所在目录，默认为当前目录
+            
+        Returns:
+            int: 删除的文件数量
+        """
+        deleted_count = 0
+        
+        # 使用指定目录或当前目录
+        search_dir = directory or os.path.dirname(os.path.abspath(__file__))
+        
+        # 遍历目录下的蓝图文件
+        for filename in os.listdir(search_dir):
+            if filename.startswith('parameter_blueprint') and filename.endswith('.json'):
+                file_path = os.path.join(search_dir, filename)
+                try:
+                    os.remove(file_path)
+                    deleted_count += 1
+                    print(f"已删除蓝图文件: {filename}")
+                except Exception as e:
+                    print(f"删除蓝图文件失败: {filename}, 错误: {e}")
+        
+        return deleted_count
+        
+    def delete_blueprint(self, filename: str, directory: str = None) -> bool:
+        """
+        删除特定的蓝图文件
+        
+        Args:
+            filename: 要删除的蓝图文件名
+            directory: 蓝图文件所在目录，默认为当前目录
+            
+        Returns:
+            bool: 删除是否成功
+        """
+        # 检查文件名格式是否合法
+        if not (filename.startswith('parameter_blueprint') and filename.endswith('.json')):
+            print(f"无效的蓝图文件名: {filename}")
+            return False
+        
+        # 使用指定目录或当前目录
+        search_dir = directory or os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(search_dir, filename)
+        
+        try:
+            # 检查文件是否存在
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"已删除蓝图文件: {filename}")
+                return True
+            else:
+                print(f"蓝图文件不存在: {filename}")
+                return False
+        except Exception as e:
+            print(f"删除蓝图文件失败: {filename}, 错误: {e}")
+            return False
+    
+    def count_completed_combinations(self, blueprint: Dict[str, Any] = None) -> int:
+        """
+        统计已完成的组合数
+        
+        Args:
+            blueprint: 蓝图数据
+            
+        Returns:
+            int: 已完成的组合数
+        """
+        if not blueprint:
+            blueprint = self.blueprint
+        
+        if not blueprint:
+            raise ValueError("蓝图数据为空")
+        
+        if blueprint.get('files'):
+            # 分拆的蓝图文件
+            completed = 0
+            for sub_file_info in blueprint['files']:
+                sub_file_path = os.path.join(os.path.dirname(self.blueprint_file), sub_file_info['file'])
+                if os.path.exists(sub_file_path):
+                    with open(sub_file_path, 'r', encoding='utf-8') as f:
+                        sub_blueprint = json.load(f)
+                    completed += sum(1 for c in sub_blueprint['combinations'] if c['status'] == 'completed')
+            return completed
+        else:
+            # 非分拆的蓝图文件
+            return sum(1 for c in blueprint['combinations'] if c['status'] == 'completed')
+    
+    def generate_blueprint(self, param_combinations: List[Dict[str, Any]], 
+                          test_mode: bool = False, 
+                          max_sub_combinations: int = 10, 
+                          end_date: str = '2025-12-25',
+                          algorithm: str = "暴力搜索") -> Dict[str, Any]:
+        """
+        生成参数组合蓝图
+        
+        Args:
+            param_combinations: 参数组合列表
+            test_mode: 是否为测试模式
+            max_sub_combinations: 最大子权重组合数
+            end_date: 回测终点日期
+            algorithm: 优化算法
+        
+        Returns:
+            Dict[str, Any]: 蓝图数据结构
+        """
+        # 创建蓝图数据结构
+        blueprint = {
+            "version": "1.0",
+            "generated_at": datetime.now().isoformat(),
+            "last_modified": datetime.now().isoformat(),
+            "total_combinations": len(param_combinations),
+            "test_mode": test_mode,
+            "max_sub_combinations": max_sub_combinations,
+            "end_date": end_date,
+            "algorithm": algorithm,
+            "completed_combinations": 0,
+            "failed_combinations": 0,
+            "pending_combinations": len(param_combinations),
+            "running_combinations": 0,
+            "combinations": []
+        }
+        
+        # 为每个组合分配唯一ID并添加到蓝图
+        for i, param in enumerate(param_combinations):
+            combination = {
+                "id": i + 1,
+                "params": param,
+                "status": "pending",  # pending, running, completed, failed
+                "result": None,
+                "started_at": None,
+                "completed_at": None
+            }
+            blueprint["combinations"].append(combination)
+        
+        self.blueprint = blueprint
+        return blueprint

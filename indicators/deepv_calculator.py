@@ -63,7 +63,7 @@ class DeepVCalculator:
             
             # 检查深V补票序列（T-2, T-1, T）
             deepv_signal = False
-            if len(dv_short) >= 3:
+            if len(dv_short) >= 3 and len(dv_long) >= 3:
                 t_2_short = dv_short.iloc[-3] if not pd.isna(dv_short.iloc[-3]) else 0
                 t_2_long = dv_long.iloc[-3] if not pd.isna(dv_long.iloc[-3]) else 0
                 

@@ -12,19 +12,21 @@ from config.weights_config import weight_config
 import sys
 import os
 # 添加项目根目录到Python路径
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+file_dir = os.path.dirname(os.path.abspath(__file__))  # data目录
+project_root = os.path.dirname(file_dir)  # 项目根目录
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 try:
     # 直接导入缓存模块
     from cache.data_cache import StockDataCache
-    import os
     # 使用根目录下的stock_data_cache.db
     stock_cache = StockDataCache(db_path=os.path.join(project_root, "stock_data_cache.db"))
     print(f"[INFO] 缓存模块导入成功，数据库路径: {os.path.join(project_root, 'stock_data_cache.db')}")
 except ImportError as e:
     print(f"[ERROR] 缓存模块导入失败: {e}")
+    import traceback
+    traceback.print_exc()
     # 创建空的占位对象（重命名避免类型冲突）
     class FallbackStockDataCache:
         def __init__(self, db_path="stock_data_cache.db"):
@@ -147,91 +149,30 @@ class StockDataProvider:
             return []
     
     def pre_screen_stocks(self, symbols: List[str], trade_date: str) -> List[str]:
-        """并行预筛选股票 - 使用批量API获取PE和市值数据"""
+        """并行预筛选股票 - 优先使用缓存，只对缓存未命中的股票调用API"""
         try:
             if not symbols:
                 return []
                 
             print(f"🔍 第一步筛选：并行检查 {len(symbols)} 只股票的PE和流通市值...")
             
-            # 使用批量API获取股票基本信息
-            filtered_symbols = []
+            # 优先使用批量获取方法，该方法会优先使用缓存
+            basic_info_dict = self.get_stock_basic_info_batch(symbols, trade_date, "[预筛选]")
             
-            # 分批处理，避免API限制
-            batch_size = 100
-            for i in range(0, len(symbols), batch_size):
-                batch = symbols[i:i + batch_size]
+            # 筛选符合条件的股票
+            filtered_symbols = []
+            for symbol, basic_info in basic_info_dict.items():
+                pe = basic_info.get('pe', 100)
+                a_mv = basic_info.get('a_mv', 0)
                 
-                try:
-                    # 批量获取股票基本信息
-                    batch_info = get_symbol_infos(sec_type1=1010, sec_type2=101001, symbols=batch, df=True)
+                # 放宽筛选条件：PE小于200，流通市值大于10亿
+                if (0 < pe < 200 and a_mv > 10 * 1e8):
+                    filtered_symbols.append(symbol)
                     
-                    if batch_info is not None and not batch_info.empty:
-                        # 使用批量API获取PE和市值数据
-                        try:
-                            # 批量获取估值数据
-                            pe_data = stk_get_daily_valuation_pt(symbols=','.join(batch),
-                                                                fields='pe_ttm',
-                                                                trade_date=trade_date,
-                                                                df=True)
-                            
-                            # 批量获取市值数据
-                            mkt_data = stk_get_daily_mktvalue_pt(symbols=','.join(batch),
-                                                                fields='a_mv,tot_mv',
-                                                                trade_date=trade_date,
-                                                                df=True)
-                            
-                            # 构建数据字典便于快速查找
-                            pe_dict = {}
-                            if pe_data is not None and not pe_data.empty:
-                                for _, row in pe_data.iterrows():
-                                    pe_dict[row['symbol']] = row['pe_ttm']
-                            
-                            mkt_dict = {}
-                            if mkt_data is not None and not mkt_data.empty:
-                                for _, row in mkt_data.iterrows():
-                                    mkt_dict[row['symbol']] = row['a_mv']
-                            
-                            # 并行处理筛选
-                            for symbol in batch:
-                                pe = pe_dict.get(symbol, 100)  # 默认值
-                                a_mv = mkt_dict.get(symbol, 0)  # 默认值
-                                
-                                # 放宽筛选条件：PE小于200，流通市值大于10亿
-                                if (0 < pe < 200 and a_mv > 10 * 1e8):
-                                    filtered_symbols.append(symbol)
-                                    
-                                    # 显示通过筛选的股票信息（前10只）
-                                    if len(filtered_symbols) <= 10:
-                                        print(f"✅ {symbol}: PE={pe:.1f}, 流通市值={a_mv/1e8:.1f}亿")
-                                        
-                        except Exception as api_error:
-                            print(f"⚠️  批量API获取失败，回退到逐个获取: {api_error}")
-                            # 如果批量获取失败，回退到逐个获取
-                            for symbol in batch:
-                                try:
-                                    basic_info = self.get_stock_basic_info(symbol, trade_date)
-                                    pe = basic_info.get('pe', 100)
-                                    a_mv = basic_info.get('a_mv', 0)
-                                    
-                                    if (0 < pe < 200 and a_mv > 10 * 1e8):
-                                        filtered_symbols.append(symbol)
-                                except:
-                                    continue
-                                
-                except Exception as batch_e:
-                    # 如果批量获取失败，回退到逐个获取
-                    print(f"⚠️  批量获取失败，回退到逐个获取: {batch_e}")
-                    for symbol in batch:
-                        try:
-                            basic_info = self.get_stock_basic_info(symbol, trade_date)
-                            pe = basic_info.get('pe', 100)
-                            a_mv = basic_info.get('a_mv', 0)
-                            
-                            if (0 < pe < 200 and a_mv > 10 * 1e8):
-                                filtered_symbols.append(symbol)
-                        except:
-                            continue
+                    # 显示通过筛选的股票信息（前10只）
+                    if len(filtered_symbols) <= 10:
+                        sec_name = basic_info.get('sec_name', symbol)
+                        print(f"✅ {symbol}: {sec_name}, PE={pe:.1f}, 流通市值={a_mv/1e8:.1f}亿")
             
             print(f"✅ 第一步完成：{len(filtered_symbols)}/{len(symbols)} 只股票通过")
             
@@ -363,7 +304,8 @@ class StockDataProvider:
                 'a_mv': a_mv,
                 'tot_mv': tot_mv,
                 'tclose': tclose,
-                'turnrate': turnrate
+                'turnrate': turnrate,
+                'trade_date': trade_date  # 确保缓存数据包含trade_date字段
             }
             
             # 缓存获取的数据
@@ -384,107 +326,172 @@ class StockDataProvider:
             }
     
     def get_stock_basic_info_batch(self, symbols: List[str], trade_date: str, batch_prefix: str = "") -> Dict[str, Dict[str, Any]]:
-        """批量获取股票基础信息 - 使用GM API批量函数优化性能"""
+        """批量获取股票基础信息 - 优先使用缓存，只对缓存未命中的股票调用API"""
         try:
             if not symbols:
                 return {}
                 
-            print(f"{batch_prefix}🚀 使用批量API获取 {len(symbols)} 只股票基础信息...")
+            print(f"\n{batch_prefix}========================================")
+            print(f"{batch_prefix}📊 批量获取股票基础信息开始")
+            print(f"{batch_prefix}📅 交易日期: {trade_date}")
+            print(f"{batch_prefix}📈 股票数量: {len(symbols)}")
+            print(f"{batch_prefix}========================================")
             
-            # 使用GM API批量函数获取数据
             batch_results = {}
+            cache_miss_symbols = []
             
-            # 批量获取所有股票的基础信息
-            try:
-                # 批量获取估值数据
-                pe_data = stk_get_daily_valuation_pt(
-                    symbols=','.join(symbols),
-                    fields='pe_ttm',
-                    trade_date=trade_date,
-                    df=True
-                )
+            # 第一步：先从缓存获取数据
+            print(f"{batch_prefix}🔍 开始检查缓存...")
+            for i, symbol in enumerate(symbols):
+                # 显示进度
+                if (i + 1) % 1000 == 0 or i + 1 == len(symbols):
+                    print(f"{batch_prefix}🔍 检查缓存进度: {i + 1}/{len(symbols)}")
                 
-                # 批量获取市值数据
-                mkt_data = stk_get_daily_mktvalue_pt(
-                    symbols=','.join(symbols),
-                    fields='a_mv,tot_mv',
-                    trade_date=trade_date,
-                    df=True
-                )
+                cached_info = stock_cache.get_cached_basic_info(symbol, trade_date)
+                if cached_info:
+                    batch_results[symbol] = cached_info
+                    batch_results[symbol]['_debug_info'] = '缓存获取'
+                else:
+                    cache_miss_symbols.append(symbol)
+            
+            cache_hit_count = len(batch_results)
+            cache_miss_count = len(cache_miss_symbols)
+            
+            print(f"{batch_prefix}✅ 缓存检查完成")
+            print(f"{batch_prefix}✅ 缓存命中: {cache_hit_count} 只股票 ({cache_hit_count/len(symbols)*100:.1f}%)")
+            print(f"{batch_prefix}✅ 缓存未命中: {cache_miss_count} 只股票 ({cache_miss_count/len(symbols)*100:.1f}%)")
+            
+            # 第二步：对缓存未命中的股票调用API
+            if cache_miss_count > 0:
+                print(f"{batch_prefix}🚀 使用批量API获取 {cache_miss_count} 只股票基础信息...")
                 
-                # 批量获取基础指标数据
-                basic_data = stk_get_daily_basic_pt(
-                    symbols=','.join(symbols),
-                    fields='tclose,turnrate',
-                    trade_date=trade_date,
-                    df=True
-                )
+                # 使用GM API批量函数获取数据
+                api_results = {}
                 
-                # 构建数据字典用于快速查找
-                pe_dict = {}
-                if pe_data is not None and not pe_data.empty:
-                    for _, row in pe_data.iterrows():
-                        pe_dict[row['symbol']] = row['pe_ttm']
-                
-                mkt_dict = {}
-                if mkt_data is not None and not mkt_data.empty:
-                    for _, row in mkt_data.iterrows():
-                        mkt_dict[row['symbol']] = {
-                            'a_mv': row['a_mv'],
-                            'tot_mv': row['tot_mv']
-                        }
-                
-                basic_dict = {}
-                if basic_data is not None and not basic_data.empty:
-                    for _, row in basic_data.iterrows():
-                        basic_dict[row['symbol']] = {
-                            'tclose': row['tclose'],
-                            'turnrate': row['turnrate']
-                        }
-                
-                # 获取股票基本信息
-                stock_infos = get_symbol_infos(sec_type1=1010, sec_type2=101001, symbols=symbols, df=True)
-                stock_info_dict = {}
-                if stock_infos is not None and not stock_infos.empty:
-                    for _, row in stock_infos.iterrows():
-                        stock_info_dict[row['symbol']] = row['sec_name']
-                
-                # 构建完整的基础信息
-                for symbol in symbols:
-                    sec_name = stock_info_dict.get(symbol, symbol)
-                    pe = pe_dict.get(symbol, 100)
-                    a_mv = mkt_dict.get(symbol, {}).get('a_mv', 0) if symbol in mkt_dict else 0
-                    tot_mv = mkt_dict.get(symbol, {}).get('tot_mv', 0) if symbol in mkt_dict else 0
-                    tclose = basic_dict.get(symbol, {}).get('tclose', 0) if symbol in basic_dict else 0
-                    turnrate = basic_dict.get(symbol, {}).get('turnrate', 0) if symbol in basic_dict else 0
+                try:
+                    # 批量获取估值数据
+                    print(f"{batch_prefix}📊 正在获取估值数据...")
+                    pe_data = stk_get_daily_valuation_pt(
+                        symbols=','.join(cache_miss_symbols),
+                        fields='pe_ttm',
+                        trade_date=trade_date,
+                        df=True
+                    )
                     
-                    batch_results[symbol] = {
-                        'symbol': symbol,
-                        'sec_name': sec_name,
-                        'pe': pe,
-                        'a_mv': a_mv,
-                        'tot_mv': tot_mv,
-                        'tclose': tclose,
-                        'turnrate': turnrate,
-                        '_debug_info': '批量API获取'
-                    }
+                    # 批量获取市值数据
+                    print(f"{batch_prefix}📊 正在获取市值数据...")
+                    mkt_data = stk_get_daily_mktvalue_pt(
+                        symbols=','.join(cache_miss_symbols),
+                        fields='a_mv,tot_mv',
+                        trade_date=trade_date,
+                        df=True
+                    )
+                    
+                    # 批量获取基础指标数据
+                    print(f"{batch_prefix}📊 正在获取基础指标数据...")
+                    basic_data = stk_get_daily_basic_pt(
+                        symbols=','.join(cache_miss_symbols),
+                        fields='tclose,turnrate',
+                        trade_date=trade_date,
+                        df=True
+                    )
+                    
+                    # 构建数据字典用于快速查找
+                    pe_dict = {}
+                    if pe_data is not None and not pe_data.empty:
+                        for _, row in pe_data.iterrows():
+                            pe_dict[row['symbol']] = row['pe_ttm']
+                    
+                    mkt_dict = {}
+                    if mkt_data is not None and not mkt_data.empty:
+                        for _, row in mkt_data.iterrows():
+                            mkt_dict[row['symbol']] = {
+                                'a_mv': row['a_mv'],
+                                'tot_mv': row['tot_mv']
+                            }
+                    
+                    basic_dict = {}
+                    if basic_data is not None and not basic_data.empty:
+                        for _, row in basic_data.iterrows():
+                            basic_dict[row['symbol']] = {
+                                'tclose': row['tclose'],
+                                'turnrate': row['turnrate']
+                            }
+                    
+                    # 获取股票基本信息
+                    print(f"{batch_prefix}📊 正在获取股票基本信息...")
+                    stock_infos = get_symbol_infos(sec_type1=1010, sec_type2=101001, symbols=cache_miss_symbols, df=True)
+                    stock_info_dict = {}
+                    if stock_infos is not None and not stock_infos.empty:
+                        for _, row in stock_infos.iterrows():
+                            stock_info_dict[row['symbol']] = row['sec_name']
+                    
+                    # 构建完整的基础信息
+                    print(f"{batch_prefix}📊 正在构建完整基础信息...")
+                    for i, symbol in enumerate(cache_miss_symbols):
+                        # 显示进度
+                        if (i + 1) % 500 == 0 or i + 1 == len(cache_miss_symbols):
+                            print(f"{batch_prefix}📊 构建信息进度: {i + 1}/{len(cache_miss_symbols)}")
+                        
+                        sec_name = stock_info_dict.get(symbol, symbol)
+                        pe = pe_dict.get(symbol, 100)
+                        a_mv = mkt_dict.get(symbol, {}).get('a_mv', 0) if symbol in mkt_dict else 0
+                        tot_mv = mkt_dict.get(symbol, {}).get('tot_mv', 0) if symbol in mkt_dict else 0
+                        tclose = basic_dict.get(symbol, {}).get('tclose', 0) if symbol in basic_dict else 0
+                        turnrate = basic_dict.get(symbol, {}).get('turnrate', 0) if symbol in basic_dict else 0
+                        
+                        basic_info = {
+                            'symbol': symbol,
+                            'sec_name': sec_name,
+                            'pe': pe,
+                            'a_mv': a_mv,
+                            'tot_mv': tot_mv,
+                            'tclose': tclose,
+                            'turnrate': turnrate,
+                            'trade_date': trade_date,  # 确保缓存数据包含trade_date字段
+                            '_debug_info': '批量API获取'
+                        }
+                        
+                        api_results[symbol] = basic_info
+                        
+                        # 缓存获取的数据
+                        cache_success = stock_cache.cache_basic_info(symbol, trade_date, basic_info)
+                        if cache_success and (i + 1) % 1000 == 0:
+                            print(f"{batch_prefix}📦 已缓存 {i + 1} 只股票信息")
+                    
+                    print(f"{batch_prefix}✅ 批量API获取成功: {len(api_results)}/{cache_miss_count} 只股票")
+                    
+                except Exception as batch_error:
+                    print(f"{batch_prefix}⚠️  批量API获取失败，回退到逐个获取: {batch_error}")
+                    import traceback
+                    traceback.print_exc()
+                    # 批量获取失败，回退到逐个获取
+                    for i, symbol in enumerate(cache_miss_symbols):
+                        try:
+                            basic_info = self.get_stock_basic_info(symbol, trade_date, batch_prefix)
+                            api_results[symbol] = basic_info
+                            if (i + 1) % 100 == 0:
+                                print(f"{batch_prefix}📊 逐个获取进度: {i + 1}/{len(cache_miss_symbols)}")
+                        except Exception as e:
+                            print(f"{batch_prefix}❌ 获取 {symbol} 失败: {e}")
                 
-                print(f"{batch_prefix}✅ 批量API获取成功: {len(batch_results)}/{len(symbols)} 只股票")
-                
-            except Exception as batch_error:
-                print(f"{batch_prefix}⚠️  批量API获取失败，回退到逐个获取: {batch_error}")
-                # 批量获取失败，回退到逐个获取
-                for symbol in symbols:
-                    try:
-                        basic_info = self.get_stock_basic_info(symbol, trade_date, batch_prefix)
-                        batch_results[symbol] = basic_info
-                    except Exception:
-                        continue
+                # 将API获取的结果合并到最终结果
+                batch_results.update(api_results)
+                print(f"{batch_prefix}🔄 已合并API获取结果到最终结果")
+            else:
+                print(f"{batch_prefix}✅ 所有股票基础信息均来自缓存，无需调用API")
             
+            print(f"\n{batch_prefix}========================================")
+            print(f"{batch_prefix}📊 批量获取股票基础信息完成")
+            print(f"{batch_prefix}✅ 成功获取: {len(batch_results)}/{len(symbols)} 只股票")
+            print(f"{batch_prefix}✅ 缓存命中率: {cache_hit_count/len(symbols)*100:.1f}%")
+            print(f"{batch_prefix}========================================")
             return batch_results
             
         except Exception as e:
-            print(f"{batch_prefix}❌ 批量获取基础信息失败: {e}")
+            print(f"\n{batch_prefix}❌ 批量获取基础信息失败: {e}")
+            import traceback
+            traceback.print_exc()
             # 出错时回退到空字典
             return {}
 

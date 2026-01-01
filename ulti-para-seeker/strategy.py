@@ -9,6 +9,9 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+# 导入日志模块
+from utils.logger import logger
+
 
 class BacktestStrategy:
     """回测策略类 - 纯策略逻辑实现"""
@@ -37,15 +40,15 @@ class BacktestStrategy:
         
         # 从参数中获取初始资金
         self.initial_capital = self.params.initial_capital
-        print(f"调试: BacktestStrategy初始化 - 从params获取初始资金={self.initial_capital}")
+        logger.debug(f"BacktestStrategy初始化 - 从params获取初始资金={self.initial_capital}")
         
         # 记录接收的参数
-        print(f"调试: 策略初始化完成")
-        print(f"调试: 止盈比例={self.params.stop_profit_ratio}")
-        print(f"调试: 止损比例={self.params.stop_loss_ratio}")
-        print(f"调试: 权重配置={self.params.weights_config}")
-        print(f"调试: 子权重配置={self.params.sub_weights_config}")
-        print(f"调试: 股票池限制={self.params.stock_pool_limit}")
+        logger.debug(f"策略初始化完成")
+        logger.debug(f"止盈比例={self.params.stop_profit_ratio}")
+        logger.debug(f"止损比例={self.params.stop_loss_ratio}")
+        logger.debug(f"权重配置={self.params.weights_config}")
+        logger.debug(f"子权重配置={self.params.sub_weights_config}")
+        logger.debug(f"股票池限制={self.params.stock_pool_limit}")
         
         # 缓存机制 - 用于提高性能
         self._price_cache = {}
@@ -147,7 +150,7 @@ class BacktestStrategy:
                 }
             
         except Exception as e:
-            print(f"选股失败: {e}")
+            logger.error(f"选股失败: {e}")
             return None
     
     def should_buy(self, context, symbol: str) -> bool:
@@ -167,7 +170,7 @@ class BacktestStrategy:
             # 获取当前价格
             current_data = current(symbol)
             if not current_data:
-                print(f"调试: should_buy - 获取价格失败，current_data={current_data}")
+                logger.debug(f"should_buy - 获取价格失败，current_data={current_data}")
                 return False
                 
             # 安全获取价格数值
@@ -197,7 +200,7 @@ class BacktestStrategy:
                 # 尝试直接转换，如果失败则使用安全默认值
                 cash_value = float(cash) if cash else 0.0
             
-            print(f"调试: should_buy - 现金={cash_value:.2f}元, 股价={current_price:.2f}元, 需要资金={current_price*100:.2f}元")
+            logger.debug(f"should_buy - 现金={cash_value:.2f}元, 股价={current_price:.2f}元, 需要资金={current_price*100:.2f}元")
             
             if cash_value > current_price * 100:  # 至少能买100股
                 print(f"买入条件满足: 现金{cash_value:.2f}元, 股价{current_price:.2f}元")
@@ -266,10 +269,10 @@ class BacktestStrategy:
             # 获取当前价格（使用缓存）
             current_price = self._get_stock_price(symbol, context)
             if current_price <= 0:
-                print(f"调试: should_sell - 获取价格失败")
+                logger.debug(f"should_sell - 获取价格失败")
                 return False
             
-            print(f"调试: should_sell - 当前价格={current_price:.2f}元, 买入价格={buy_price:.2f}元")
+            logger.debug(f"should_sell - 当前价格={current_price:.2f}元, 买入价格={buy_price:.2f}元")
             
             # 止盈止损条件 - 使用参数化配置
             profit_ratio = (current_price - buy_price) / buy_price
@@ -278,20 +281,20 @@ class BacktestStrategy:
             stop_profit_ratio = self.params.stop_profit_ratio
             stop_loss_ratio = self.params.stop_loss_ratio
             
-            print(f"调试: should_sell - 收益率={profit_ratio*100:.2f}%, 止盈阈值={stop_profit_ratio*100:.2f}%, 止损阈值={stop_loss_ratio*100:.2f}%")
+            logger.debug(f"should_sell - 收益率={profit_ratio*100:.2f}%, 止盈阈值={stop_profit_ratio*100:.2f}%, 止损阈值={stop_loss_ratio*100:.2f}%")
             
             if profit_ratio >= stop_profit_ratio:  # 止盈
-                print(f"止盈触发: 盈利{profit_ratio*100:.2f}% (阈值{stop_profit_ratio*100:.2f}%)")
+                logger.info(f"止盈触发: 盈利{profit_ratio*100:.2f}% (阈值{stop_profit_ratio*100:.2f}%)")
                 return True
             elif profit_ratio <= stop_loss_ratio:  # 止损
-                print(f"止损触发: 亏损{profit_ratio*100:.2f}% (阈值{stop_loss_ratio*100:.2f}%)")
+                logger.info(f"止损触发: 亏损{profit_ratio*100:.2f}% (阈值{stop_loss_ratio*100:.2f}%)")
                 return True
             else:
-                print(f"调试: should_sell - 未达到止盈止损条件")
+                logger.debug(f"should_sell - 未达到止盈止损条件")
                 return False
             
         except Exception as e:
-            print(f"卖出判断失败: {e}")
+            logger.error(f"卖出判断失败: {e}")
             return False
     
     def calculate_portfolio_value(self, context) -> float:
@@ -347,8 +350,8 @@ class BacktestStrategy:
     def daily_strategy(self, context):
         """每日策略执行"""
         current_date = context.now.strftime('%Y-%m-%d')
-        print(f"\n📅 交易日: {current_date}")
-        print(f"调试: daily_strategy开始执行")
+        logger.info(f"\n📅 交易日: {current_date}")
+        logger.debug(f"daily_strategy开始执行")
         
         # 检查是否有持仓需要卖出
         account = context.account()
@@ -356,22 +359,22 @@ class BacktestStrategy:
         current_position = None
         
         positions = account.positions()
-        print(f"调试: 持仓检查 - 持仓数量={len(positions)}")
+        logger.debug(f"持仓检查 - 持仓数量={len(positions)}")
         
         for position in positions:
             # 安全获取持仓量
             volume = position.volume
             volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
             
-            print(f"调试: 持仓检查 - 股票代码={position.symbol}, 持仓量={volume_value}")
+            logger.debug(f"持仓检查 - 股票代码={position.symbol}, 持仓量={volume_value}")
             
             if volume_value > 0:
                 has_position = True
                 current_position = position
-                print(f"调试: 发现持仓 - {position.symbol}, 持仓量={volume_value}")
+                logger.info(f"发现持仓 - {position.symbol}, 持仓量={volume_value}")
                 break
         
-        print(f"调试: 持仓检查完成 - 结果={has_position}")
+        logger.debug(f"持仓检查完成 - 结果={has_position}")
         
         # 如果有持仓，检查是否应该卖出
         if has_position and current_position:
@@ -387,23 +390,23 @@ class BacktestStrategy:
         
         # 如果没有持仓，尝试买入
         if not has_position:
-            print(f"调试: 无持仓，开始选股流程")
+            logger.debug(f"无持仓，开始选股流程")
             # 获取当日评分最高的股票
             top_stock = self.get_top_stock(context)
             
-            print(f"调试: get_top_stock返回结果={top_stock}")
+            logger.debug(f"get_top_stock返回结果={top_stock}")
             
             if top_stock:
-                print(f"调试: 选股成功，开始判断买入条件 - 股票代码={top_stock['symbol']}")
+                logger.debug(f"选股成功，开始判断买入条件 - 股票代码={top_stock['symbol']}")
                 buy_decision = self.should_buy(context, top_stock['symbol'])
-                print(f"调试: should_buy判断结果={buy_decision}")
+                logger.debug(f"should_buy判断结果={buy_decision}")
                 
                 if buy_decision:
-                    print(f"调试: 买入条件满足，执行买入操作")
+                    logger.debug(f"买入条件满足，执行买入操作")
                     buy_result = self._execute_buy(context, top_stock)
-                    print(f"调试: _execute_buy返回结果={buy_result}")
+                    logger.debug(f"_execute_buy返回结果={buy_result}")
             else:
-                print(f"调试: 选股失败，没有符合条件的股票")
+                logger.debug(f"选股失败，没有符合条件的股票")
         
         # 记录当日组合价值
         portfolio_value = self.calculate_portfolio_value(context)
@@ -419,7 +422,7 @@ class BacktestStrategy:
             'value': portfolio_value_num
         })
         
-        print(f"💰 当日组合价值: {portfolio_value_num:,.2f}元")
+        logger.info(f"💰 当日组合价值: {portfolio_value_num:,.2f}元")
     
     def _execute_buy(self, context, stock_info: Dict[str, str]) -> bool:
         """执行买入操作"""
@@ -427,13 +430,13 @@ class BacktestStrategy:
             symbol = stock_info['symbol']
             sec_name = stock_info.get('sec_name', symbol)
             
-            print(f"调试: _execute_buy - 开始执行买入操作，股票代码={symbol}, 名称={sec_name}")
+            logger.debug(f"_execute_buy - 开始执行买入操作，股票代码={symbol}, 名称={sec_name}")
             
             # 获取当前价格
             from gm.api import current
             current_data = current(symbol)
             if not current_data:
-                print(f"调试: _execute_buy - 获取价格失败")
+                logger.debug(f"_execute_buy - 获取价格失败")
                 return False
                 
             # 安全获取价格数值
@@ -460,7 +463,7 @@ class BacktestStrategy:
                 # 尝试直接转换，如果失败则使用安全默认值
                 cash_value = float(cash) if cash else 0.0
             
-            print(f"调试: _execute_buy - 可用资金={cash_value:.2f}元, 股价={current_price:.2f}元")
+            logger.debug(f"_execute_buy - 可用资金={cash_value:.2f}元, 股价={current_price:.2f}元")
             
             commission = cash_value * self.commission_ratio
             available_cash = cash_value - commission
@@ -468,15 +471,15 @@ class BacktestStrategy:
             # 计算可买入股数（100股为单位）
             quantity = int(available_cash / current_price / 100) * 100
             
-            print(f"调试: _execute_buy - 佣金={commission:.2f}元, 可用资金={available_cash:.2f}元, 可买数量={quantity}股")
+            logger.debug(f"_execute_buy - 佣金={commission:.2f}元, 可用资金={available_cash:.2f}元, 可买数量={quantity}股")
             
             if quantity <= 0:
-                print("资金不足，无法买入")
+                logger.info("资金不足，无法买入")
                 return False
             
             # 执行买入
             from gm.api import order_volume, OrderSide_Buy, OrderType_Market, PositionEffect_Open
-            print(f"调试: _execute_buy - 执行订单: {symbol}, 数量={quantity}, 类型=买入")
+            logger.debug(f"_execute_buy - 执行订单: {symbol}, 数量={quantity}, 类型=买入")
             order_volume(symbol=symbol, volume=quantity, side=OrderSide_Buy, 
                         order_type=OrderType_Market, position_effect=PositionEffect_Open)
             
@@ -492,11 +495,11 @@ class BacktestStrategy:
             }
             self.trading_records.append(trade_record)
             
-            print(f"买入成功: {symbol} ({sec_name}) {quantity}股, 价格{current_price:.2f}元")
+            logger.info(f"买入成功: {symbol} ({sec_name}) {quantity}股, 价格{current_price:.2f}元")
             return True
             
         except Exception as e:
-            print(f"买入失败: {e}")
+            logger.error(f"买入失败: {e}")
             return False
     
     def _execute_sell(self, context, symbol: str) -> bool:
@@ -504,11 +507,11 @@ class BacktestStrategy:
         try:
             # 获取持仓 - 使用positions()方法获取所有持仓，然后筛选
             from gm.api import current, order_volume, OrderSide_Sell, OrderType_Market, PositionEffect_Close
-            print(f"调试: _execute_sell - 开始执行卖出操作，股票代码={symbol}")
+            logger.debug(f"_execute_sell - 开始执行卖出操作，股票代码={symbol}")
             positions = context.account().positions(symbol=symbol)
-            print(f"调试: _execute_sell - 持仓数量={len(positions)}")
+            logger.debug(f"_execute_sell - 持仓数量={len(positions)}")
             if not positions:
-                print(f"没有{symbol}的持仓")
+                logger.info(f"没有{symbol}的持仓")
                 return False
             
             # 获取第一个持仓（通常只有一个）
@@ -518,9 +521,9 @@ class BacktestStrategy:
             volume = position.volume
             volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
             
-            print(f"调试: _execute_sell - 持仓数量={volume_value}股")
+            logger.debug(f"_execute_sell - 持仓数量={volume_value}股")
             if volume_value <= 0:
-                print(f"没有{symbol}的持仓")
+                logger.info(f"没有{symbol}的持仓")
                 return False
             
             # 获取当前价格
@@ -542,14 +545,14 @@ class BacktestStrategy:
             # 执行卖出（清仓）- volume参数需要int类型
             # 只有在回测期间才执行卖出操作，避免回测结束后调用已停止的服务
             try:
-                print(f"调试: _execute_sell - 执行订单: {symbol}, 数量={int(volume_value)}, 类型=卖出")
+                logger.debug(f"_execute_sell - 执行订单: {symbol}, 数量={int(volume_value)}, 类型=卖出")
                 order_volume(symbol=symbol, volume=int(volume_value), side=OrderSide_Sell, 
                             order_type=OrderType_Market, position_effect=PositionEffect_Close)
             except Exception as order_error:
                 # 捕获回测服务调用错误
                 error_msg = str(order_error)
                 if "回测服务调用错误" in error_msg or "1018" in error_msg:
-                    print(f"回测服务已结束，跳过卖出操作: {symbol}")
+                    logger.info(f"回测服务已结束，跳过卖出操作: {symbol}")
                     return False
                 else:
                     # 其他错误继续抛出
@@ -575,9 +578,9 @@ class BacktestStrategy:
             }
             self.trading_records.append(trade_record)
             
-            print(f"卖出成功: {symbol} ({sec_name}) {volume_value}股, 价格{current_price:.2f}元")
+            logger.info(f"卖出成功: {symbol} ({sec_name}) {volume_value}股, 价格{current_price:.2f}元")
             return True
             
         except Exception as e:
-            print(f"卖出失败: {e}")
+            logger.error(f"卖出失败: {e}")
             return False

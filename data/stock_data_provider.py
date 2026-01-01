@@ -17,6 +17,14 @@ project_root = os.path.dirname(file_dir)  # 项目根目录
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# 确保ulti-para-seeker目录在Python路径中
+ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
+if ulti_para_seeker_dir not in sys.path:
+    sys.path.insert(0, ulti_para_seeker_dir)
+
+# 导入日志模块
+from utils.logger import logger
+
 # 确保cache模块的导入路径正确
 cache_dir = os.path.join(project_root, "cache")
 if cache_dir not in sys.path:
@@ -24,8 +32,8 @@ if cache_dir not in sys.path:
 
 # 直接从cache包导入全局stock_cache实例，确保使用正确的缓存实例
 from cache import stock_cache
-print(f"[INFO] 缓存模块导入成功，使用全局stock_cache实例")
-print(f"[INFO] 缓存数据库路径: {stock_cache.db_path}")
+logger.info(f"缓存模块导入成功，使用全局stock_cache实例")
+logger.info(f"缓存数据库路径: {stock_cache.db_path}")
 
 
 class StockDataProvider:
@@ -312,21 +320,21 @@ class StockDataProvider:
             if not symbols:
                 return {}
                 
-            print(f"\n{batch_prefix}========================================")
-            print(f"{batch_prefix}📊 批量获取股票基础信息开始")
-            print(f"{batch_prefix}📅 交易日期: {trade_date}")
-            print(f"{batch_prefix}📈 股票数量: {len(symbols)}")
-            print(f"{batch_prefix}========================================")
+            logger.info(f"\n========================================")
+            logger.info(f"📊 批量获取股票基础信息开始")
+            logger.info(f"📅 交易日期: {trade_date}")
+            logger.info(f"📈 股票数量: {len(symbols)}")
+            logger.info(f"========================================")
             
             batch_results = {}
             cache_miss_symbols = []
             
             # 第一步：先从缓存获取数据
-            print(f"{batch_prefix}🔍 开始检查缓存...")
+            logger.info(f"🔍 开始检查缓存...")
             for i, symbol in enumerate(symbols):
                 # 显示进度
                 if (i + 1) % 1000 == 0 or i + 1 == len(symbols):
-                    print(f"{batch_prefix}🔍 检查缓存进度: {i + 1}/{len(symbols)}")
+                    logger.info(f"🔍 检查缓存进度: {i + 1}/{len(symbols)}")
                 
                 cached_info = stock_cache.get_cached_basic_info(symbol, trade_date)
                 if cached_info:
@@ -338,20 +346,20 @@ class StockDataProvider:
             cache_hit_count = len(batch_results)
             cache_miss_count = len(cache_miss_symbols)
             
-            print(f"{batch_prefix}✅ 缓存检查完成")
-            print(f"{batch_prefix}✅ 缓存命中: {cache_hit_count} 只股票 ({cache_hit_count/len(symbols)*100:.1f}%)")
-            print(f"{batch_prefix}✅ 缓存未命中: {cache_miss_count} 只股票 ({cache_miss_count/len(symbols)*100:.1f}%)")
+            logger.info(f"✅ 缓存检查完成")
+            logger.info(f"✅ 缓存命中: {cache_hit_count} 只股票 ({cache_hit_count/len(symbols)*100:.1f}%)")
+            logger.info(f"✅ 缓存未命中: {cache_miss_count} 只股票 ({cache_miss_count/len(symbols)*100:.1f}%)")
             
             # 第二步：对缓存未命中的股票调用API
             if cache_miss_count > 0:
-                print(f"{batch_prefix}🚀 使用批量API获取 {cache_miss_count} 只股票基础信息...")
+                logger.info(f"🚀 使用批量API获取 {cache_miss_count} 只股票基础信息...")
                 
                 # 使用GM API批量函数获取数据
                 api_results = {}
                 
                 try:
                     # 批量获取估值数据
-                    print(f"{batch_prefix}📊 正在获取估值数据...")
+                    logger.info(f"📊 正在获取估值数据...")
                     pe_data = stk_get_daily_valuation_pt(
                         symbols=','.join(cache_miss_symbols),
                         fields='pe_ttm',
@@ -360,7 +368,7 @@ class StockDataProvider:
                     )
                     
                     # 批量获取市值数据
-                    print(f"{batch_prefix}📊 正在获取市值数据...")
+                    logger.info(f"📊 正在获取市值数据...")
                     mkt_data = stk_get_daily_mktvalue_pt(
                         symbols=','.join(cache_miss_symbols),
                         fields='a_mv,tot_mv',
@@ -369,7 +377,7 @@ class StockDataProvider:
                     )
                     
                     # 批量获取基础指标数据
-                    print(f"{batch_prefix}📊 正在获取基础指标数据...")
+                    logger.info(f"📊 正在获取基础指标数据...")
                     basic_data = stk_get_daily_basic_pt(
                         symbols=','.join(cache_miss_symbols),
                         fields='tclose,turnrate',
@@ -400,7 +408,7 @@ class StockDataProvider:
                             }
                     
                     # 获取股票基本信息
-                    print(f"{batch_prefix}📊 正在获取股票基本信息...")
+                    logger.info(f"📊 正在获取股票基本信息...")
                     stock_infos = get_symbol_infos(sec_type1=1010, sec_type2=101001, symbols=cache_miss_symbols, df=True)
                     stock_info_dict = {}
                     if stock_infos is not None and not stock_infos.empty:
@@ -408,11 +416,11 @@ class StockDataProvider:
                             stock_info_dict[row['symbol']] = row['sec_name']
                     
                     # 构建完整的基础信息
-                    print(f"{batch_prefix}📊 正在构建完整基础信息...")
+                    logger.info(f"📊 正在构建完整基础信息...")
                     for i, symbol in enumerate(cache_miss_symbols):
                         # 显示进度
                         if (i + 1) % 500 == 0 or i + 1 == len(cache_miss_symbols):
-                            print(f"{batch_prefix}📊 构建信息进度: {i + 1}/{len(cache_miss_symbols)}")
+                            logger.info(f"📊 构建信息进度: {i + 1}/{len(cache_miss_symbols)}")
                         
                         sec_name = stock_info_dict.get(symbol, symbol)
                         pe = pe_dict.get(symbol, 100)
@@ -438,12 +446,12 @@ class StockDataProvider:
                         # 缓存获取的数据
                         cache_success = stock_cache.cache_basic_info(symbol, trade_date, basic_info)
                         if cache_success and (i + 1) % 1000 == 0:
-                            print(f"{batch_prefix}📦 已缓存 {i + 1} 只股票信息")
+                            logger.info(f"📦 已缓存 {i + 1} 只股票信息")
                     
-                    print(f"{batch_prefix}✅ 批量API获取成功: {len(api_results)}/{cache_miss_count} 只股票")
+                    logger.info(f"✅ 批量API获取成功: {len(api_results)}/{cache_miss_count} 只股票")
                     
                 except Exception as batch_error:
-                    print(f"{batch_prefix}⚠️  批量API获取失败，回退到逐个获取: {batch_error}")
+                    logger.warning(f"⚠️  批量API获取失败，回退到逐个获取: {batch_error}")
                     import traceback
                     traceback.print_exc()
                     # 批量获取失败，回退到逐个获取

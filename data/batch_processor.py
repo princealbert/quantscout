@@ -15,6 +15,14 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# 添加ulti-para-seeker目录到Python路径，确保日志模块导入正常
+ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
+if ulti_para_seeker_dir not in sys.path:
+    sys.path.insert(0, ulti_para_seeker_dir)
+
+# 导入日志模块
+from utils.logger import logger
+
 from data.stock_data_provider import StockDataProvider
 from indicators.kdj_calculator import KDJCalculator
 from indicators.trend_indicators import TrendIndicators
@@ -79,8 +87,8 @@ class BatchProcessor:
         self.max_workers = max_workers
         
         # 记录实际接收到的权重配置
-        print(f"[BATCH_PROCESSOR] 接收到的权重配置: {custom_weights}")
-        print(f"[BATCH_PROCESSOR] 接收到的子权重配置: {sub_weights_config}")
+        logger.info(f"[BATCH_PROCESSOR] 接收到的权重配置: {custom_weights}")
+        logger.info(f"[BATCH_PROCESSOR] 接收到的子权重配置: {sub_weights_config}")
         
         self.weights_config = custom_weights
         self.sub_weights_config = sub_weights_config
@@ -133,7 +141,7 @@ class BatchProcessor:
             return []
         
         if not all_stocks_info:
-            print(f"{batch_prefix}❌ 无法获取任何股票基础信息")
+            logger.error(f"{batch_prefix}❌ 无法获取任何股票基础信息")
             return []
         
         # 第二步：并行PE和市值筛选（内存中快速筛选）
@@ -317,57 +325,47 @@ class BatchProcessor:
         optimal_batch_size = self._calculate_optimal_batch_size(total_stocks, batch_size)
         
         if optimal_batch_size != batch_size:
-            print(f"⚡ 智能优化：批次大小从 {batch_size} 调整为 {optimal_batch_size}")
+            logger.info(f"⚡ 智能优化：批次大小从 {batch_size} 调整为 {optimal_batch_size}")
             batch_size = optimal_batch_size
         
-        print(f"🚀 开始真正并行处理 {total_stocks} 只股票，批次大小: {batch_size}")
+        logger.info(f"🚀 开始真正并行处理 {total_stocks} 只股票，批次大小: {batch_size}")
         
         # 动态计算批次数量
         total_batches = (total_stocks + batch_size - 1) // batch_size
         # 智能调整并行线程数，避免资源浪费
         effective_workers = min(self.max_workers, total_batches)
         
-        print(f"📊 将股票池分成 {total_batches} 个批次，使用 {effective_workers} 个线程并行处理")
-        print(f"💡 效率分析：CPU利用率 {effective_workers/self.max_workers*100:.0f}%，批次负载均衡度 {total_batches/effective_workers:.1f}")
+        logger.info(f"📊 将股票池分成 {total_batches} 个批次，使用 {effective_workers} 个线程并行处理")
+        logger.info(f"💡 效率分析：CPU利用率 {effective_workers/self.max_workers*100:.0f}%，批次负载均衡度 {total_batches/effective_workers:.1f}")
         
         # 全局统计变量
         total_processed = 0
         
-        # 并行处理所有批次
+        # 并行处理所有批次 - 不再使用嵌套线程池，改为串行处理批次，每个批次内部并行处理
         all_results = []
         
-        with ThreadPoolExecutor(max_workers=effective_workers) as executor:
-            # 为每个批次创建任务
-            batch_futures = []
-            for batch_num in range(total_batches):
-                start_idx = batch_num * batch_size
-                end_idx = min(start_idx + batch_size, len(all_symbols))
-                batch_symbols = all_symbols[start_idx:end_idx]
-                
-                # 提交批次处理任务
-                future = executor.submit(self.process_batch_parallel, batch_symbols, trade_date, batch_num+1)
-                batch_futures.append(future)
-                print(f"[第{batch_num+1}批] 提交批次 {batch_num+1}/{total_batches}: 处理 {len(batch_symbols)} 只股票")
+        # 移除外部线程池，改为串行处理批次，避免嵌套线程池导致的解释器关闭问题
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min(start_idx + batch_size, len(all_symbols))
+            batch_symbols = all_symbols[start_idx:end_idx]
             
-            # 收集所有批次的结果
-            completed = 0
-            for future in as_completed(batch_futures):
-                try:
-                    batch_results = future.result()
-                    all_results.extend(batch_results)
-                    completed += 1
-                    
-                    # 更新已处理股票计数
-                    total_processed += len(batch_results)
-                    print(f"[第{completed}批] ✅ 批次 {completed}/{total_batches} 完成: 找到 {len(batch_results)} 只候选股票")
-                    print(f"[进度统计] 已处理 {total_processed}/{len(all_symbols)} 只股票 ({total_processed/len(all_symbols)*100:.1f}%)")
-                    
-                except Exception as e:
-                    print(f"[第{completed+1}批] ❌ 批次处理失败: {e}")
-                    completed += 1
+            logger.info(f"[第{batch_num+1}批] 开始处理批次 {batch_num+1}/{total_batches}: 处理 {len(batch_symbols)} 只股票")
+            
+            try:
+                batch_results = self.process_batch_parallel(batch_symbols, trade_date, batch_num+1)
+                all_results.extend(batch_results)
+                
+                # 更新已处理股票计数
+                total_processed += len(batch_results)
+                logger.info(f"[第{batch_num+1}批] ✅ 批次 {batch_num+1}/{total_batches} 完成: 找到 {len(batch_results)} 只候选股票")
+                logger.info(f"[进度统计] 已处理 {total_processed}/{len(all_symbols)} 只股票 ({total_processed/len(all_symbols)*100:.1f}%)")
+                
+            except Exception as e:
+                logger.error(f"[第{batch_num+1}批] ❌ 批次处理失败: {e}")
         
-        print(f"🎉 并行处理完成: 从 {len(all_symbols)} 只股票中筛选出 {len(all_results)} 只候选股票")
-        print(f"📈 处理统计: 已处理 {len(all_symbols)} 只股票，筛选出 {len(all_results)} 只候选股票")
+        logger.info(f"🎉 并行处理完成: 从 {len(all_symbols)} 只股票中筛选出 {len(all_results)} 只候选股票")
+        logger.info(f"📈 处理统计: 已处理 {len(all_symbols)} 只股票，筛选出 {len(all_results)} 只候选股票")
         return all_results
     
     def _calculate_optimal_batch_size(self, total_stocks: int, user_batch_size: int) -> int:

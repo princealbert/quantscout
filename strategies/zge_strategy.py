@@ -18,6 +18,14 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# 添加ulti-para-seeker目录到Python路径，确保日志模块导入正常
+ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
+if ulti_para_seeker_dir not in sys.path:
+    sys.path.insert(0, ulti_para_seeker_dir)
+
+# 导入日志模块
+from utils.logger import logger
+
 from data.batch_processor import BatchProcessor
 
 
@@ -29,8 +37,8 @@ class ZGeStrategyScreener:
         self.max_workers = max_workers
         
         # 记录实际接收到的权重配置
-        print(f"[ZGE_STRATEGY] 接收到的权重配置: {weights_config}")
-        print(f"[ZGE_STRATEGY] 接收到的子权重配置: {sub_weights_config}")
+        logger.info(f"[ZGE_STRATEGY] 接收到的权重配置: {weights_config}")
+        logger.info(f"[ZGE_STRATEGY] 接收到的子权重配置: {sub_weights_config}")
         
         # 使用BatchProcessor处理核心逻辑
         self.batch_processor = BatchProcessor(batch_size, max_workers, weights_config, sub_weights_config)

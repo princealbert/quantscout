@@ -20,6 +20,17 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# 导入日志系统
+try:
+    # 尝试相对导入
+    from ..utils.logger import logger
+except ImportError:
+    # 尝试绝对导入
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from utils.logger import logger
+
 class BruteForceOptimizer(BaseOptimizer):
     """
     暴力优化器类 - 使用暴力枚举方法进行参数优化
@@ -31,7 +42,8 @@ class BruteForceOptimizer(BaseOptimizer):
         self.current_dir = os.path.dirname(os.path.abspath(__file__))
     
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                               use_advanced_weights: bool = True, end_date: str = '2025-12-25') -> Dict[str, List[Any]]:
+                               use_advanced_weights: bool = True, end_date: str = '2025-12-25',
+                               focus_indicators: List[str] = None, focus_weight_factor: float = 1.5) -> Dict[str, List[Any]]:
         """
         定义参数范围
 
@@ -40,34 +52,36 @@ class BruteForceOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数（仅在非测试模式下生效）
             use_advanced_weights: 是否使用高级权重配置模式
             end_date: 回测终点日期（格式：YYYY-MM-DD）
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
 
         Returns:
             Dict[str, List[Any]]: 参数范围字典
         """
-        print("定义参数范围...")
-        print(f"- 回测天数固定为90天，终点日期为{end_date}")
+        logger.info("定义参数范围...")
+        logger.info(f"- 回测天数固定为90天，终点日期为{end_date}")
         
         # 根据模式调整参数范围
         if test_mode:
-            print("[测试模式] 使用最小参数范围")
+            logger.info("[测试模式] 使用最小参数范围")
             stop_profit_ratio = [0.02]  # 仅测试2%止盈
             stop_loss_ratio = [-0.01]  # 仅测试1%止损
             weight_step = 10  # 使用合理步长以生成有效组合
         else:
-            print("- 止盈比例: 3%-15%，步长2%")
-            print("- 止损比例: -5%--1%，步长1%")
+            logger.info("- 止盈比例: 3%-15%，步长2%")
+            logger.info("- 止损比例: -5%--1%，步长1%")
             if use_advanced_weights:
-                print("- 权重配置: 总和100，步长10%")
+                logger.info("- 权重配置: 总和100，步长10%")
                 weight_step = 10
             else:
-                print("- 权重配置: 总和100，步长20%")
+                logger.info("- 权重配置: 总和100，步长20%")
                 weight_step = 20
             
             # 缩小止盈止损范围以减少组合数量（量化专家建议范围）
             stop_profit_ratio = [x/100 for x in range(3, 16, 2)]  # 3%-15%，步长2%
             stop_loss_ratio = [-x/100 for x in range(1, 6, 1)]  # -5%--1%，步长1%
         
-        print("- 子权重配置: 每个主指标子权重总和100")
+        logger.info("- 子权重配置: 每个主指标子权重总和100")
         
         # 选股策略核心指标（权重配置）
         # 移除deepv指标，将其权重设为零以减少组合数量
@@ -75,7 +89,7 @@ class BruteForceOptimizer(BaseOptimizer):
         
         # 生成权重配置
         if test_mode:
-            print("[测试模式] 直接生成简单权重组合")
+            logger.info("[测试模式] 直接生成简单权重组合")
             weights_config = [{
                 'kdj_j': 30,
                 'trend': 20,
@@ -86,16 +100,19 @@ class BruteForceOptimizer(BaseOptimizer):
             }]
         elif use_advanced_weights:
             # 高级模式：生成基础组合 + 重点指标加权组合
-            print("[高级模式] 使用重点指标加权的权重配置")
+            logger.info("[高级模式] 使用重点指标加权的权重配置")
             
             # 基础权重组合 - 限制主权重范围为5%-95%，避免极端值
             base_weights = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
             
-            # 仅保留KDJ J值和趋势作为重点指标的组合（减少组合数）
+            # 使用传入的重点指标和权重因子
+            if focus_indicators is None:
+                focus_indicators = ['kdj_j', 'trend']
+            
             kdj_trend_weights = self._generate_custom_weights_combinations(
                 core_indicators, 100, weight_step, 
-                focus_indicators=['kdj_j', 'trend'], 
-                focus_weight_factor=1.5
+                focus_indicators=focus_indicators, 
+                focus_weight_factor=focus_weight_factor
             )
             
             # 合并权重组合并去重
@@ -307,7 +324,8 @@ class BruteForceOptimizer(BaseOptimizer):
         return final_combinations
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                       end_date: str = '2025-12-25') -> List[Dict[str, Any]]:
+                                       end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
+                                       focus_weight_factor: float = 1.5) -> List[Dict[str, Any]]:
         """
         生成所有参数组合
 
@@ -315,11 +333,13 @@ class BruteForceOptimizer(BaseOptimizer):
             test_mode: 是否为测试模式（使用最小参数范围，仅生成第一个组合）
             max_sub_combinations: 最大子权重组合数（仅在非测试模式下生效）
             end_date: 回测终点日期（格式：YYYY-MM-DD）
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, end_date=end_date)
+        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, True, end_date, focus_indicators, focus_weight_factor)
         
         # 计算总组合数（用于进度显示）
         total_combinations = (len(param_ranges['backtest_days']) * 
@@ -554,7 +574,8 @@ class BruteForceOptimizer(BaseOptimizer):
                 print("✅ 回测完成，无配置文件生成")
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
+                end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
+                focus_weight_factor: float = 1.5, blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         执行暴力优化
 
@@ -562,6 +583,8 @@ class BruteForceOptimizer(BaseOptimizer):
             test_mode: 是否为测试模式（使用最小参数范围，仅生成第一个组合）
             max_sub_combinations: 最大子权重组合数（仅在非测试模式下生效）
             end_date: 回测终点日期（格式：YYYY-MM-DD）
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
             blueprint_file: 蓝图文件路径（用于断点续传）
 
         Returns:
@@ -577,7 +600,7 @@ class BruteForceOptimizer(BaseOptimizer):
         
         # 如果没有蓝图或蓝图为空，生成新的参数组合
         if not blueprint or len(blueprint['combinations']) == 0:
-            param_combinations = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date)
+            param_combinations = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date, focus_indicators, focus_weight_factor)
             
             # 如果提供了蓝图文件路径但文件不存在，生成新蓝图
             if blueprint_file:
@@ -600,7 +623,7 @@ class BruteForceOptimizer(BaseOptimizer):
         else:
             # 从蓝图中提取待处理的参数组合
             param_combinations = [combo['params'] for combo in blueprint['combinations'] if combo['status'] in ['pending', 'failed']]
-            
+        
         # 执行优化
         results = self.run_parallel_optimization(param_combinations, blueprint=blueprint, blueprint_file=blueprint_file)
         

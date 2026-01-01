@@ -122,8 +122,8 @@ class OptimizerLogger:
 
 # 计算项目根目录
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 创建日志文件路径
-log_file_path = os.path.join(project_root, "../parameter_optimizer.log")
+# 创建日志文件路径 - 生成在项目根目录
+log_file_path = os.path.join(project_root, "parameter_optimizer.log")
 
 # 全局日志实例
 logger = OptimizerLogger(log_file=log_file_path, max_lines=1000)

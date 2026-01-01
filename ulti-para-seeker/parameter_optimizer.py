@@ -20,6 +20,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
+# 导入日志系统
+from utils.logger import logger
+
 # 导入现有优化器和结果处理器
 from optimizers.brute_force_optimizer import BruteForceOptimizer
 from optimizers.result_processor import ResultProcessor
@@ -71,12 +74,12 @@ class ParameterOptimizer(BruteForceOptimizer):
         Returns:
             Dict[str, List[Any]]: 参数范围字典
         """
-        print("定义参数范围...")
-        print(f"- 回测天数固定为90天，终点日期为{end_date}")
+        logger.info("定义参数范围...")
+        logger.info(f"- 回测天数固定为90天，终点日期为{end_date}")
         
         # 根据模式调整参数范围
         if test_mode:
-            print("[测试模式] 使用最小参数范围")
+            logger.info("[测试模式] 使用最小参数范围")
             stop_profit_ratio = [0.02]  # 仅测试2%止盈
             stop_loss_ratio = [-0.01]  # 仅测试1%止损
             weight_step = 10  # 使用合理步长以生成有效组合
@@ -100,15 +103,15 @@ class ParameterOptimizer(BruteForceOptimizer):
                 else:
                     weight_step = 20
             
-            print(f"- 止盈比例: {stop_profit_min}%-{stop_profit_max}%，步长{stop_profit_step}%")
-            print(f"- 止损比例: {-stop_loss_max}%--{-stop_loss_min}%，步长{stop_loss_step}%")
-            print(f"- 权重配置: 总和100，步长{weight_step}%")
+            logger.info(f"- 止盈比例: {stop_profit_min}%-{stop_profit_max}%，步长{stop_profit_step}%")
+            logger.info(f"- 止损比例: {-stop_loss_max}%--{-stop_loss_min}%，步长{stop_loss_step}%")
+            logger.info(f"- 权重配置: 总和100，步长{weight_step}%")
             
             # 使用用户指定的范围生成参数
             stop_profit_ratio = [x/100 for x in range(stop_profit_min, stop_profit_max + 1, stop_profit_step)]
             stop_loss_ratio = [-x/100 for x in range(stop_loss_min, stop_loss_max + 1, stop_loss_step)]
         
-        print("- 子权重配置: 每个主指标子权重总和100")
+        logger.info("- 子权重配置: 每个主指标子权重总和100")
         
         # 选股策略核心指标（权重配置）
         # 移除deepv指标，将其权重设为零以减少组合数量
@@ -117,7 +120,7 @@ class ParameterOptimizer(BruteForceOptimizer):
         # 生成权重配置
         if test_mode:
             # 测试模式：直接生成一个简单的权重组合
-            print("[测试模式] 直接生成简单权重组合")
+            logger.info("[测试模式] 直接生成简单权重组合")
             weights_config = [{
                 'kdj_j': 30,
                 'trend': 20,
@@ -128,7 +131,7 @@ class ParameterOptimizer(BruteForceOptimizer):
             }]
         elif use_advanced_weights:
             # 高级模式：生成基础组合 + 重点指标加权组合
-            print("[高级模式] 使用重点指标加权的权重配置")
+            logger.info("[高级模式] 使用重点指标加权的权重配置")
             
             # 基础权重组合 - 限制主权重范围为5%-95%，避免极端值
             base_weights = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
@@ -224,8 +227,8 @@ class ParameterOptimizer(BruteForceOptimizer):
                             len(param_ranges['weights_config']) * 
                             len(param_ranges['sub_weights_config']))
         
-        print(f"开始生成参数组合...")
-        print(f"预计总组合数: {total_combinations}")
+        logger.info(f"开始生成参数组合...")
+        logger.info(f"预计总组合数: {total_combinations}")
         
         combinations = []
         current_count = 0
@@ -258,16 +261,16 @@ class ParameterOptimizer(BruteForceOptimizer):
                                     
                                     # 每生成1000个组合显示一次进度
                                     if current_count % 1000 == 0:
-                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合")
+                                        logger.info(f"已生成 {current_count}/{total_combinations} 个参数组合")
                                     
                                     # 测试模式下仅生成第一个组合
                                     if test_mode and len(combinations) >= 1:
-                                        print("[测试模式] 仅生成并返回第一个参数组合")
+                                        logger.info("[测试模式] 仅生成并返回第一个参数组合")
                                         return combinations
         
         # 如果是遗传算法，只返回指定数量的组合
         if algorithm == "遗传算法" and total_combinations > 0:
-            print(f"[{algorithm}] 从 {len(combinations)} 个组合中选择 {max_sub_combinations} 个进行优化")
+            logger.info(f"[{algorithm}] 从 {len(combinations)} 个组合中选择 {max_sub_combinations} 个进行优化")
             # 随机选择max_sub_combinations个组合
             import random
             random.shuffle(combinations)
@@ -303,14 +306,14 @@ class ParameterOptimizer(BruteForceOptimizer):
         Returns:
             List[Dict[str, Any]]: 回测结果列表
         """
-        print("\n=== 执行参数优化 ===")
-        print(f"优化算法: {algorithm}")
-        print(f"测试模式: {test_mode}")
-        print(f"最大子权重组合数: {max_sub_combinations}")
+        logger.info("\n=== 执行参数优化 ===")
+        logger.info(f"优化算法: {algorithm}")
+        logger.info(f"测试模式: {test_mode}")
+        logger.info(f"最大子权重组合数: {max_sub_combinations}")
         
         # 如果提供了蓝图文件，从蓝图文件加载参数组合
         if blueprint_file:
-            print(f"从蓝图文件加载参数组合: {blueprint_file}")
+            logger.info(f"从蓝图文件加载参数组合: {blueprint_file}")
             blueprint = self.load_blueprint(blueprint_file, load_all=True)
             # 过滤出待处理的组合
             pending_combinations = [combo['params'] for combo in blueprint['combinations'] if combo['status'] == 'pending']
@@ -445,7 +448,7 @@ class ParameterOptimizer(BruteForceOptimizer):
         blueprint_path = os.path.join(self.current_dir, blueprint_file)
         self.blueprint_manager.save_blueprint(blueprint, blueprint_path)
         
-        print(f"蓝图已生成，包含 {len(param_combinations)} 个参数组合")
+        logger.info(f"蓝图已生成，包含 {len(param_combinations)} 个参数组合")
         return blueprint_path
     
     def list_blueprints(self) -> List[Dict[str, Any]]:
@@ -509,9 +512,9 @@ def main():
     """
     主函数
     """
-    print("=" * 60)
-    print("参数暴力求解器")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("参数暴力求解器")
+    logger.info("=" * 60)
     
     import argparse
     
@@ -538,7 +541,7 @@ def main():
     
     if args.dry_run:
         # 仅生成参数组合，不执行回测
-        print("\n=== 仅生成参数组合（dry-run模式）===")
+        logger.info("\n=== 仅生成参数组合（dry-run模式）===")
         param_combinations = optimizer.generate_parameter_combinations(
             test_mode=args.test,
             max_sub_combinations=args.max_sub_combinations,
@@ -552,15 +555,15 @@ def main():
             stop_loss_step=args.stop_loss_step,
             weight_step=args.weight_step
         )
-        print(f"\n✅ 成功生成 {len(param_combinations)} 个参数组合")
+        logger.info(f"\n✅ 成功生成 {len(param_combinations)} 个参数组合")
         if param_combinations:
-            print("\n示例参数组合:")
-            print(f"  - 回测天数: {param_combinations[0]['backtest_days']}")
-            print(f"  - 止盈比例: {param_combinations[0]['stop_profit_ratio']*100:.1f}%")
-            print(f"  - 止损比例: {param_combinations[0]['stop_loss_ratio']*100:.1f}%")
-            print(f"  - 权重配置: {param_combinations[0]['weights_config']}")
-            print(f"  - 子权重配置: {param_combinations[0]['sub_weights_config'].keys()}")
-        print("\n=== dry-run模式完成 ===")
+            logger.info("\n示例参数组合:")
+            logger.info(f"  - 回测天数: {param_combinations[0]['backtest_days']}")
+            logger.info(f"  - 止盈比例: {param_combinations[0]['stop_profit_ratio']*100:.1f}%")
+            logger.info(f"  - 止损比例: {param_combinations[0]['stop_loss_ratio']*100:.1f}%")
+            logger.info(f"  - 权重配置: {param_combinations[0]['weights_config']}")
+            logger.info(f"  - 子权重配置: {param_combinations[0]['sub_weights_config'].keys()}")
+        logger.info("\n=== dry-run模式完成 ===")
         return
     
     # 执行优化
@@ -587,18 +590,18 @@ def main():
     # 生成收益率分布可视化
     optimizer.visualize_yield_distribution(results)
     
-    print("=" * 60)
-    print("优化完成！")
+    logger.info("=" * 60)
+    logger.info("优化完成！")
     if results:
-        print(f"最佳组合总收益率: {results[0]['total_return']:.2f}%")
-        print(f"最佳组合年化收益率: {results[0]['annual_return']:.2f}%")
-        print("最佳组合参数:")
-        print(f"  - 回测天数: {results[0]['backtest_days']}")
-        print(f"  - 止盈比例: {results[0]['stop_profit_ratio']*100:.1f}%")
-        print(f"  - 止损比例: {results[0]['stop_loss_ratio']*100:.1f}%")
-        print(f"  - 权重配置: {results[0]['weights_config']}")
-        print(f"  - 子权重配置: {results[0]['sub_weights_config']}")
-    print("=" * 60)
+        logger.info(f"最佳组合总收益率: {results[0]['total_return']:.2f}%")
+        logger.info(f"最佳组合年化收益率: {results[0]['annual_return']:.2f}%")
+        logger.info("最佳组合参数:")
+        logger.info(f"  - 回测天数: {results[0]['backtest_days']}")
+        logger.info(f"  - 止盈比例: {results[0]['stop_profit_ratio']*100:.1f}%")
+        logger.info(f"  - 止损比例: {results[0]['stop_loss_ratio']*100:.1f}%")
+        logger.info(f"  - 权重配置: {results[0]['weights_config']}")
+        logger.info(f"  - 子权重配置: {results[0]['sub_weights_config']}")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

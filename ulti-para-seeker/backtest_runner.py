@@ -65,6 +65,7 @@ class BacktestRunner:
         account = context.account()
         has_position = False
         current_position = None
+        needs_new_selection = False
         
         for position in account.positions():
             # 安全获取持仓量
@@ -86,10 +87,15 @@ class BacktestRunner:
             
             if strategy.should_sell(context, symbol, buy_price):
                 self._execute_sell(context, symbol)
+                needs_new_selection = True  # 卖出后需要重新选股
                 has_position = False
+            else:
+                print(f"✅ 持仓 {symbol} 无操作，跳过选股流程，提高回测效率")
+        else:
+            needs_new_selection = True  # 没有持仓，需要选股
         
-        # 如果没有持仓，尝试买入
-        if not has_position:
+        # 如果需要重新选股（没有持仓或刚卖出持仓），尝试买入
+        if needs_new_selection:
             # 获取当日评分最高的股票
             top_stock = strategy.get_top_stock(context)
             

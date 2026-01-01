@@ -12,18 +12,21 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Tuple
 
-# 检查是否通过 streamlit run 命令运行
-if 'streamlit' not in sys.modules:
-    print("请使用 streamlit run 命令运行此应用程序:")
-    print(f"streamlit run {os.path.abspath(__file__)}")
-    sys.exit(1)
-
-import streamlit as st
-
 # 添加当前目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
+
+# 导入日志系统
+from utils.logger import logger
+
+# 检查是否通过 streamlit run 命令运行
+if 'streamlit' not in sys.modules:
+    logger.info("请使用 streamlit run 命令运行此应用程序:")
+    logger.info(f"streamlit run {os.path.abspath(__file__)}")
+    sys.exit(1)
+
+import streamlit as st
 
 # 导入参数优化器
 from parameter_optimizer import ParameterOptimizer
@@ -96,6 +99,31 @@ is_test_mode = st.sidebar.checkbox("测试模式", value=False)
 
 # 高级权重模式
 use_advanced_weights = st.sidebar.checkbox("高级权重配置", value=True)
+
+if use_advanced_weights:
+    # 重点指标选择
+    st.sidebar.subheader("高级权重配置")
+    core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
+    selected_focus_indicators = st.sidebar.multiselect(
+        "选择重点指标",
+        core_indicators,
+        default=['kdj_j', 'trend'],
+        help="选择需要重点关注的指标，这些指标在权重生成时会获得更高的权重"
+    )
+    
+    # 权重因子设置
+    focus_weight_factor = st.sidebar.slider(
+        "重点指标权重因子",
+        min_value=1.1,
+        max_value=3.0,
+        value=1.5,
+        step=0.1,
+        help="重点指标的权重放大倍数，值越大，重点指标获得的权重越高"
+    )
+else:
+    # 默认值
+    selected_focus_indicators = ['kdj_j', 'trend']
+    focus_weight_factor = 1.5
 
 # 最大子权重组合数
 max_sub_combinations = st.sidebar.slider(
@@ -198,8 +226,8 @@ if st.button("生成参数组合"):
             if use_advanced_weights:
                 custom_weights = optimizer._generate_custom_weights_combinations(
                     core_indicators, 100, weight_step_actual,
-                    focus_indicators=['kdj_j', 'trend'],
-                    focus_weight_factor=1.5
+                    focus_indicators=selected_focus_indicators,
+                    focus_weight_factor=focus_weight_factor
                 )
                 # 合并并去重
                 all_weights = base_weights + custom_weights
@@ -226,7 +254,7 @@ if st.button("生成参数组合"):
             else:  # 遗传算法
                 # 遗传算法使用部分组合（例如20%的全量组合）
                 total_combinations = max(1, int(base_combinations * 0.2))
-                print(f"[遗传算法] 从 {base_combinations} 个组合中选择 {total_combinations} 个进行优化")
+                logger.info(f"[遗传算法] 从 {base_combinations} 个组合中选择 {total_combinations} 个进行优化")
             
             # 估算计算时间（假设每个组合需要10秒）
             estimated_time = total_combinations * 10
@@ -254,7 +282,10 @@ if st.button("生成参数组合"):
                 stop_loss_min=stop_loss_min,
                 stop_loss_max=stop_loss_max,
                 stop_loss_step=stop_loss_step,
-                weight_step=weight_step
+                weight_step=weight_step,
+                use_advanced_weights=use_advanced_weights,
+                focus_indicators=selected_focus_indicators,
+                focus_weight_factor=focus_weight_factor
             )
             st.info(f"参数蓝图已保存到: {blueprint_path}")
             

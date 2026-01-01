@@ -75,7 +75,18 @@ class BaseOptimizer(ABC):
         Args:
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
+            algorithm: 优化算法
             end_date: 回测终点日期
+            stop_profit_min: 止盈最小值
+            stop_profit_max: 止盈最大值
+            stop_profit_step: 止盈步长
+            stop_loss_min: 止损最小值
+            stop_loss_max: 止损最大值
+            stop_loss_step: 止损步长
+            weight_step: 权重步长
+            use_advanced_weights: 是否使用高级权重配置
+            focus_indicators: 重点指标列表
+            focus_weight_factor: 重点指标权重因子
             blueprint_file: 蓝图文件路径（用于断点续传）
             
         Returns:
@@ -153,7 +164,12 @@ class BaseOptimizer(ABC):
     
     # 蓝图管理相关方法
     def generate_blueprint(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                          end_date: str = '2025-12-25', blueprint_file: str = "parameter_blueprint.json") -> str:
+                          algorithm: str = "暴力搜索", end_date: str = '2025-12-25', 
+                          stop_profit_min: int = 3, stop_profit_max: int = 15, stop_profit_step: int = 2,
+                          stop_loss_min: int = 1, stop_loss_max: int = 5, stop_loss_step: int = 1,
+                          weight_step: int = 10, use_advanced_weights: bool = True,
+                          focus_indicators: List[str] = None, focus_weight_factor: float = 1.5,
+                          blueprint_file: str = "parameter_blueprint.json") -> str:
         """
         生成参数组合蓝图文件
         

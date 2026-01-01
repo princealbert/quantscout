@@ -31,6 +31,8 @@ class GeneticOptimizer(BaseOptimizer):
         self.mutation_rate = 0.1  # 变异概率
         self.tournament_size = 5  # 锦标赛选择规模
         self.elitism = 5  # 精英保留数量
+        self.early_stopping_generations = 10  # 早期停止代数
+        self.min_improvement = 0.1  # 最小改进阈值（百分比）
     
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                                use_advanced_weights: bool = True, end_date: str = '2025-12-25') -> Dict[str, Any]:
@@ -181,6 +183,7 @@ class GeneticOptimizer(BaseOptimizer):
         print(f"- 交叉概率: {self.crossover_rate}")
         print(f"- 变异概率: {self.mutation_rate}")
         print(f"- 精英保留: {self.elitism}")
+        print(f"- 早期停止: {self.early_stopping_generations} 代无改进")
         
         # 初始化种群
         population = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date)
@@ -190,6 +193,10 @@ class GeneticOptimizer(BaseOptimizer):
         
         # 保存所有代的最佳结果
         all_results = []
+        
+        # 初始化早期停止相关变量
+        best_fitness_history = []
+        no_improvement_generations = 0
         
         # 进化过程
         for generation in range(self.generations):
@@ -215,17 +222,39 @@ class GeneticOptimizer(BaseOptimizer):
             
             # 找出当前代最佳个体
             best_individual = max(population_with_fitness, key=lambda x: x['fitness'])
+            current_best_fitness = best_individual['fitness']
             
             # 保存结果
             all_results.append(best_individual['params'])
-            all_results[-1]['fitness'] = best_individual['fitness']
+            all_results[-1]['fitness'] = current_best_fitness
             all_results[-1]['generation'] = generation + 1
             
             # 打印当前代信息
-            print(f"  当前代最佳适应度: {best_individual['fitness']:.4f}")
+            print(f"  当前代最佳适应度: {current_best_fitness:.4f}")
             print(f"  止盈比例: {best_individual['params']['stop_profit_ratio']:.3f}")
             print(f"  止损比例: {best_individual['params']['stop_loss_ratio']:.3f}")
             print(f"  权重配置: {best_individual['params']['weights_config']}")
+            
+            # 早期停止检查
+            best_fitness_history.append(current_best_fitness)
+            
+            if len(best_fitness_history) > 1:
+                prev_best = best_fitness_history[-2]
+                improvement = (current_best_fitness - prev_best) / abs(prev_best) * 100 if prev_best != 0 else 0
+                
+                if improvement < self.min_improvement:
+                    no_improvement_generations += 1
+                    print(f"  连续无改进代数: {no_improvement_generations}/{self.early_stopping_generations}")
+                    print(f"  改进幅度: {improvement:.2f}% < {self.min_improvement}%")
+                else:
+                    no_improvement_generations = 0
+                    print(f"  改进幅度: {improvement:.2f}%")
+                
+                # 检查是否触发早期停止
+                if no_improvement_generations >= self.early_stopping_generations:
+                    print(f"\n✅ 触发早期停止：连续 {self.early_stopping_generations} 代没有明显改进")
+                    print(f"  最佳适应度: {max(best_fitness_history):.4f}")
+                    break
             
             # 测试模式下提前终止
             if test_mode and generation >= 2:

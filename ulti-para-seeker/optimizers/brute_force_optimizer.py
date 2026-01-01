@@ -341,16 +341,8 @@ class BruteForceOptimizer(BaseOptimizer):
         """
         param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, True, end_date, focus_indicators, focus_weight_factor)
         
-        # 计算总组合数（用于进度显示）
-        total_combinations = (len(param_ranges['backtest_days']) * 
-                            len(param_ranges['end_date']) * 
-                            len(param_ranges['stop_profit_ratio']) * 
-                            len(param_ranges['stop_loss_ratio']) * 
-                            len(param_ranges['weights_config']) * 
-                            len(param_ranges['sub_weights_config']))
-        
+        # 优化：参数空间剪枝 - 减少不必要的参数组合
         print(f"开始生成参数组合...")
-        print(f"预计总组合数: {total_combinations}")
         
         combinations = []
         current_count = 0
@@ -358,36 +350,49 @@ class BruteForceOptimizer(BaseOptimizer):
         # 生成所有可能的组合
         for backtest_days in param_ranges['backtest_days']:
             for end_date in param_ranges['end_date']:
+                # 优化1：提前计算有效止盈止损组合
+                valid_pairs = []
                 for stop_profit_ratio in param_ranges['stop_profit_ratio']:
                     for stop_loss_ratio in param_ranges['stop_loss_ratio']:
-                        for weights_config in param_ranges['weights_config']:
-                            for sub_weights_config in param_ranges['sub_weights_config']:
-                                # 确保止盈大于止损
-                                if stop_profit_ratio > stop_loss_ratio:
-                                    # 将deepv权重设置为零
-                                    weights_config_with_zero_deepv = weights_config.copy()
-                                    weights_config_with_zero_deepv['deepv'] = 0
-                                    
-                                    param_comb = {
-                                        'backtest_days': backtest_days,
-                                        'end_date': end_date,
-                                        'stop_profit_ratio': stop_profit_ratio,
-                                        'stop_loss_ratio': stop_loss_ratio,
-                                        'weights_config': weights_config_with_zero_deepv,
-                                        'sub_weights_config': sub_weights_config,
-                                        'initial_capital': self.initial_capital
-                                    }
-                                    combinations.append(param_comb)
-                                    current_count += 1
-                                    
-                                    # 每生成1000个组合显示一次进度，使用行内刷新
-                                    if current_count % 1000 == 0:
-                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合", end="\r", flush=True)
-                                    
-                                    # 测试模式下仅生成第一个组合
-                                    if test_mode and current_count >= 1:
-                                        print(f"[测试模式] 仅生成并返回第一个参数组合")
-                                        return combinations
+                        if stop_profit_ratio > stop_loss_ratio:
+                            valid_pairs.append((stop_profit_ratio, stop_loss_ratio))
+                
+                # 计算总组合数（用于进度显示）
+                total_combinations = len(valid_pairs) * len(param_ranges['weights_config']) * len(param_ranges['sub_weights_config'])
+                print(f"预计总组合数: {total_combinations}")
+                
+                for stop_profit_ratio, stop_loss_ratio in valid_pairs:
+                    for weights_config in param_ranges['weights_config']:
+                        # 优化2：跳过不合理的权重配置
+                        # 避免deepv权重过大
+                        if weights_config.get('deepv', 0) > 50:
+                            continue
+                        
+                        for sub_weights_config in param_ranges['sub_weights_config']:
+                            # 将deepv权重设置为零
+                            weights_config_with_zero_deepv = weights_config.copy()
+                            weights_config_with_zero_deepv['deepv'] = 0
+                            
+                            param_comb = {
+                                'backtest_days': backtest_days,
+                                'end_date': end_date,
+                                'stop_profit_ratio': stop_profit_ratio,
+                                'stop_loss_ratio': stop_loss_ratio,
+                                'weights_config': weights_config_with_zero_deepv,
+                                'sub_weights_config': sub_weights_config,
+                                'initial_capital': self.initial_capital
+                            }
+                            combinations.append(param_comb)
+                            current_count += 1
+                            
+                            # 每生成1000个组合显示一次进度，使用行内刷新
+                            if current_count % 1000 == 0:
+                                print(f"已生成 {current_count}/{total_combinations} 个参数组合", end="\r", flush=True)
+                            
+                            # 测试模式下仅生成第一个组合
+                            if test_mode and current_count >= 1:
+                                print(f"[测试模式] 仅生成并返回第一个参数组合")
+                                return combinations
         
         print(f"总共生成 {len(combinations)} 个参数组合")
         return combinations
@@ -406,7 +411,6 @@ class BruteForceOptimizer(BaseOptimizer):
             import sys
             import os
             import json
-            import tempfile
             from datetime import datetime, timedelta
             
             # 设置项目根目录到sys.path
@@ -454,65 +458,34 @@ class BruteForceOptimizer(BaseOptimizer):
                 ]
             }
             
-            # 初始化temp_config_file变量，避免在finally块中访问未赋值变量
-            temp_config_file = None
-            
-            # 将配置文件保存到求解器目录的config文件夹
-            config_dir = os.path.join(self.current_dir, 'config')
-            os.makedirs(config_dir, exist_ok=True)
-            config_file_path = os.path.join(config_dir, 'current_backtest_config.json')
-            with open(config_file_path, 'w', encoding='utf-8') as f:
-                json.dump(frontend_config, f, ensure_ascii=False, indent=2)
-            print(f"✅ 参数配置已更新: {config_file_path}")
-            temp_config_file = config_file_path
-            
+            # 使用内存中的配置直接调用回测函数，避免配置文件的IO操作
             try:
-                # 使用标准回测函数运行回测 - 确保导入正确的ulti-para-seeker目录下的backtest_runner
-                import sys
-                import os
-                
                 # 确保ulti-para-seeker目录在sys.path的最前面
                 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 if current_dir in sys.path:
                     sys.path.remove(current_dir)
                 sys.path.insert(0, current_dir)
                 
-                # 使用绝对导入确保获取正确的模块
-                from backtest_runner import run_backtest
-                run_backtest(config_path=temp_config_file)
+                # 直接导入并调用backtest_runner的run_backtest函数，传入配置对象
+                from backtest_runner import run_backtest as run_backtest_func
+                run_backtest_func(config=frontend_config)
             except Exception as e:
                 print(f"调用回测函数失败: {e}")
                 import traceback
                 traceback.print_exc()
             
-            # 从文件中读取回测结果
-            # 报告文件保存在项目根目录（ulti-para-seeker），而不是optimizers目录
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            report_file = os.path.join(project_root, 'backtest_report.json')  # 使用正确的绝对路径
+            # 从文件中读取回测结果（backtest_runner总是将结果写入文件）
             report = {}
-            
-            # 检查报告文件是否存在
-            print(f"[调试] 检查回测报告文件: {report_file}")
+            report_file = os.path.join(project_root, 'backtest_report.json')
             if os.path.exists(report_file):
                 try:
-                    print(f"[调试] 正在读取回测报告文件: {report_file}")
                     with open(report_file, 'r', encoding='utf-8') as f:
                         report = json.load(f)
-                    print(f"[调试] 报告内容: {json.dumps(report, ensure_ascii=False, indent=2)}")
                     # 删除结果文件，避免影响下一次回测
                     os.unlink(report_file)
-                    print(f"[调试] 已删除回测报告文件")
                 except Exception as e:
                     print(f"读取报告文件失败: {e}")
-                    import traceback
-                    traceback.print_exc()
                     report = {}
-            else:
-                print(f"[调试] 回测报告文件不存在: {report_file}")
-                # 检查是否存在其他可能的报告文件位置
-                print(f"[调试] 检查当前目录: {os.getcwd()}")
-                print(f"[调试] 当前目录文件: {os.listdir('.')}")
-                print(f"[调试] 项目根目录文件: {os.listdir(project_root)}")
             
             # 从报告中提取需要的结果
             performance_metrics = report.get('performance_metrics', {})
@@ -629,15 +602,15 @@ class BruteForceOptimizer(BaseOptimizer):
         
         return results
     
-    def run_parallel_optimization(self, param_combinations: List[Dict[str, Any]], num_workers: int = 4, batch_size: int = 50, save_interval: int = 1, blueprint: Optional[Dict[str, Any]] = None, blueprint_file: str = "parameter_blueprint.json") -> List[Dict[str, Any]]:
+    def run_parallel_optimization(self, param_combinations: List[Dict[str, Any]], num_workers: int = None, batch_size: int = 50, save_interval: int = 1, blueprint: Optional[Dict[str, Any]] = None, blueprint_file: str = "parameter_blueprint.json") -> List[Dict[str, Any]]:
         """
-        排队运行参数优化（支持每10个组合更新一次Excel结果和断点续传）
+        使用ProcessPoolExecutor并行运行参数优化（支持断点续传和结果更新）
 
         Args:
             param_combinations: 参数组合列表
-            num_workers: 并行工作进程数（已废弃，保留参数兼容性）
+            num_workers: 并行工作进程数，None表示使用CPU核心数
             batch_size: 每批处理的参数组合数（已废弃，保留参数兼容性）
-            save_interval: 保存中间结果的批次间隔（已废弃，保留参数兼容性）
+            save_interval: 保存中间结果的批次间隔
             blueprint: 参数组合蓝图数据（用于断点续传）
             blueprint_file: 蓝图文件路径
 
@@ -648,85 +621,87 @@ class BruteForceOptimizer(BaseOptimizer):
         self.start_time = datetime.now()
         all_results = []
         
-        print(f"\n=== 排队处理模式 ===")
-        print(f"开始排队优化，一个组合一个组合处理")
+        # 设置默认工作进程数
+        if num_workers is None:
+            num_workers = os.cpu_count() - 1 if os.cpu_count() > 1 else 1
+        
+        print(f"\n=== 并行处理模式 ===")
+        print(f"开始并行优化，使用 {num_workers} 个进程")
         print(f"总参数组合数: {total_combinations}")
-        print(f"每个组合更新一次Excel结果")
+        print(f"每 {save_interval} 个组合更新一次Excel结果")
         print(f"支持断点续传: {'是' if blueprint else '否'}")
         print("=" * 50)
         
-        # 单个组合逐个处理
+        # 准备要处理的组合列表，包括其在蓝图中的ID（如果有）
+        combo_list = []
         for i, param in enumerate(param_combinations):
-            try:
-                # 查找当前参数组合在蓝图中的ID
-                combo_id = None
-                if blueprint:
-                    for combo in blueprint['combinations']:
-                        if combo['params'] == param:
-                            combo_id = combo['id']
-                            # 更新状态为running
-                            combo['status'] = 'running'
-                            combo['started_at'] = datetime.now().isoformat()
-                            # 保存更新后的蓝图
-                            self.save_blueprint(blueprint, blueprint_file)
-                            break
-                
-                # 处理当前组合
-                start_time = datetime.now()
-                result = self.run_backtest(param)
-                all_results.append(result)
-                duration = datetime.now() - start_time
-                
-                # 计算进度
-                processed = i + 1
-                progress = (processed / total_combinations) * 100
-                
-                print(f"\n✅ 组合 {processed}/{total_combinations} 处理完成")
-                print(f"   耗时: {duration.total_seconds():.2f} 秒")
-                print(f"   累计处理: {processed}/{total_combinations} ({progress:.1f}%)")
-                print(f"   已处理组合数: {len(all_results)}")
-                print(f"   当前组合总收益率: {result['total_return']:.2f}%")
-                
-                # 更新蓝图中的组合状态为completed
-                if blueprint and combo_id is not None:
-                    blueprint = self.update_combination_status(blueprint, combo_id, 'completed', result)
-                    self.save_blueprint(blueprint, blueprint_file)
-                    print(f"   蓝图已更新: 组合 {combo_id} 状态变更为 'completed'")
-                
-                # 每1个组合更新一次Excel结果
-                if processed % 1 == 0 or processed == total_combinations:
-                    self._update_excel_results(all_results)
-                
-                # 计算剩余时间估计
-                if processed > 0:
-                    avg_time = (datetime.now() - self.start_time).total_seconds() / processed
-                    remaining_time = avg_time * (total_combinations - processed)
-                    print(f"   预计剩余时间: {remaining_time:.2f} 秒")
+            combo_id = None
+            if blueprint:
+                for combo in blueprint['combinations']:
+                    if combo['params'] == param:
+                        combo_id = combo['id']
+                        # 更新状态为running
+                        combo['status'] = 'running'
+                        combo['started_at'] = datetime.now().isoformat()
+                        break
+            combo_list.append((i, param, combo_id))
+        
+        # 保存更新后的蓝图（如果有）
+        if blueprint:
+            self.save_blueprint(blueprint, blueprint_file)
+        
+        # 使用ProcessPoolExecutor并行处理
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            # 提交所有任务
+            future_to_combo = {}
+            for i, param, combo_id in combo_list:
+                future = executor.submit(self.run_backtest, param)
+                future_to_combo[future] = (i, param, combo_id)
+            
+            # 处理结果
+            processed = 0
+            for future in as_completed(future_to_combo):
+                i, param, combo_id = future_to_combo[future]
+                try:
+                    result = future.result()
+                    all_results.append(result)
+                    processed += 1
                     
-            except Exception as e:
-                print(f"\n❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
-                print("   继续处理下一个组合...")
-                
-                # 更新蓝图中的组合状态为failed
-                if blueprint:
-                    combo_id = None
-                    for combo in blueprint['combinations']:
-                        if combo['params'] == param:
-                            combo_id = combo['id']
-                            break
-                    if combo_id is not None:
+                    # 计算进度
+                    progress = (processed / total_combinations) * 100
+                    
+                    print(f"\r✅ 已完成 {processed}/{total_combinations} 个组合 ({progress:.1f}%)", end="", flush=True)
+                    
+                    # 更新蓝图中的组合状态为completed
+                    if blueprint and combo_id is not None:
+                        blueprint = self.update_combination_status(blueprint, combo_id, 'completed', result)
+                    
+                    # 按指定间隔更新Excel结果和蓝图
+                    if processed % save_interval == 0 or processed == total_combinations:
+                        # 保存更新后的蓝图（如果有）
+                        if blueprint:
+                            self.save_blueprint(blueprint, blueprint_file)
+                        # 更新Excel结果
+                        self._update_excel_results(all_results)
+                except Exception as e:
+                    print(f"\n❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
+                    
+                    # 更新蓝图中的组合状态为failed
+                    if blueprint and combo_id is not None:
                         blueprint = self.update_combination_status(blueprint, combo_id, 'failed')
                         self.save_blueprint(blueprint, blueprint_file)
-                        print(f"   蓝图已更新: 组合 {combo_id} 状态变更为 'failed'")
-                
-                # 添加失败结果
-                all_results.append({
-                    **param,
-                    'total_return': -100.0,
-                    'annual_return': -100.0,
-                    'max_drawdown': -100.0,
-                    'trades_count': 0
-                })
+                    
+                    # 添加失败结果
+                    all_results.append({
+                        **param,
+                        'total_return': -100.0,
+                        'annual_return': -100.0,
+                        'max_drawdown': -100.0,
+                        'trades_count': 0
+                    })
+                    processed += 1
         
         self.end_time = datetime.now()
         total_duration = self.end_time - self.start_time
@@ -737,6 +712,7 @@ class BruteForceOptimizer(BaseOptimizer):
             print(f"\n{'='*50}")
             print(f"优化完成！总耗时: {total_duration.total_seconds():.2f} 秒")
             print(f"总共处理 {len(all_results)} 个参数组合")
+            print(f"使用 {num_workers} 个进程并行处理")
         
         return all_results
     

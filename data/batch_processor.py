@@ -341,28 +341,39 @@ class BatchProcessor:
         # 全局统计变量
         total_processed = 0
         
-        # 并行处理所有批次 - 不再使用嵌套线程池，改为串行处理批次，每个批次内部并行处理
+        # 并行处理所有批次 - 使用ThreadPoolExecutor并行处理批次
         all_results = []
         
-        # 移除外部线程池，改为串行处理批次，避免嵌套线程池导致的解释器关闭问题
+        # 创建批次列表
+        batches = []
         for batch_num in range(total_batches):
             start_idx = batch_num * batch_size
             end_idx = min(start_idx + batch_size, len(all_symbols))
             batch_symbols = all_symbols[start_idx:end_idx]
+            batches.append((batch_num+1, batch_symbols))
+        
+        # 使用ThreadPoolExecutor并行处理批次
+        with ThreadPoolExecutor(max_workers=effective_workers) as executor:
+            # 提交所有批次任务
+            future_to_batch = {
+                executor.submit(self.process_batch_parallel, batch_symbols, trade_date, batch_id): (batch_id, len(batch_symbols))
+                for batch_id, batch_symbols in batches
+            }
             
-            logger.info(f"[第{batch_num+1}批] 开始处理批次 {batch_num+1}/{total_batches}: 处理 {len(batch_symbols)} 只股票")
-            
-            try:
-                batch_results = self.process_batch_parallel(batch_symbols, trade_date, batch_num+1)
-                all_results.extend(batch_results)
-                
-                # 更新已处理股票计数
-                total_processed += len(batch_results)
-                logger.info(f"[第{batch_num+1}批] ✅ 批次 {batch_num+1}/{total_batches} 完成: 找到 {len(batch_results)} 只候选股票")
-                logger.info(f"[进度统计] 已处理 {total_processed}/{len(all_symbols)} 只股票 ({total_processed/len(all_symbols)*100:.1f}%)")
-                
-            except Exception as e:
-                logger.error(f"[第{batch_num+1}批] ❌ 批次处理失败: {e}")
+            # 处理结果
+            for future in as_completed(future_to_batch):
+                batch_id, batch_symbol_count = future_to_batch[future]
+                try:
+                    batch_results = future.result()
+                    all_results.extend(batch_results)
+                    
+                    # 更新已处理股票计数
+                    total_processed += len(batch_results)
+                    logger.info(f"[第{batch_id}批] ✅ 批次 {batch_id}/{total_batches} 完成: 处理 {batch_symbol_count} 只股票，找到 {len(batch_results)} 只候选股票")
+                    logger.info(f"[进度统计] 已处理 {total_processed}/{len(all_symbols)} 只股票 ({total_processed/len(all_symbols)*100:.1f}%)")
+                    
+                except Exception as e:
+                    logger.error(f"[第{batch_id}批] ❌ 批次处理失败: {e}")
         
         logger.info(f"🎉 并行处理完成: 从 {len(all_symbols)} 只股票中筛选出 {len(all_results)} 只候选股票")
         logger.info(f"📈 处理统计: 已处理 {len(all_symbols)} 只股票，筛选出 {len(all_results)} 只候选股票")

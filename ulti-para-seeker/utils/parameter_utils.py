@@ -240,3 +240,69 @@ def estimate_backtest_time(total_combinations: int, avg_backtest_time_seconds: i
         return f"{minutes}分钟 {seconds}秒"
     else:
         return f"{seconds}秒"
+
+
+def generate_param_hash(params: Dict[str, Any]) -> str:
+    """
+    生成参数组合的唯一哈希值，用于查重
+    
+    Args:
+        params: 参数组合字典
+    
+    Returns:
+        str: 参数组合的唯一哈希值
+    """
+    import hashlib
+    
+    # 提取用于生成哈希的关键参数
+    hash_data = {
+        'stop_profit_ratio': params.get('stop_profit_ratio', 0),
+        'stop_loss_ratio': params.get('stop_loss_ratio', 0),
+        'weights_config': params.get('weights_config', {}),
+        'sub_weights_config': params.get('sub_weights_config', {})
+    }
+    
+    # 对权重配置进行排序，确保相同权重配置生成相同哈希
+    if isinstance(hash_data['weights_config'], dict):
+        hash_data['weights_config'] = dict(sorted(hash_data['weights_config'].items()))
+    
+    # 对子权重配置进行排序
+    if isinstance(hash_data['sub_weights_config'], dict):
+        sorted_sub_weights = {}
+        for main_ind, sub_config in sorted(hash_data['sub_weights_config'].items()):
+            if isinstance(sub_config, dict) and 'sub_weights' in sub_config:
+                sorted_sub_weights[main_ind] = {
+                    'sub_weights': dict(sorted(sub_config['sub_weights'].items()))
+                }
+            else:
+                sorted_sub_weights[main_ind] = sub_config
+        hash_data['sub_weights_config'] = sorted_sub_weights
+    
+    # 将数据转换为JSON字符串，确保一致性
+    import json
+    hash_str = json.dumps(hash_data, sort_keys=True, ensure_ascii=False)
+    
+    # 生成SHA256哈希
+    return hashlib.sha256(hash_str.encode()).hexdigest()
+
+
+def remove_duplicate_combinations(combinations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    移除重复的参数组合
+    
+    Args:
+        combinations: 参数组合列表
+    
+    Returns:
+        List[Dict[str, Any]]: 去重后的参数组合列表
+    """
+    seen_hashes = set()
+    unique_combinations = []
+    
+    for combo in combinations:
+        combo_hash = generate_param_hash(combo)
+        if combo_hash not in seen_hashes:
+            seen_hashes.add(combo_hash)
+            unique_combinations.append(combo)
+    
+    return unique_combinations

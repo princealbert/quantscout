@@ -251,10 +251,12 @@ if st.button("生成参数组合"):
             # 根据选择的算法调整组合数
             if algorithm == "暴力搜索":
                 total_combinations = base_combinations
+                logger.info(f"[暴力搜索] 生成全部 {base_combinations} 个参数组合")
             else:  # 遗传算法
-                # 遗传算法使用部分组合（例如20%的全量组合）
-                total_combinations = max(1, int(base_combinations * 0.2))
-                logger.info(f"[遗传算法] 从 {base_combinations} 个组合中选择 {total_combinations} 个进行优化")
+                # 遗传算法最终会根据max_sub_combinations选择固定数量的组合
+                # 前端显示全量组合数，便于用户了解参数空间大小
+                total_combinations = base_combinations
+                logger.info(f"[遗传算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
             
             # 估算计算时间（假设每个组合需要10秒）
             estimated_time = total_combinations * 10

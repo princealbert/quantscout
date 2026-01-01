@@ -54,7 +54,8 @@ class ParameterOptimizer(BruteForceOptimizer):
                                stop_profit_min: int = None, stop_profit_max: int = None, 
                                stop_profit_step: int = None, stop_loss_min: int = None, 
                                stop_loss_max: int = None, stop_loss_step: int = None, 
-                               weight_step: int = None) -> Dict[str, List[Any]]:
+                               weight_step: int = None, focus_indicators: List[str] = None, 
+                               focus_weight_factor: float = None) -> Dict[str, List[Any]]:
         """
         定义参数范围
 
@@ -70,6 +71,8 @@ class ParameterOptimizer(BruteForceOptimizer):
             stop_loss_max: 止损最大值（%）
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
+            focus_indicators: 重点关注的指标列表
+            focus_weight_factor: 重点指标权重因子
 
         Returns:
             Dict[str, List[Any]]: 参数范围字典
@@ -133,15 +136,24 @@ class ParameterOptimizer(BruteForceOptimizer):
             # 高级模式：生成基础组合 + 重点指标加权组合
             logger.info("[高级模式] 使用重点指标加权的权重配置")
             
+            # 使用传入的重点指标和权重因子，或使用默认值
+            actual_focus_indicators = focus_indicators if focus_indicators else ['kdj_j', 'trend']
+            actual_focus_weight_factor = focus_weight_factor if focus_weight_factor else 1.5
+            
+            logger.info(f"  - 重点指标: {', '.join(actual_focus_indicators)}")
+            logger.info(f"  - 权重因子: {actual_focus_weight_factor:.1f}")
+            
             # 基础权重组合 - 限制主权重范围为5%-95%，避免极端值
             base_weights = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
+            logger.info(f"  - 基础权重组合数: {len(base_weights)}")
             
-            # 仅保留KDJ J值和趋势作为重点指标的组合（减少组合数）
+            # 生成重点指标加权组合
             kdj_trend_weights = self._generate_custom_weights_combinations(
                 core_indicators, 100, weight_step, 
-                focus_indicators=['kdj_j', 'trend'], 
-                focus_weight_factor=1.5
+                focus_indicators=actual_focus_indicators, 
+                focus_weight_factor=actual_focus_weight_factor
             )
+            logger.info(f"  - 重点指标加权组合数: {len(kdj_trend_weights)}")
             
             # 合并权重组合并去重
             all_weights = base_weights + kdj_trend_weights
@@ -156,9 +168,11 @@ class ParameterOptimizer(BruteForceOptimizer):
                     unique_weights.append(combo)
             
             weights_config = unique_weights
+            logger.info(f"  - 去重后权重组合总数: {len(weights_config)}")
         else:
             # 普通模式：仅生成基础权重组合 - 限制主权重范围为5%-95%，避免极端值
             weights_config = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
+            logger.info(f"[普通模式] 权重组合数: {len(weights_config)}")
         
         return {
             # 回测天数 - 测试模式下使用10天，非测试模式下使用90天（适合超跌反弹策略）
@@ -185,7 +199,8 @@ class ParameterOptimizer(BruteForceOptimizer):
                                       stop_profit_min: int = None, stop_profit_max: int = None, 
                                       stop_profit_step: int = None, stop_loss_min: int = None, 
                                       stop_loss_max: int = None, stop_loss_step: int = None, 
-                                      weight_step: int = None) -> List[Dict[str, Any]]:
+                                      weight_step: int = None, use_advanced_weights: bool = True,
+                                      focus_indicators: List[str] = None, focus_weight_factor: float = None) -> List[Dict[str, Any]]:
         """
         生成所有可能的参数组合
 
@@ -201,6 +216,9 @@ class ParameterOptimizer(BruteForceOptimizer):
             stop_loss_max: 止损最大值（%）
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
+            use_advanced_weights: 是否使用高级权重配置模式
+            focus_indicators: 重点关注的指标列表
+            focus_weight_factor: 重点指标权重因子
 
         Returns:
             List[Dict[str, Any]]: 所有可能的参数组合列表
@@ -209,6 +227,7 @@ class ParameterOptimizer(BruteForceOptimizer):
         param_ranges = self.define_parameter_ranges(
             test_mode=test_mode,
             max_sub_combinations=max_sub_combinations,
+            use_advanced_weights=use_advanced_weights,
             end_date=end_date,
             stop_profit_min=stop_profit_min,
             stop_profit_max=stop_profit_max,
@@ -216,7 +235,9 @@ class ParameterOptimizer(BruteForceOptimizer):
             stop_loss_min=stop_loss_min,
             stop_loss_max=stop_loss_max,
             stop_loss_step=stop_loss_step,
-            weight_step=weight_step
+            weight_step=weight_step,
+            focus_indicators=focus_indicators,
+            focus_weight_factor=focus_weight_factor
         )
         
         # 计算总组合数（用于进度显示）
@@ -259,22 +280,18 @@ class ParameterOptimizer(BruteForceOptimizer):
                                     combinations.append(combination)
                                     current_count += 1
                                     
-                                    # 每生成1000个组合显示一次进度
+                                    # 每生成1000个组合显示一次进度，使用行内刷新
                                     if current_count % 1000 == 0:
-                                        logger.info(f"已生成 {current_count}/{total_combinations} 个参数组合")
+                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合", end="\r", flush=True)
                                     
                                     # 测试模式下仅生成第一个组合
                                     if test_mode and len(combinations) >= 1:
                                         logger.info("[测试模式] 仅生成并返回第一个参数组合")
                                         return combinations
         
-        # 如果是遗传算法，只返回指定数量的组合
-        if algorithm == "遗传算法" and total_combinations > 0:
-            logger.info(f"[{algorithm}] 从 {len(combinations)} 个组合中选择 {max_sub_combinations} 个进行优化")
-            # 随机选择max_sub_combinations个组合
-            import random
-            random.shuffle(combinations)
-            return combinations[:max_sub_combinations]
+        # 注意：generate_parameter_combinations方法始终返回所有生成的组合
+        # 遗传算法的组合选择将在后续的run_optimization或蓝图生成过程中进行
+        logger.info(f"完成参数组合生成，共生成 {len(combinations)} 个组合")
         
         return combinations
     
@@ -284,7 +301,8 @@ class ParameterOptimizer(BruteForceOptimizer):
                         stop_profit_min: int = None, stop_profit_max: int = None, 
                         stop_profit_step: int = None, stop_loss_min: int = None, 
                         stop_loss_max: int = None, stop_loss_step: int = None, 
-                        weight_step: int = None) -> List[Dict[str, Any]]:
+                        weight_step: int = None, use_advanced_weights: bool = True,
+                        focus_indicators: List[str] = None, focus_weight_factor: float = None) -> List[Dict[str, Any]]:
         """
         执行参数优化
 
@@ -302,6 +320,9 @@ class ParameterOptimizer(BruteForceOptimizer):
             stop_loss_max: 止损最大值（%）
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
+            use_advanced_weights: 是否使用高级权重配置模式
+            focus_indicators: 重点关注的指标列表
+            focus_weight_factor: 重点指标权重因子
 
         Returns:
             List[Dict[str, Any]]: 回测结果列表
@@ -331,7 +352,10 @@ class ParameterOptimizer(BruteForceOptimizer):
                 stop_loss_min=stop_loss_min,
                 stop_loss_max=stop_loss_max,
                 stop_loss_step=stop_loss_step,
-                weight_step=weight_step
+                weight_step=weight_step,
+                use_advanced_weights=use_advanced_weights,
+                focus_indicators=focus_indicators,
+                focus_weight_factor=focus_weight_factor
             )
         
         # 执行回测（使用父类的run_parallel_optimization方法，注意参数名差异）
@@ -399,7 +423,8 @@ class ParameterOptimizer(BruteForceOptimizer):
                           end_date: str = '2025-12-25', blueprint_file: str = "parameter_blueprint.json",
                           algorithm: str = "暴力搜索", stop_profit_min: int = None, stop_profit_max: int = None,
                           stop_profit_step: int = None, stop_loss_min: int = None, stop_loss_max: int = None,
-                          stop_loss_step: int = None, weight_step: int = None) -> str:
+                          stop_loss_step: int = None, weight_step: int = None, use_advanced_weights: bool = True,
+                          focus_indicators: List[str] = None, focus_weight_factor: float = None) -> str:
         """
         生成参数组合蓝图文件，使用蓝图管理器实现
         
@@ -416,6 +441,9 @@ class ParameterOptimizer(BruteForceOptimizer):
             stop_loss_max: 止损最大值（%）
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
+            use_advanced_weights: 是否使用高级权重配置模式
+            focus_indicators: 重点关注的指标列表
+            focus_weight_factor: 重点指标权重因子
             
         Returns:
             蓝图文件路径
@@ -432,7 +460,10 @@ class ParameterOptimizer(BruteForceOptimizer):
             stop_loss_min=stop_loss_min,
             stop_loss_max=stop_loss_max,
             stop_loss_step=stop_loss_step,
-            weight_step=weight_step
+            weight_step=weight_step,
+            use_advanced_weights=use_advanced_weights,
+            focus_indicators=focus_indicators,
+            focus_weight_factor=focus_weight_factor
         )
         
         # 使用蓝图管理器生成蓝图
@@ -446,9 +477,35 @@ class ParameterOptimizer(BruteForceOptimizer):
         
         # 保存蓝图文件到当前目录
         blueprint_path = os.path.join(self.current_dir, blueprint_file)
-        self.blueprint_manager.save_blueprint(blueprint, blueprint_path)
         
-        logger.info(f"蓝图已生成，包含 {len(param_combinations)} 个参数组合")
+        # 检查是否已有蓝图文件，如果有则增量更新
+        existing_blueprint = None
+        try:
+            if os.path.exists(blueprint_path):
+                existing_blueprint = self.blueprint_manager.load_blueprint(blueprint_path)
+                logger.info(f"检测到现有蓝图文件，将进行增量更新")
+        except Exception as e:
+            logger.warning(f"加载现有蓝图失败，将创建新蓝图: {e}")
+        
+        # 如果有现有蓝图，先加载，然后增量更新
+        if existing_blueprint:
+            # 增量更新现有蓝图
+            updated_blueprint = self.blueprint_manager.generate_blueprint(
+                param_combinations=param_combinations,
+                test_mode=test_mode,
+                max_sub_combinations=max_sub_combinations,
+                end_date=end_date,
+                algorithm=algorithm,
+                existing_blueprint=existing_blueprint
+            )
+            self.blueprint_manager.save_blueprint(updated_blueprint, blueprint_path)
+            new_combinations_count = len(updated_blueprint["combinations"]) - len(existing_blueprint["combinations"])
+            logger.info(f"蓝图已增量更新，新增 {new_combinations_count} 个参数组合，总组合数: {len(updated_blueprint['combinations'])}")
+        else:
+            # 保存新蓝图
+            self.blueprint_manager.save_blueprint(blueprint, blueprint_path)
+            logger.info(f"蓝图已生成，包含 {len(param_combinations)} 个参数组合")
+        
         return blueprint_path
     
     def list_blueprints(self) -> List[Dict[str, Any]]:
@@ -533,6 +590,7 @@ def main():
     parser.add_argument('--stop-loss-step', type=int, help='止损步长（%）')
     parser.add_argument('--weight-step', type=int, help='权重步长（%）')
     parser.add_argument('--dry-run', action='store_true', help='仅生成参数组合，不执行回测')
+    parser.add_argument('--generate-blueprint', action='store_true', help='生成参数组合蓝图文件')
     
     args = parser.parse_args()
     
@@ -564,6 +622,26 @@ def main():
             logger.info(f"  - 权重配置: {param_combinations[0]['weights_config']}")
             logger.info(f"  - 子权重配置: {param_combinations[0]['sub_weights_config'].keys()}")
         logger.info("\n=== dry-run模式完成 ===")
+        return
+    
+    if args.generate_blueprint:
+        # 生成参数组合蓝图
+        logger.info("\n=== 生成参数组合蓝图 ===")
+        blueprint_path = optimizer.generate_blueprint(
+            test_mode=args.test,
+            max_sub_combinations=args.max_sub_combinations,
+            end_date=args.end_date,
+            algorithm=args.algorithm,
+            stop_profit_min=args.stop_profit_min,
+            stop_profit_max=args.stop_profit_max,
+            stop_profit_step=args.stop_profit_step,
+            stop_loss_min=args.stop_loss_min,
+            stop_loss_max=args.stop_loss_max,
+            stop_loss_step=args.stop_loss_step,
+            weight_step=args.weight_step
+        )
+        logger.info(f"\n✅ 蓝图已成功生成: {blueprint_path}")
+        logger.info(f"\n=== 蓝图生成完成 ===")
         return
     
     # 执行优化

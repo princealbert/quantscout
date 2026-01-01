@@ -120,10 +120,10 @@ class OptimizerLogger:
                     f.write(log_str)
 
 
-# 计算项目根目录
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 创建日志文件路径 - 生成在项目根目录
-log_file_path = os.path.join(project_root, "parameter_optimizer.log")
+# 使用固定的项目根目录，确保无论从哪里启动都能正确生成日志文件
+FIXED_PROJECT_ROOT = "c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-11f0-8409-e89c2599a417\\ulti-para-seeker"
+# 创建日志文件路径 - 生成在固定项目根目录
+log_file_path = os.path.join(FIXED_PROJECT_ROOT, "parameter_optimizer.log")
 
 # 全局日志实例
 logger = OptimizerLogger(log_file=log_file_path, max_lines=1000)

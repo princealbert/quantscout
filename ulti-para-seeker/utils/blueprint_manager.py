@@ -28,7 +28,9 @@ class BlueprintManager:
     def generate_blueprint(self, param_combinations: List[Dict[str, Any]], 
                           test_mode: bool = False, 
                           max_sub_combinations: int = 10, 
-                          end_date: str = '2025-12-25') -> Dict[str, Any]:
+                          end_date: str = '2025-12-25',
+                          algorithm: str = "暴力搜索",
+                          existing_blueprint: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         生成参数组合蓝图
         
@@ -37,30 +39,73 @@ class BlueprintManager:
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            algorithm: 优化算法类型
+            existing_blueprint: 现有蓝图（可选），用于增量生成
         
         Returns:
             Dict[str, Any]: 蓝图数据结构
         """
-        # 创建蓝图数据结构
-        blueprint = {
-            "version": "1.0",
-            "generated_at": datetime.now().isoformat(),
-            "last_modified": datetime.now().isoformat(),
-            "total_combinations": len(param_combinations),
-            "test_mode": test_mode,
-            "max_sub_combinations": max_sub_combinations,
-            "end_date": end_date,
-            "completed_combinations": 0,
-            "failed_combinations": 0,
-            "pending_combinations": len(param_combinations),
-            "running_combinations": 0,
-            "combinations": []
-        }
+        from .parameter_utils import generate_param_hash, remove_duplicate_combinations
         
-        # 为每个组合分配唯一ID并添加到蓝图
-        for i, param in enumerate(param_combinations):
+        # 1. 去重新生成的参数组合
+        unique_new_combinations = remove_duplicate_combinations(param_combinations)
+        
+        # 2. 根据算法类型选择最终使用的参数组合
+        final_combinations = unique_new_combinations.copy()
+        
+        if algorithm == "遗传算法" and len(final_combinations) > max_sub_combinations:
+            # 遗传算法只使用固定数量的组合
+            import random
+            random.shuffle(final_combinations)
+            final_combinations = final_combinations[:max_sub_combinations]
+        
+        # 3. 如果有现有蓝图，移除与现有蓝图中重复的组合
+        existing_hashes = set()
+        existing_combinations = []
+        next_id = 1
+        
+        if existing_blueprint:
+            # 提取现有蓝图中的组合哈希
+            for combo in existing_blueprint["combinations"]:
+                existing_hashes.add(generate_param_hash(combo["params"]))
+                existing_combinations.append(combo)
+                next_id = max(next_id, combo["id"] + 1)
+        
+        # 4. 移除与现有蓝图重复的新组合
+        new_unique_combinations = []
+        for combo in final_combinations:
+            combo_hash = generate_param_hash(combo)
+            if combo_hash not in existing_hashes:
+                new_unique_combinations.append(combo)
+        
+        # 5. 创建蓝图数据结构
+        if existing_blueprint:
+            # 增量更新现有蓝图
+            blueprint = existing_blueprint.copy()
+            blueprint["last_modified"] = datetime.now().isoformat()
+            blueprint["algorithm"] = algorithm
+        else:
+            # 创建新蓝图
+            blueprint = {
+                "version": "1.0",
+                "generated_at": datetime.now().isoformat(),
+                "last_modified": datetime.now().isoformat(),
+                "total_combinations": len(new_unique_combinations),
+                "test_mode": test_mode,
+                "max_sub_combinations": max_sub_combinations,
+                "end_date": end_date,
+                "algorithm": algorithm,
+                "completed_combinations": 0,
+                "failed_combinations": 0,
+                "pending_combinations": len(new_unique_combinations),
+                "running_combinations": 0,
+                "combinations": []
+            }
+        
+        # 6. 为新组合分配唯一ID并添加到蓝图
+        for param in new_unique_combinations:
             combination = {
-                "id": i + 1,
+                "id": next_id,
                 "params": param,
                 "status": "pending",  # pending, running, completed, failed
                 "result": None,
@@ -68,6 +113,12 @@ class BlueprintManager:
                 "completed_at": None
             }
             blueprint["combinations"].append(combination)
+            next_id += 1
+        
+        # 7. 更新蓝图统计信息
+        if existing_blueprint:
+            # 重新计算统计信息
+            self._update_blueprint_stats(blueprint)
         
         self.blueprint = blueprint
         return blueprint
@@ -481,52 +532,4 @@ class BlueprintManager:
             # 非分拆的蓝图文件
             return sum(1 for c in blueprint['combinations'] if c['status'] == 'completed')
     
-    def generate_blueprint(self, param_combinations: List[Dict[str, Any]], 
-                          test_mode: bool = False, 
-                          max_sub_combinations: int = 10, 
-                          end_date: str = '2025-12-25',
-                          algorithm: str = "暴力搜索") -> Dict[str, Any]:
-        """
-        生成参数组合蓝图
-        
-        Args:
-            param_combinations: 参数组合列表
-            test_mode: 是否为测试模式
-            max_sub_combinations: 最大子权重组合数
-            end_date: 回测终点日期
-            algorithm: 优化算法
-        
-        Returns:
-            Dict[str, Any]: 蓝图数据结构
-        """
-        # 创建蓝图数据结构
-        blueprint = {
-            "version": "1.0",
-            "generated_at": datetime.now().isoformat(),
-            "last_modified": datetime.now().isoformat(),
-            "total_combinations": len(param_combinations),
-            "test_mode": test_mode,
-            "max_sub_combinations": max_sub_combinations,
-            "end_date": end_date,
-            "algorithm": algorithm,
-            "completed_combinations": 0,
-            "failed_combinations": 0,
-            "pending_combinations": len(param_combinations),
-            "running_combinations": 0,
-            "combinations": []
-        }
-        
-        # 为每个组合分配唯一ID并添加到蓝图
-        for i, param in enumerate(param_combinations):
-            combination = {
-                "id": i + 1,
-                "params": param,
-                "status": "pending",  # pending, running, completed, failed
-                "result": None,
-                "started_at": None,
-                "completed_at": None
-            }
-            blueprint["combinations"].append(combination)
-        
-        self.blueprint = blueprint
-        return blueprint
+

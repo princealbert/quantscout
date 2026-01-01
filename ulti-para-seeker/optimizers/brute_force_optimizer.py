@@ -380,9 +380,9 @@ class BruteForceOptimizer(BaseOptimizer):
                                     combinations.append(param_comb)
                                     current_count += 1
                                     
-                                    # 每生成1000个组合显示一次进度
+                                    # 每生成1000个组合显示一次进度，使用行内刷新
                                     if current_count % 1000 == 0:
-                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合")
+                                        print(f"已生成 {current_count}/{total_combinations} 个参数组合", end="\r", flush=True)
                                     
                                     # 测试模式下仅生成第一个组合
                                     if test_mode and current_count >= 1:

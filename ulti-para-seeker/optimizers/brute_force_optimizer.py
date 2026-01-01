@@ -515,9 +515,16 @@ class BruteForceOptimizer(BaseOptimizer):
                     'win_rate': report.get('win_rate', 0.0)
                 }
             
-            # 返回结果，包含完整的回测指标
+            # 打印调试信息，确保参数和结果正确关联
+            print(f"[调试] 参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
+            print(f"[调试] 回测报告: {json.dumps(report, ensure_ascii=False, indent=2)}")
+            print(f"[调试] 回测结果: {performance_metrics}, {trade_statistics}")
+            
+            # 返回结果，包含完整的回测指标和关键参数
             result = {
                 **params,
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
                 'total_return': performance_metrics.get('total_return', 0.0),
                 'annual_return': performance_metrics.get('annual_return', 0.0),
                 'max_drawdown': performance_metrics.get('max_drawdown', 0.0),

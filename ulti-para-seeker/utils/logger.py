@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 """
-日志管理器 - 实时日志记录和管理
+参数优化器日志管理器 - 支持实时日志记录和文件持久化
 """
 
 import time
@@ -9,12 +9,13 @@ import threading
 from queue import Queue, Empty
 from datetime import datetime
 from typing import List, Dict
+import os
 
 
-class RealTimeLogger:
-    """实时日志管理器"""
+class OptimizerLogger:
+    """参数优化器日志管理器"""
     
-    def __init__(self, max_lines=300, log_file=None):
+    def __init__(self, log_file=None, max_lines=1000):
         self.log_queue = Queue()
         self.max_lines = max_lines
         self.lock = threading.Lock()
@@ -23,7 +24,6 @@ class RealTimeLogger:
         
         # 创建日志目录
         if self.log_file:
-            import os
             log_dir = os.path.dirname(self.log_file)
             if log_dir and not os.path.exists(log_dir):
                 os.makedirs(log_dir)
@@ -57,6 +57,9 @@ class RealTimeLogger:
                     # 日志写入失败不影响主程序
                     pass
             
+            # 同时打印到控制台
+            print(f"[{full_timestamp}] [{level}] {message}")
+        
     def info(self, message: str):
         """记录信息日志"""
         self.log('INFO', message)
@@ -103,18 +106,24 @@ class RealTimeLogger:
                     self.log_queue.get_nowait()
                 except Empty:
                     break
+    
+    def save_to_file(self, file_path=None):
+        """将当前日志保存到文件"""
+        if not file_path:
+            file_path = self.log_file
+        
+        if file_path:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                for log_entry in self.log_lines:
+                    full_timestamp = datetime.now().strftime("%Y-%m-%d") + " " + log_entry['timestamp']
+                    log_str = f"[{full_timestamp}] [{log_entry['level']}] {log_entry['message']}\n"
+                    f.write(log_str)
 
+
+# 计算项目根目录
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 创建日志文件路径
+log_file_path = os.path.join(project_root, "../parameter_optimizer.log")
 
 # 全局日志实例
-import os
-# 计算项目根目录
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# 创建日志文件路径
-log_file_path = os.path.join(project_root, "strategy_controller.log")
-# 确保日志文件目录存在
-log_dir = os.path.dirname(log_file_path)
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-logger = RealTimeLogger(max_lines=300, log_file=log_file_path)
-# 测试日志写入
-logger.info("日志系统初始化完成，日志文件已创建")
+logger = OptimizerLogger(log_file=log_file_path, max_lines=1000)

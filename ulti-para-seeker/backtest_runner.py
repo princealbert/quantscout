@@ -343,9 +343,19 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
                     print(f"📈 回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
                     print("="*50)
                     
-                    # 计算回测期间
-                    end_date = datetime.now()
-                    start_date = end_date - timedelta(days=strategy_params.get('backtest_days', 90))
+                    # 从前端配置中获取回测结束日期和天数
+                    end_date_str = frontend_config.get('backtest', {}).get('end_date', '')
+                    backtest_days = strategy_params.get('backtest_days', 90)
+                    
+                    if end_date_str:
+                        # 使用配置中的结束日期
+                        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                    else:
+                        # 使用当前日期
+                        end_date = datetime.now()
+                    
+                    # 计算回测开始日期
+                    start_date = end_date - timedelta(days=backtest_days)
                     
                     # 导入参数配置系统
                     try:
@@ -405,9 +415,19 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
                 print(f"🔄 子权重配置: {sub_weights_config}")
             print("="*50)
             
-            # 计算回测期间
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=config.get('backtest_days', 90))
+            # 从配置中获取回测结束日期和天数
+            end_date_str = config.get('end_date', '')
+            backtest_days = config.get('backtest_days', 90)
+            
+            if end_date_str:
+                # 使用配置中的结束日期
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            else:
+                # 使用当前日期
+                end_date = datetime.now()
+            
+            # 计算回测开始日期
+            start_date = end_date - timedelta(days=backtest_days)
             
         except Exception as e:
             print(f"❌ 设置策略参数失败: {e}")

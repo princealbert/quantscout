@@ -20,7 +20,7 @@ from indicators.kdj_calculator import KDJCalculator
 from indicators.trend_indicators import TrendIndicators
 from indicators.deepv_calculator import DeepVCalculator
 from scoring.comprehensive_scorer import ComprehensiveScorer
-from cache.data_cache import stock_cache
+from cache import stock_cache
 from cache.preload_manager import preload_manager
 
 

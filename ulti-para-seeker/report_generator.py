@@ -316,7 +316,9 @@ class ReportGenerator:
         """
         try:
             import os
+            import time
             # 始终保存固定名称的文件，用于参数优化器快速读取
+            # 但添加时间延迟，确保不同参数组合的结果不会被覆盖
             current_dir = os.path.dirname(os.path.abspath(__file__))
             fixed_file_name = os.path.join(current_dir, "backtest_report.json")
             
@@ -334,6 +336,9 @@ class ReportGenerator:
                 }
             }
             
+            # 确保不同参数组合的结果不会被覆盖，添加短暂延迟
+            time.sleep(0.1)  # 100毫秒延迟
+            
             # 保存固定名称报告文件
             with open(fixed_file_name, 'w', encoding='utf-8') as f:
                 json.dump(optimized_report, f, ensure_ascii=False, indent=2, default=str)
@@ -343,7 +348,7 @@ class ReportGenerator:
             # 生成带时间戳的文件名，用于长期保存
             if not file_path:
                 # 强制使用正确的时间戳格式，避免文件名包含空格
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")  # 添加微秒，确保唯一性
                 report_dir = "backtest_reports"
                 if not os.path.exists(report_dir):
                     os.makedirs(report_dir)

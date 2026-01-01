@@ -17,34 +17,15 @@ project_root = os.path.dirname(file_dir)  # 项目根目录
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-try:
-    # 直接导入缓存模块
-    from cache.data_cache import StockDataCache
-    # 使用根目录下的stock_data_cache.db
-    stock_cache = StockDataCache(db_path=os.path.join(project_root, "stock_data_cache.db"))
-    print(f"[INFO] 缓存模块导入成功，数据库路径: {os.path.join(project_root, 'stock_data_cache.db')}")
-except ImportError as e:
-    print(f"[ERROR] 缓存模块导入失败: {e}")
-    import traceback
-    traceback.print_exc()
-    # 创建空的占位对象（重命名避免类型冲突）
-    class FallbackStockDataCache:
-        def __init__(self, db_path="stock_data_cache.db"):
-            self.db_path = db_path
-            pass
-        def get_cached_kline_data(self, *args, **kwargs):
-            return None
-        def cache_kline_data(self, *args, **kwargs):
-            pass
-        def cache_incremental_data(self, *args, **kwargs):
-            pass
-        def get_cached_basic_info(self, *args, **kwargs):
-            return None
-        def cache_basic_info(self, *args, **kwargs):
-            pass
-    
-    # 使用根目录下的stock_data_cache.db
-    stock_cache = FallbackStockDataCache(db_path=os.path.join(project_root, "stock_data_cache.db"))
+# 确保cache模块的导入路径正确
+cache_dir = os.path.join(project_root, "cache")
+if cache_dir not in sys.path:
+    sys.path.insert(0, cache_dir)
+
+# 直接从cache包导入全局stock_cache实例，确保使用正确的缓存实例
+from cache import stock_cache
+print(f"[INFO] 缓存模块导入成功，使用全局stock_cache实例")
+print(f"[INFO] 缓存数据库路径: {stock_cache.db_path}")
 
 
 class StockDataProvider:

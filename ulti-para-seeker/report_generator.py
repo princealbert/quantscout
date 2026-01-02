@@ -359,10 +359,12 @@ class ReportGenerator:
             if not file_path:
                 # 强制使用正确的时间戳格式，避免文件名包含空格
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")  # 添加微秒，确保唯一性
-                report_dir = "backtest_reports"
+                # 项目根目录下的backtest_reports目录
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                report_dir = os.path.join(project_root, "backtest_reports")
                 if not os.path.exists(report_dir):
                     os.makedirs(report_dir)
-                file_path = f"{report_dir}/backtest_report_{timestamp}.json"
+                file_path = os.path.join(report_dir, f"backtest_report_{timestamp}.json")
 
             # 确保带时间戳的报告文件包含所有必要字段
             report_data['sharpe_ratio'] = report_data.get('sharpe_ratio', 0.0)

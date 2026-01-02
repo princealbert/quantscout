@@ -318,41 +318,35 @@ class BacktestRunner:
         # 回测结束时不执行强制平仓操作，因为回测服务已停止接受新订单
         # 回测引擎会自动处理所有未平仓头寸
         
-        # 生成详细分析报告
+        # 生成基础报告（不再生成Excel报告）
         try:
-            from backtest_analyzer import analyze_backtest_results
-            
-            analyzer = analyze_backtest_results(
-                trading_records=self.strategy.trading_records,
-                portfolio_values=self.strategy.portfolio_values,
-                initial_capital=self.params.initial_capital
-            )
-            
-            # 生成Excel报告
-            import os
-            report_file = os.path.join(os.path.dirname(__file__), 'backtest_report.xlsx')
-            analyzer.generate_excel_report(report_file)
-            
-        except ImportError as e:
-            print(f"分析器导入失败，使用基础报告: {e}")
-            # 生成基础报告
             from .report_generator import ReportGenerator
             report_generator = ReportGenerator()
             # 生成并保存基础报告
             import os
+            from datetime import datetime
             report_data = report_generator.generate_basic_report(self.strategy)
-            report_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_report.json')
+            
+            # 创建backtest_reports目录（如果不存在）
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            reports_dir = os.path.join(project_root, 'backtest_reports')
+            os.makedirs(reports_dir, exist_ok=True)
+            
+            # 生成带时间戳的文件名
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]  # 保留毫秒
+            report_file = os.path.join(reports_dir, f'backtest_report_{timestamp}.json')
+            
+            # 保存到带时间戳的文件
             report_generator._save_report_to_file(report_data, report_file)
+            
+            # 同时保存到固定名称文件，兼容参数优化器
+            fixed_report_file = os.path.join(project_root, 'backtest_report.json')
+            report_generator._save_report_to_file(report_data, fixed_report_file)
+            
+            print(f"✅ 回测报告已生成: {report_file}")
+            print(f"✅ 固定名称报告已保存到: {fixed_report_file}")
         except Exception as e:
-            print(f"详细分析失败: {e}")
-            # 生成基础报告
-            from .report_generator import ReportGenerator
-            report_generator = ReportGenerator()
-            # 生成并保存基础报告
-            import os
-            report_data = report_generator.generate_basic_report(self.strategy)
-            report_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_report.json')
-            report_generator._save_report_to_file(report_data, report_file)
+            print(f"生成报告失败: {e}")
 
 
 def run_backtest(config: Dict[str, Any] = None, config_path: str = None):

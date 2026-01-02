@@ -91,7 +91,7 @@ st.sidebar.header("算法配置")
 # 算法选择
 algorithm = st.sidebar.selectbox(
     "选择优化算法",
-    ["暴力搜索", "遗传算法"]
+    ["暴力搜索", "遗传算法", "粒子群算法"]
 )
 
 # 测试模式
@@ -252,11 +252,16 @@ if st.button("生成参数组合"):
             if algorithm == "暴力搜索":
                 total_combinations = base_combinations
                 logger.info(f"[暴力搜索] 生成全部 {base_combinations} 个参数组合")
-            else:  # 遗传算法
+            elif algorithm == "遗传算法":
                 # 遗传算法最终会根据max_sub_combinations选择固定数量的组合
                 # 前端显示全量组合数，便于用户了解参数空间大小
                 total_combinations = base_combinations
                 logger.info(f"[遗传算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
+            elif algorithm == "粒子群算法":
+                # 粒子群算法最终会根据max_sub_combinations选择固定数量的组合
+                # 前端显示全量组合数，便于用户了解参数空间大小
+                total_combinations = base_combinations
+                logger.info(f"[粒子群算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
             
             # 估算计算时间（假设每个组合需要10秒）
             estimated_time = total_combinations * 10

@@ -118,19 +118,9 @@ class ResultProcessor:
             except Exception as e:
                 print(f"[Excel导出] 读取已有文件失败: {e}，将创建新文件")
         
-        # 去重，确保没有重复行
-        # 使用所有列作为去重依据
-        combined_df = combined_df.drop_duplicates()
-        print(f"[Excel导出] 去重后包含 {len(combined_df)} 条记录")
-        
-        # 跳过空数据
-        if combined_df.empty:
-            print("[Excel导出] ❌ 没有有效结果可导出")
-            return
-        
         # 定义固定的列顺序，确保回测指标字段放在一起
-        # 基本参数
-        base_columns = ['序号', '回测天数', '回测起始日期', '回测终止日期', '止盈比例(%)', '止损比例(%)']
+        # 基本参数（不包括序号，序号会在最后重新分配）
+        base_columns = ['回测天数', '回测起始日期', '回测终止日期', '止盈比例(%)', '止损比例(%)']
         
         # 回测指标（放在一起）
         metric_columns = ['总收益率(%)', '年化收益率(%)', '最大回撤(%)', '夏普比率', '胜率(%)', '交易次数']
@@ -141,13 +131,19 @@ class ResultProcessor:
         # 子权重配置列
         sub_weight_columns = [col for col in combined_df.columns if col.startswith('子权重_')]
         
-        # 构建完整的列顺序
-        column_order = base_columns + metric_columns + weight_columns + sub_weight_columns
+        # 构建完整的去重依据列（不包括序号）
+        dedup_columns = base_columns + metric_columns + weight_columns + sub_weight_columns
         
-        # 确保所有列都包含在column_order中
-        for col in combined_df.columns:
-            if col not in column_order:
-                column_order.append(col)
+        # 去重，确保没有重复行，仅基于关键参数组合，排除序号列
+        if '序号' in combined_df.columns:
+            combined_df = combined_df.drop('序号', axis=1)
+        combined_df = combined_df.drop_duplicates(subset=dedup_columns, keep='first')
+        print(f"[Excel导出] 去重后包含 {len(combined_df)} 条记录")
+        
+        # 跳过空数据
+        if combined_df.empty:
+            print("[Excel导出] ❌ 没有有效结果可导出")
+            return
         
         # 按总收益率降序排序
         combined_df = combined_df.sort_values(by='总收益率(%)', ascending=False)
@@ -156,6 +152,14 @@ class ResultProcessor:
         # 重新分配序号
         combined_df['序号'] = range(1, len(combined_df) + 1)
         print(f"[Excel导出] 重新分配序号完成")
+        
+        # 构建完整的列顺序（序号放在最前面）
+        column_order = ['序号'] + base_columns + metric_columns + weight_columns + sub_weight_columns
+        
+        # 确保所有列都包含在column_order中
+        for col in combined_df.columns:
+            if col not in column_order:
+                column_order.append(col)
         
         # 按固定顺序重新排列列
         combined_df = combined_df[column_order]

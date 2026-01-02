@@ -21,15 +21,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # 导入日志系统
-try:
-    # 尝试相对导入
-    from ..utils.logger import logger
-except ImportError:
-    # 尝试绝对导入
-    import sys
-    import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from utils.logger import logger
+from utils.logger import logger
 
 class BruteForceOptimizer(BaseOptimizer):
     """
@@ -359,7 +351,7 @@ class BruteForceOptimizer(BaseOptimizer):
                 
                 # 计算总组合数（用于进度显示）
                 total_combinations = len(valid_pairs) * len(param_ranges['weights_config']) * len(param_ranges['sub_weights_config'])
-                print(f"预计总组合数: {total_combinations}")
+                logger.info(f"预计总组合数: {total_combinations}")
                 
                 for stop_profit_ratio, stop_loss_ratio in valid_pairs:
                     for weights_config in param_ranges['weights_config']:
@@ -385,16 +377,16 @@ class BruteForceOptimizer(BaseOptimizer):
                             combinations.append(param_comb)
                             current_count += 1
                             
-                            # 每生成1000个组合显示一次进度，使用行内刷新
+                            # 每生成1000个组合显示一次进度
                             if current_count % 1000 == 0:
-                                print(f"已生成 {current_count}/{total_combinations} 个参数组合", end="\r", flush=True)
+                                logger.info(f"已生成 {current_count}/{total_combinations} 个参数组合")
                             
                             # 测试模式下仅生成第一个组合
                             if test_mode and current_count >= 1:
-                                print(f"[测试模式] 仅生成并返回第一个参数组合")
+                                logger.info(f"[测试模式] 仅生成并返回第一个参数组合")
                                 return combinations
         
-        print(f"总共生成 {len(combinations)} 个参数组合")
+        logger.info(f"总共生成 {len(combinations)} 个参数组合")
         return combinations
     
     def run_backtest(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -407,6 +399,17 @@ class BruteForceOptimizer(BaseOptimizer):
         Returns:
             Dict[str, Any]: 回测结果
         """
+        # 先检查缓存中是否已有结果
+        cached_result = self._get_cached_result(params)
+        if cached_result is not None:
+            import os
+            from utils.logger import logger
+            pid = os.getpid()
+            logger.info(f"\n📋 进程 {pid} 使用缓存结果")
+            logger.debug(f"   参数组合: {params}")
+            logger.info(f"✅ 进程 {pid} 回测完成（缓存命中）")
+            return cached_result
+        
         try:
             import sys
             import os
@@ -417,6 +420,16 @@ class BruteForceOptimizer(BaseOptimizer):
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             if project_root not in sys.path:
                 sys.path.insert(0, project_root)
+            
+            # 在子进程中重新导入日志系统
+            from utils.logger import logger
+            
+            # 获取进程ID，用于显示并行执行情况
+            pid = os.getpid()
+            
+            # 记录进程开始执行信息
+            logger.info(f"\n📋 进程 {pid} 开始执行回测")
+            logger.debug(f"   参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
             
             # 创建策略ID
             strategy_id = f"optimization_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
@@ -470,7 +483,7 @@ class BruteForceOptimizer(BaseOptimizer):
                 from backtest_runner import run_backtest as run_backtest_func
                 run_backtest_func(config=frontend_config)
             except Exception as e:
-                print(f"调用回测函数失败: {e}")
+                logger.error(f"调用回测函数失败: {e}")
                 import traceback
                 traceback.print_exc()
             
@@ -484,7 +497,7 @@ class BruteForceOptimizer(BaseOptimizer):
                     # 删除结果文件，避免影响下一次回测
                     os.unlink(report_file)
                 except Exception as e:
-                    print(f"读取报告文件失败: {e}")
+                    logger.error(f"读取报告文件失败: {e}")
                     report = {}
             
             # 从报告中提取需要的结果
@@ -508,10 +521,10 @@ class BruteForceOptimizer(BaseOptimizer):
                     'win_rate': report.get('win_rate', 0.0)
                 }
             
-            # 打印调试信息，确保参数和结果正确关联
-            print(f"[调试] 参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
-            print(f"[调试] 回测报告: {json.dumps(report, ensure_ascii=False, indent=2)}")
-            print(f"[调试] 回测结果: {performance_metrics}, {trade_statistics}")
+            # 记录调试信息，确保参数和结果正确关联
+            logger.debug(f"[调试] 参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
+            logger.debug(f"[调试] 回测报告: {json.dumps(report, ensure_ascii=False, indent=2)}")
+            logger.debug(f"[调试] 回测结果: {performance_metrics}, {trade_statistics}")
             
             # 返回结果，包含完整的回测指标和关键参数
             result = {
@@ -525,12 +538,16 @@ class BruteForceOptimizer(BaseOptimizer):
                 'win_rate': trade_statistics.get('win_rate', 0.0),
                 'trades_count': trade_statistics.get('total_trades', 0)
             }
-            print(f"[调试] 准备返回的结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            logger.debug(f"[调试] 准备返回的结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            
+            # 将结果存入缓存
+            self._cache_result(params, result)
+            
             return result
             
         except Exception as e:
-            print(f"回测失败: {e}")
-            return {
+            logger.error(f"回测失败: {e}")
+            result = {
                 **params,
                 'total_return': -100.0,  # 失败时返回极低收益率
                 'annual_return': -100.0,
@@ -539,12 +556,12 @@ class BruteForceOptimizer(BaseOptimizer):
                 'win_rate': 0.0,
                 'trades_count': 0
             }
+            # 失败结果也存入缓存，避免重复计算
+            self._cache_result(params, result)
+            return result
         finally:
-            # 不再删除配置文件，因为它是持久化的参数配置文件
-            if temp_config_file:
-                print(f"✅ 参数组合配置已保留: {temp_config_file}")
-            else:
-                print("✅ 回测完成，无配置文件生成")
+            # 记录进程完成信息
+            logger.info(f"✅ 进程 {pid} 回测完成")
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                 end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
@@ -617,6 +634,10 @@ class BruteForceOptimizer(BaseOptimizer):
         Returns:
             List[Dict[str, Any]]: 按收益率排序的结果列表
         """
+        # 导入日志系统
+        import os
+        from utils.logger import logger
+        
         total_combinations = len(param_combinations)
         self.start_time = datetime.now()
         all_results = []
@@ -625,12 +646,12 @@ class BruteForceOptimizer(BaseOptimizer):
         if num_workers is None:
             num_workers = os.cpu_count() - 1 if os.cpu_count() > 1 else 1
         
-        print(f"\n=== 并行处理模式 ===")
-        print(f"开始并行优化，使用 {num_workers} 个进程")
-        print(f"总参数组合数: {total_combinations}")
-        print(f"每 {save_interval} 个组合更新一次Excel结果")
-        print(f"支持断点续传: {'是' if blueprint else '否'}")
-        print("=" * 50)
+        logger.info("\n=== 并行处理模式 ===")
+        logger.info(f"开始并行优化，使用 {num_workers} 个进程")
+        logger.info(f"总参数组合数: {total_combinations}")
+        logger.info(f"每 {save_interval} 个组合更新一次Excel结果")
+        logger.info(f"支持断点续传: {'是' if blueprint else '否'}")
+        logger.info("=" * 50)
         
         # 准备要处理的组合列表，包括其在蓝图中的ID（如果有）
         combo_list = []
@@ -652,11 +673,18 @@ class BruteForceOptimizer(BaseOptimizer):
         
         # 使用ProcessPoolExecutor并行处理
         from concurrent.futures import ProcessPoolExecutor, as_completed
+        import os
+        import threading
+        
+        logger.info(f"\n🚀 开始提交并行任务，使用 {num_workers} 个进程")
+        logger.info(f"📋 总任务数: {total_combinations}")
         
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             # 提交所有任务
             future_to_combo = {}
             for i, param, combo_id in combo_list:
+                # 添加任务提交日志
+                logger.info(f"📌 提交任务 {i + 1}/{total_combinations} 到进程池")
                 future = executor.submit(self.run_backtest, param)
                 future_to_combo[future] = (i, param, combo_id)
             
@@ -672,7 +700,8 @@ class BruteForceOptimizer(BaseOptimizer):
                     # 计算进度
                     progress = (processed / total_combinations) * 100
                     
-                    print(f"\r✅ 已完成 {processed}/{total_combinations} 个组合 ({progress:.1f}%)", end="", flush=True)
+                    # 使用logger记录进度，不使用end="", 因为logger已经有自己的输出方式
+                    logger.info(f"✅ 已完成 {processed}/{total_combinations} 个组合 ({progress:.1f}%)")
                     
                     # 更新蓝图中的组合状态为completed
                     if blueprint and combo_id is not None:
@@ -686,7 +715,7 @@ class BruteForceOptimizer(BaseOptimizer):
                         # 更新Excel结果
                         self._update_excel_results(all_results)
                 except Exception as e:
-                    print(f"\n❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
+                    logger.error(f"❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
                     
                     # 更新蓝图中的组合状态为failed
                     if blueprint and combo_id is not None:
@@ -709,10 +738,10 @@ class BruteForceOptimizer(BaseOptimizer):
         # 按总收益率降序排序
         if all_results:
             all_results.sort(key=lambda x: x['total_return'], reverse=True)
-            print(f"\n{'='*50}")
-            print(f"优化完成！总耗时: {total_duration.total_seconds():.2f} 秒")
-            print(f"总共处理 {len(all_results)} 个参数组合")
-            print(f"使用 {num_workers} 个进程并行处理")
+            logger.info(f"\n{'='*50}")
+            logger.success(f"优化完成！总耗时: {total_duration.total_seconds():.2f} 秒")
+            logger.info(f"总共处理 {len(all_results)} 个参数组合")
+            logger.info(f"使用 {num_workers} 个进程并行处理")
         
         return all_results
     
@@ -724,7 +753,10 @@ class BruteForceOptimizer(BaseOptimizer):
             results: 回测结果列表
             fixed_file_name: 固定的Excel文件名
         """
-        print(f"\n🔄 更新Excel结果文件: {fixed_file_name}")
+        # 导入日志系统
+        from utils.logger import logger
+        
+        logger.info(f"\n🔄 更新Excel结果文件: {fixed_file_name}")
         
         # 使用ResultProcessor类来处理结果，确保与export_to_excel方法保持一致
         from .result_processor import ResultProcessor

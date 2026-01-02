@@ -19,6 +19,8 @@ class BaseOptimizer(ABC):
         self.results = []
         self.start_time = None
         self.end_time = None
+        # 回测结果缓存 - 使用字典存储，键为参数组合的哈希值，值为回测结果
+        self.backtest_cache = {}
     
     @abstractmethod
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
@@ -409,18 +411,18 @@ class BaseOptimizer(ABC):
                                           use_advanced_mode: bool = True) -> List[Dict[str, Dict[str, int]]]:
         """
         生成子权重组合
-        
+
         Args:
             test_mode: 是否为测试模式
             max_combinations: 最大子权重组合数
             use_advanced_mode: 是否使用高级模式
-            
+
         Returns:
             子权重组合列表
         """
         import itertools
         import random
-        
+
         # 定义每个主指标的子指标
         sub_indicators = {
             'kdj_j': ['j_0_20', 'j_-10_0', 'j_-20_-10', 'j_-30_-20', 'j_below_-30'],
@@ -429,7 +431,7 @@ class BaseOptimizer(ABC):
             'fundamental': ['pe_positive', 'pe_low', 'market_cap', 'volume_threshold'],
             'trend': ['up_trend', 'volume_price_rise', 'volume_contraction']
         }
-        
+
         # 测试模式：只生成一个简单的子权重组合
         if test_mode:
             simple_sub_weights = {}
@@ -438,17 +440,17 @@ class BaseOptimizer(ABC):
                 # 计算每个子指标的权重（相等分配）
                 weight_per_sub = 100 // num_subs
                 remainder = 100 % num_subs
-                
+
                 weights = [weight_per_sub] * num_subs
                 for i in range(remainder):
                     weights[i] += 1
-                
+
                 simple_sub_weights[main_indicator] = {'sub_weights': dict(zip(subs, weights))}
-            
+
             return [simple_sub_weights]
-        
+
         # 正式模式：生成可控数量的子权重组合
-        
+
         # 为每个主指标生成子权重组合
         sub_weights_combinations = {}
         for main_indicator, subs in sub_indicators.items():
@@ -470,38 +472,38 @@ class BaseOptimizer(ABC):
                     step = 10
                 else:  # num_subs == 5
                     step = 10
-            
+
             # 生成子权重组合，限制子权重范围为5%-90%
             sub_weights = self._generate_weights_combinations(subs, 100, step, min_weight=5, max_weight=90)
-            
+
             # 提前筛选有效的子权重组合
             valid_sub_weights = []
             for sw in sub_weights:
                 if sum(sw.values()) == 100 and all(5 <= w <= 90 for w in sw.values()):
                     valid_sub_weights.append(sw)
-            
+
             sub_weights_combinations[main_indicator] = valid_sub_weights
-        
+
         # 生成所有主指标的子权重组合的笛卡尔积
         main_indicators = list(sub_weights_combinations.keys())
         sub_weights_lists = [sub_weights_combinations[ind] for ind in main_indicators]
-        
+
         # 计算总笛卡尔积数量
         total_cartesian = 1
         for sub_list in sub_weights_lists:
             total_cartesian *= len(sub_list)
-        
+
         # 生成笛卡尔积，但限制数量
         combinations = []
-        
+
         # 高级模式：使用多种策略生成组合
         if use_advanced_mode and total_cartesian > max_combinations:
             # 策略1: 分层随机采样
             stratified_samples = []
-            
+
             # 为每个主指标选择固定数量的子权重组合
             samples_per_indicator = 3  # 每个主指标至少采样3个组合
-            
+
             # 为每个主指标创建子权重组合池
             indicator_pools = {}
             for main_ind, sub_weights_list in sub_weights_combinations.items():
@@ -510,16 +512,16 @@ class BaseOptimizer(ABC):
                     indicator_pools[main_ind] = random.sample(sub_weights_list, samples_per_indicator)
                 else:
                     indicator_pools[main_ind] = sub_weights_list.copy()
-            
+
             # 生成这些组合的笛卡尔积
             stratified_cartesian = list(itertools.product(*[indicator_pools[ind] for ind in main_indicators]))
-            
+
             # 如果生成的组合过多，再次随机采样
             if len(stratified_cartesian) > max_combinations:
                 stratified_samples = random.sample(stratified_cartesian, max_combinations)
             else:
                 stratified_samples = stratified_cartesian
-            
+
             # 将采样结果转换为标准格式
             stratified_combinations = []
             for combo in stratified_samples:
@@ -527,32 +529,32 @@ class BaseOptimizer(ABC):
                 for i, main_indicator in enumerate(main_indicators):
                     sub_weights_config[main_indicator] = {'sub_weights': combo[i]}
                 stratified_combinations.append(sub_weights_config)
-            
+
             combinations.extend(stratified_combinations)
-            
+
             # 策略2: 变异策略
             if len(combinations) < max_combinations and len(combinations) > 0:
                 mutation_count = min(5, max_combinations - len(combinations))
-                
+
                 for _ in range(mutation_count):
                     # 随机选择一个基础组合
                     base_combo = random.choice(combinations)
                     mutated_combo = base_combo.copy()
-                    
+
                     # 随机选择一个主指标进行变异
                     mutate_indicator = random.choice(main_indicators)
                     mutate_subs = sub_indicators[mutate_indicator]
                     num_subs = len(mutate_subs)
-                    
+
                     # 获取当前子权重
                     current_weights = base_combo[mutate_indicator]['sub_weights']
-                    
+
                     # 随机选择两个子指标进行权重交换或调整
                     if num_subs >= 2:
                         i, j = random.sample(range(num_subs), 2)
                         sub_i = mutate_subs[i]
                         sub_j = mutate_subs[j]
-                        
+
                         # 随机调整权重（±5%范围内）
                         adjust_amount = random.randint(1, 10)
                         if random.random() > 0.5:
@@ -565,7 +567,7 @@ class BaseOptimizer(ABC):
                             if current_weights[sub_j] + adjust_amount <= 90 and current_weights[sub_i] - adjust_amount >= 5:
                                 current_weights[sub_j] += adjust_amount
                                 current_weights[sub_i] -= adjust_amount
-                    
+
                     # 验证变异后的组合是否有效
                     if sum(current_weights.values()) == 100 and all(w > 0 for w in current_weights.values()):
                         # 更新变异后的组合
@@ -579,11 +581,11 @@ class BaseOptimizer(ABC):
                 for i, main_indicator in enumerate(main_indicators):
                     sub_weights_config[main_indicator] = {'sub_weights': combination[i]}
                 combinations.append(sub_weights_config)
-                
+
                 current += 1
                 if current >= max_combinations:
                     break
-        
+
         # 去重
         seen = set()
         unique_combinations = []
@@ -592,5 +594,59 @@ class BaseOptimizer(ABC):
             if key not in seen:
                 seen.add(key)
                 unique_combinations.append(combo)
-        
+
         return unique_combinations[:max_combinations]
+    
+    def _get_cache_key(self, params: Dict[str, Any]) -> str:
+        """
+        生成回测结果缓存的唯一键
+        
+        Args:
+            params: 参数组合
+            
+        Returns:
+            唯一的缓存键字符串
+        """
+        # 对参数进行排序并生成稳定的字符串表示
+        def _sort_dict(d):
+            if isinstance(d, dict):
+                return tuple(sorted((k, _sort_dict(v)) for k, v in d.items()))
+            elif isinstance(d, list):
+                return tuple(_sort_dict(item) for item in d)
+            else:
+                return d
+        
+        # 排序后的参数元组
+        sorted_params = _sort_dict(params)
+        # 使用哈希值作为缓存键
+        return str(hash(sorted_params))
+    
+    def _get_cached_result(self, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        从缓存中获取回测结果
+        
+        Args:
+            params: 参数组合
+            
+        Returns:
+            缓存的回测结果，如果不存在则返回None
+        """
+        cache_key = self._get_cache_key(params)
+        return self.backtest_cache.get(cache_key, None)
+    
+    def _cache_result(self, params: Dict[str, Any], result: Dict[str, Any]) -> None:
+        """
+        将回测结果存入缓存
+        
+        Args:
+            params: 参数组合
+            result: 回测结果
+        """
+        cache_key = self._get_cache_key(params)
+        self.backtest_cache[cache_key] = result
+    
+    def clear_cache(self) -> None:
+        """
+        清空回测结果缓存
+        """
+        self.backtest_cache.clear()

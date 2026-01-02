@@ -10,7 +10,16 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 
 from .base_optimizer import BaseOptimizer
-from ..utils.parameter_utils import validate_parameter_combination, format_parameter_combination
+import sys
+import os
+
+# 添加项目根目录到sys.path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# 使用绝对导入
+from utils.parameter_utils import validate_parameter_combination, format_parameter_combination
 
 
 class GeneticOptimizer(BaseOptimizer):

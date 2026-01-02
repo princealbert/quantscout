@@ -332,34 +332,63 @@ class ParameterOptimizer(BruteForceOptimizer):
         logger.info(f"测试模式: {test_mode}")
         logger.info(f"最大子权重组合数: {max_sub_combinations}")
         
-        # 如果提供了蓝图文件，从蓝图文件加载参数组合
-        if blueprint_file:
-            logger.info(f"从蓝图文件加载参数组合: {blueprint_file}")
-            blueprint = self.load_blueprint(blueprint_file, load_all=True)
-            # 过滤出待处理的组合
-            pending_combinations = [combo['params'] for combo in blueprint['combinations'] if combo['status'] == 'pending']
-            param_combinations = pending_combinations
-        else:
-            # 生成参数组合
-            param_combinations = self.generate_parameter_combinations(
+        # 根据算法选择优化器
+        if algorithm == "暴力搜索":
+            logger.info("使用暴力搜索优化器")
+            # 使用当前类的暴力搜索实现
+            # 如果提供了蓝图文件，从蓝图文件加载参数组合
+            if blueprint_file:
+                logger.info(f"从蓝图文件加载参数组合: {blueprint_file}")
+                blueprint = self.load_blueprint(blueprint_file, load_all=True)
+                # 过滤出待处理的组合
+                pending_combinations = [combo['params'] for combo in blueprint['combinations'] if combo['status'] == 'pending']
+                param_combinations = pending_combinations
+            else:
+                # 生成参数组合
+                param_combinations = self.generate_parameter_combinations(
+                    test_mode=test_mode,
+                    max_sub_combinations=max_sub_combinations,
+                    end_date=end_date,
+                    algorithm=algorithm,
+                    stop_profit_min=stop_profit_min,
+                    stop_profit_max=stop_profit_max,
+                    stop_profit_step=stop_profit_step,
+                    stop_loss_min=stop_loss_min,
+                    stop_loss_max=stop_loss_max,
+                    stop_loss_step=stop_loss_step,
+                    weight_step=weight_step,
+                    use_advanced_weights=use_advanced_weights,
+                    focus_indicators=focus_indicators,
+                    focus_weight_factor=focus_weight_factor
+                )
+            
+            # 执行回测（使用父类的run_parallel_optimization方法）
+            results = self.run_parallel_optimization(param_combinations)
+        elif algorithm == "遗传算法":
+            logger.info("使用遗传算法优化器")
+            # 导入遗传算法优化器
+            from optimizers.genetic_optimizer import GeneticOptimizer
+            optimizer = GeneticOptimizer()
+            # 执行遗传算法优化
+            results = optimizer.optimize(
                 test_mode=test_mode,
                 max_sub_combinations=max_sub_combinations,
-                end_date=end_date,
-                algorithm=algorithm,
-                stop_profit_min=stop_profit_min,
-                stop_profit_max=stop_profit_max,
-                stop_profit_step=stop_profit_step,
-                stop_loss_min=stop_loss_min,
-                stop_loss_max=stop_loss_max,
-                stop_loss_step=stop_loss_step,
-                weight_step=weight_step,
-                use_advanced_weights=use_advanced_weights,
-                focus_indicators=focus_indicators,
-                focus_weight_factor=focus_weight_factor
+                end_date=end_date
             )
-        
-        # 执行回测（使用父类的run_parallel_optimization方法，注意参数名差异）
-        results = self.run_parallel_optimization(param_combinations)
+        elif algorithm == "粒子群算法":
+            logger.info("使用粒子群算法优化器")
+            # 导入粒子群算法优化器
+            from optimizers.particle_swarm_optimizer import ParticleSwarmOptimizer
+            optimizer = ParticleSwarmOptimizer()
+            # 执行粒子群算法优化
+            results = optimizer.optimize(
+                test_mode=test_mode,
+                max_sub_combinations=max_sub_combinations,
+                end_date=end_date
+            )
+        else:
+            logger.error(f"未知优化算法: {algorithm}")
+            raise ValueError(f"未知优化算法: {algorithm}")
         
         return results
     
@@ -578,7 +607,7 @@ def main():
     parser = argparse.ArgumentParser(description="参数暴力求解器 - 寻找回测收益率最高的参数组合")
     parser.add_argument('--test', action='store_true', help='测试模式，仅生成少量组合')
     parser.add_argument('--max-sub-combinations', type=int, default=10, help='最大子权重组合数')
-    parser.add_argument('--algorithm', type=str, default='暴力搜索', choices=['暴力搜索', '遗传算法'], help='优化算法')
+    parser.add_argument('--algorithm', type=str, default='暴力搜索', choices=['暴力搜索', '遗传算法', '粒子群算法'], help='优化算法')
     parser.add_argument('--blueprint', type=str, help='从蓝图文件加载参数组合')
     parser.add_argument('--max-workers', type=int, help='最大工作线程数')
     parser.add_argument('--end-date', type=str, default='2025-12-25', help='回测终点日期（格式：YYYY-MM-DD）')
@@ -671,14 +700,21 @@ def main():
     logger.info("=" * 60)
     logger.info("优化完成！")
     if results:
-        logger.info(f"最佳组合总收益率: {results[0]['total_return']:.2f}%")
-        logger.info(f"最佳组合年化收益率: {results[0]['annual_return']:.2f}%")
+        best_result = results[0]
+        # 检查结果是否包含回测指标（暴力搜索）或仅包含参数（PSO/GA）
+        if 'total_return' in best_result:
+            # 完整回测结果格式（暴力搜索）
+            logger.info(f"最佳组合总收益率: {best_result['total_return']:.2f}%")
+            logger.info(f"最佳组合年化收益率: {best_result['annual_return']:.2f}%")
+        else:
+            # 参数组合格式（PSO/GA）
+            logger.info(f"最佳组合适应度: {best_result.get('fitness', -1000):.4f}")
         logger.info("最佳组合参数:")
-        logger.info(f"  - 回测天数: {results[0]['backtest_days']}")
-        logger.info(f"  - 止盈比例: {results[0]['stop_profit_ratio']*100:.1f}%")
-        logger.info(f"  - 止损比例: {results[0]['stop_loss_ratio']*100:.1f}%")
-        logger.info(f"  - 权重配置: {results[0]['weights_config']}")
-        logger.info(f"  - 子权重配置: {results[0]['sub_weights_config']}")
+        logger.info(f"  - 回测天数: {best_result['backtest_days']}")
+        logger.info(f"  - 止盈比例: {best_result['stop_profit_ratio']*100:.1f}%")
+        logger.info(f"  - 止损比例: {best_result['stop_loss_ratio']*100:.1f}%")
+        logger.info(f"  - 权重配置: {best_result['weights_config']}")
+        logger.info(f"  - 子权重配置: {best_result['sub_weights_config']}")
     logger.info("=" * 60)
 
 

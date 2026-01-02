@@ -209,6 +209,20 @@ class ReportGenerator:
             print(f"✅ 报告已保存到: {file_path}")
         except Exception as e:
             print(f"❌ 保存报告失败: {e}")
+            # 同时保存到项目根目录下的固定名称文件，兼容参数优化器
+            try:
+                import os
+                import sys
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                # 检查是否在参数优化器的子进程中运行
+                if 'ulti-para-seeker' in sys.argv[0] or 'optimizers' in sys.path[0]:
+                    # 使用固定名称的报告文件，供参数优化器读取
+                    fixed_report_path = os.path.join(project_root, 'backtest_report.json')
+                    with open(fixed_report_path, 'w', encoding='utf-8') as f:
+                        json.dump(report_data, f, ensure_ascii=False, indent=2, default=str)
+                    print(f"✅ 固定名称报告已保存到: {fixed_report_path}")
+            except Exception as e2:
+                print(f"❌ 保存固定名称报告失败: {e2}")
     
     def generate_visualization(self, strategy, save_path: str = None):
         """

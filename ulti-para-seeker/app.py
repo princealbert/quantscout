@@ -243,7 +243,7 @@ if st.button("生成参数组合"):
                 weights_config_count = len(base_weights)
             
             # 估算子权重配置数量
-            sub_weights_config_count = len(optimizer._generate_sub_weights_combinations(is_test_mode, max_sub_combinations, use_advanced_mode=use_advanced_weights))
+            sub_weights_config_count = len(optimizer._generate_sub_weights_combinations(is_test_mode, max_combinations=max_sub_combinations, use_advanced_mode=use_advanced_weights))
             
             # 计算总组合数
             base_combinations = len(stop_profit_ratio) * len(stop_loss_ratio) * weights_config_count * sub_weights_config_count
@@ -632,8 +632,22 @@ if st.button("开始优化"):
 # 显示回测结果
 st.header("回测结果")
 
-# 如果点击了查看按钮或者优化完成，显示结果
+# 初始化session_state
+if 'show_results' not in st.session_state:
+    st.session_state['show_results'] = False
+if 'best_result' not in st.session_state:
+    st.session_state['best_result'] = None
+if 'save_result' not in st.session_state:
+    st.session_state['save_result'] = None
+if 'weight_columns' not in st.session_state:
+    st.session_state['weight_columns'] = []
+if 'sub_weight_columns' not in st.session_state:
+    st.session_state['sub_weight_columns'] = []
+
+# 查看回测结果按钮
 if st.button("查看回测结果") or show_results:
+    st.session_state['show_results'] = True
+    
     try:
         # 从Excel文件读取结果
         excel_file = os.path.join(current_dir, "parameter_optimization_results.xlsx")
@@ -704,42 +718,230 @@ if st.button("查看回测结果") or show_results:
                 # 找到总收益率最高的行
                 best_result = df.loc[df['总收益率(%)'].idxmax()]
                 
-                st.write("参数配置:")
-                st.write(f"回测天数: {best_result['回测天数']}天")
-                st.write(f"止盈比例: {best_result['止盈比例(%)']}%")
-                st.write(f"止损比例: {best_result['止损比例(%)']}%")
+                # 保存到session_state
+                st.session_state['best_result'] = best_result
                 
-                # 显示权重配置
-                st.write("权重配置:")
+                # 保存权重列信息
                 weight_columns = [col for col in df.columns if col.startswith('权重_')]
-                for col in weight_columns:
-                    indicator_name = col.replace('权重_', '')
-                    st.write(f"  {indicator_name}: {best_result[col]}%")
-                
-                # 显示子权重配置
                 sub_weight_columns = [col for col in df.columns if col.startswith('子权重_')]
-                if sub_weight_columns:
-                    st.write("子权重配置:")
-                    for col in sub_weight_columns:
-                        indicator_name = col.replace('子权重_', '')
-                        st.write(f"  {indicator_name}: {best_result[col]}%")
+                st.session_state['weight_columns'] = weight_columns
+                st.session_state['sub_weight_columns'] = sub_weight_columns
                 
-                st.write("回测结果:")
-                st.write(f"总收益率: {best_result.get('总收益率(%)', 0)}%")
-                st.write(f"年化收益率: {best_result.get('年化收益率(%)', 0)}%")
-                st.write(f"最大回撤: {best_result.get('最大回撤(%)', 0)}%")
-                st.write(f"夏普比率: {best_result.get('夏普比率', 0):.2f}")
-                st.write(f"胜率: {best_result.get('胜率(%)', 0)}%")
-                st.write(f"交易次数: {best_result.get('交易次数', 0)}")
-            else:
-                st.info("Excel文件为空")
+                # 创建一个醒目的卡片布局展示最优结果
+                with st.container(border=True):
+                    # 使用列布局展示关键参数
+                    st.markdown("### 参数配置")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("回测天数", f"{best_result['回测天数']}天")
+                    with col2:
+                        st.metric("止盈比例", f"{best_result['止盈比例(%)']}%")
+                    with col3:
+                        st.metric("止损比例", f"{best_result['止损比例(%)']}%")
+                    
+                    # 显示权重配置
+                    st.markdown("### 权重配置")
+                    weight_data = []
+                    for col in weight_columns:
+                        indicator_name = col.replace('权重_', '')
+                        weight_data.append({
+                            "指标": indicator_name,
+                            "权重": f"{best_result[col]}%"
+                        })
+                    weight_df = pd.DataFrame(weight_data)
+                    st.dataframe(weight_df, use_container_width=True, hide_index=True)
+                    
+                    # 显示子权重配置
+                    if sub_weight_columns:
+                        st.markdown("### 子权重配置")
+                        sub_weight_data = []
+                        for col in sub_weight_columns:
+                            indicator_name = col.replace('子权重_', '')
+                            sub_weight_data.append({
+                                "指标": indicator_name,
+                                "子权重": f"{best_result[col]}%"
+                            })
+                        sub_weight_df = pd.DataFrame(sub_weight_data)
+                        st.dataframe(sub_weight_df, use_container_width=True, hide_index=True)
+                    
+                    # 显示回测结果
+                    st.markdown("### 回测结果")
+                    result_col1, result_col2, result_col3 = st.columns(3)
+                    with result_col1:
+                        st.metric("总收益率", f"{best_result.get('总收益率(%)', 0)}%")
+                        st.metric("年化收益率", f"{best_result.get('年化收益率(%)', 0)}%")
+                    with result_col2:
+                        st.metric("最大回撤", f"{best_result.get('最大回撤(%)', 0)}%")
+                        st.metric("夏普比率", f"{best_result.get('夏普比率', 0):.2f}")
+                    with result_col3:
+                        st.metric("胜率", f"{best_result.get('胜率(%)', 0)}%")
+                        st.metric("交易次数", f"{best_result.get('交易次数', 0)}")
         else:
             st.info("Excel文件不存在，尚未生成回测结果")
+            st.session_state['show_results'] = False
+            st.session_state['best_result'] = None
+            st.session_state['weight_columns'] = []
+            st.session_state['sub_weight_columns'] = []
             
     except Exception as e:
         st.error(f"查看回测结果失败: {e}")
         import traceback
         traceback.print_exc()
+        st.session_state['show_results'] = False
+        st.session_state['best_result'] = None
+        st.session_state['weight_columns'] = []
+        st.session_state['sub_weight_columns'] = []
+
+# 发送到策略控制器功能 - 独立于查看结果按钮
+if st.session_state['show_results'] and st.session_state['best_result'] is not None:
+    # 获取保存的数据
+    best_result = st.session_state['best_result']
+    weight_columns = st.session_state['weight_columns']
+    sub_weight_columns = st.session_state['sub_weight_columns']
+    
+    def save_to_strategy_controller():
+        # 导入logger
+        from utils.logger import logger
+        
+        logger.info("开始执行保存到策略控制器功能")
+        
+        try:
+            # 1. 直接测试文件写入权限
+            test_path = "c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-11f0-8409-e89c2599a417\\test_write.txt"
+            logger.info(f"测试写入路径: {test_path}")
+            
+            with open(test_path, 'w', encoding='utf-8') as f:
+                f.write("测试写入成功")
+            logger.info("测试文件写入成功")
+            
+            # 2. 读取现有配置文件
+            file_name = "weight_configs.json"
+            save_path = os.path.join("c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-11f0-8409-e89c2599a417\\web\\configs", file_name)
+            
+            logger.info(f"实际保存路径: {save_path}")
+            
+            # 确保目录存在
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            logger.info(f"确保目录存在: {os.path.dirname(save_path)}")
+            
+            # 读取现有配置
+            existing_configs = {}
+            if os.path.exists(save_path):
+                logger.info(f"读取现有配置文件: {save_path}")
+                with open(save_path, 'r', encoding='utf-8') as f:
+                    existing_configs = json.load(f)
+                logger.info(f"现有配置包含 {len(existing_configs)} 个配置项")
+            else:
+                logger.warning(f"配置文件不存在，将创建新文件: {save_path}")
+            
+            # 3. 构建新的配置
+            import uuid
+            from datetime import datetime
+            
+            # 生成唯一ID
+            config_id = str(uuid.uuid4())
+            logger.info(f"生成配置ID: {config_id}")
+            
+            # 构建权重配置（转换为整数）
+            weights = {}
+            logger.info("开始构建权重配置")
+            for col in weight_columns:
+                indicator_name = col.replace('权重_', '')
+                weight_value = int(best_result[col])
+                weights[indicator_name] = weight_value
+                logger.info(f"权重: {indicator_name} = {weight_value}")
+            
+            # 构建子权重配置
+            sub_weights = {}
+            logger.info("开始构建子权重配置")
+            for col in sub_weight_columns:
+                # 解析子权重字段名，格式为：子权重_指标_子指标
+                parts = col.split('_')
+                if len(parts) < 4:
+                    logger.warning(f"无效的子权重字段名: {col}")
+                    continue
+                
+                # 提取指标名和子指标名
+                indicator_name = parts[1]
+                sub_indicator_name = '_'.join(parts[2:])
+                sub_weight_value = int(best_result[col])
+                
+                # 确保指标的子权重结构存在
+                if indicator_name not in sub_weights:
+                    sub_weights[indicator_name] = {
+                        "total_weight": 100,
+                        "sub_weights": {}
+                    }
+                
+                # 添加子权重值（整数）
+                sub_weights[indicator_name]["sub_weights"][sub_indicator_name] = sub_weight_value
+                logger.info(f"子权重: {indicator_name}.{sub_indicator_name} = {sub_weight_value}")
+            
+            # 4. 构建完整的配置对象
+            new_config = {
+                "id": config_id,
+                "name": f"{datetime.now().strftime('%Y%m%d')}_最优组合",
+                "description": f"由参数优化器生成的最优组合，生成时间：{datetime.now().isoformat()}",
+                "weights": weights,
+                "sub_weights": sub_weights,
+                "created_at": datetime.now().isoformat(),
+                "is_default": False,
+                "backtest_params": {
+                    "stop_profit_ratio": best_result['止盈比例(%)'] / 100,
+                    "stop_loss_ratio": -best_result['止损比例(%)'] / 100,
+                    "backtest_days": int(best_result['回测天数']),
+                    "initial_capital": 60000,
+                    "commission_ratio": 0.0003
+                }
+            }
+            
+            logger.info(f"构建完成新配置: {new_config['name']}")
+            logger.debug(f"新配置详情: {json.dumps(new_config, ensure_ascii=False, indent=2)}")
+            
+            # 5. 添加新配置到现有配置中
+            existing_configs[config_id] = new_config
+            logger.info(f"新配置已添加到现有配置中")
+            
+            # 6. 保存更新后的配置文件
+            logger.info(f"开始保存配置文件到: {save_path}")
+            with open(save_path, 'w', encoding='utf-8') as f:
+                json.dump(existing_configs, f, ensure_ascii=False, indent=2)
+            logger.info(f"配置文件保存成功: {save_path}")
+            
+            # 验证文件是否保存成功
+            if os.path.exists(save_path):
+                logger.info(f"文件保存成功，大小: {os.path.getsize(save_path)} 字节")
+            
+            return save_path
+        except Exception as e:
+            logger.error(f"保存到策略控制器失败: {e}")
+            import traceback
+            logger.error(f"错误堆栈: {traceback.format_exc()}")
+            raise
+    
+    # 保存按钮
+    st.markdown("---")
+    st.subheader("策略控制器操作")
+    
+    if st.button("发送到策略控制器", type="primary"):
+        with st.spinner("正在保存最优参数组合..."):
+            try:
+                save_path = save_to_strategy_controller()
+                st.session_state['save_result'] = ("success", f"最优参数组合已保存到: {save_path}")
+                st.success(st.session_state['save_result'][1])
+            except Exception as e:
+                error_msg = f"保存失败: {e}"
+                st.session_state['save_result'] = ("error", error_msg)
+                st.error(error_msg)
+                st.exception(e)
+    
+    # 显示保存结果
+    if st.session_state['save_result']:
+        result_type, result_msg = st.session_state['save_result']
+        if result_type == "success":
+            st.success(result_msg)
+        else:
+            st.error(result_msg)
 
 # 页脚信息
 st.markdown("<p style='text-align: center; color: gray;'>参数优化器 © 2024</p>", unsafe_allow_html=True)

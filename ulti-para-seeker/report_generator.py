@@ -165,23 +165,33 @@ class ReportGenerator:
         # 计算胜率
         win_rate = 0.0
         if len(trades_df) > 1:
-            buy_trades = trades_df[trades_df['action'] == 'BUY']
-            sell_trades = trades_df[trades_df['action'] == 'SELL']
+            # 将交易按顺序配对：BUY后跟着SELL，形成完整的交易对
+            win_trades = 0
+            total_trades = 0
             
-            if len(buy_trades) > 0 and len(sell_trades) > 0:
-                win_trades = 0
-                total_trades = len(sell_trades)
-                
-                for i, sell_trade in sell_trades.iterrows():
-                    symbol = sell_trade['symbol']
-                    # 找到对应的买入交易
-                    matching_buys = buy_trades[buy_trades['symbol'] == symbol]
-                    if not matching_buys.empty:
-                        buy_trade = matching_buys.iloc[-1]  # 使用最后一次买入
-                        if buy_trade['price'] < sell_trade['price']:
-                            win_trades += 1
-                
-                win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
+            # 遍历交易记录，按顺序配对BUY和SELL
+            i = 0
+            while i < len(trades_df) - 1:
+                buy_trade = trades_df.iloc[i]
+                if buy_trade['action'] == 'BUY':
+                    # 寻找对应的SELL交易
+                    for j in range(i + 1, len(trades_df)):
+                        sell_trade = trades_df.iloc[j]
+                        if sell_trade['action'] == 'SELL' and sell_trade['symbol'] == buy_trade['symbol']:
+                            # 找到配对的交易对
+                            total_trades += 1
+                            if buy_trade['price'] < sell_trade['price']:
+                                win_trades += 1
+                            i = j + 1  # 跳过已处理的交易
+                            break
+                    else:
+                        # 没有找到对应的SELL交易，跳过该BUY
+                        i += 1
+                else:
+                    # 不是BUY交易，继续
+                    i += 1
+            
+            win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
         
         # 计算夏普比率（简化版）
         sharpe_ratio = 0.0

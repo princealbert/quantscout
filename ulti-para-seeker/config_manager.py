@@ -346,7 +346,7 @@ class FrontendConfigLoader:
         if 'strategy' not in frontend_config:
             issues.append("缺少策略配置")
         if 'selected_stocks' not in frontend_config:
-            issues.append("缺少选股结果")
+            frontend_config['selected_stocks'] = []  # 如果没有提供选股结果，使用空列表
         
         # 验证回测参数
         backtest = frontend_config.get('backtest', {})

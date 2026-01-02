@@ -61,17 +61,22 @@ class BacktestRunner:
         current_position = None
         needs_new_selection = False
         
-        for position in account.positions():
+        # 正确检查持仓：遍历所有持仓，找到实际有持仓的股票
+        positions = account.positions()
+        actual_positions = []
+        
+        for position in positions:
             # 安全获取持仓量
             volume = position.volume
             volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
             
             if volume_value > 0:
+                actual_positions.append(position)
                 has_position = True
                 current_position = position
                 break
         
-        # 如果有持仓，检查是否应该卖出
+        # 如果有实际持仓，检查是否应该卖出
         if has_position and current_position:
             symbol = current_position.symbol
             # 这里简化处理，实际应该记录买入价格
@@ -105,12 +110,52 @@ class BacktestRunner:
         else:
             portfolio_value_num = portfolio_value
         
+        # 确保组合价值不会异常增长（防止重复计算）
+        # 获取当前账户的实际资产
+        account = context.account()
+        
+        # 安全获取现金数值
+        cash = account.cash
+        if isinstance(cash, dict):
+            cash_value = float(cash.get('available', 0.0))
+        elif hasattr(cash, 'available'):
+            cash_value = float(cash.available)
+        elif hasattr(cash, 'value'):
+            cash_value = float(cash.value)
+        elif hasattr(cash, 'amount'):
+            cash_value = float(cash.amount)
+        else:
+            cash_value = float(cash) if cash else 0.0
+        
+        # 计算实际持仓市值
+        positions_value = 0.0
+        for position in account.positions():
+            symbol = position.symbol
+            from gm.api import current
+            current_data = current(symbol)
+            if current_data:
+                # 安全获取价格数值
+                price_data = current_data[0]['price']
+                if hasattr(price_data, 'value'):
+                    current_price = float(price_data.value)
+                else:
+                    current_price = float(price_data) if price_data else 0.0
+                
+                # 安全获取持仓量
+                volume = position.volume
+                volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
+                
+                positions_value += current_price * volume_value
+        
+        # 使用实际计算的组合价值，避免异常增长
+        actual_portfolio_value = cash_value + positions_value
+        
         strategy.portfolio_values.append({
             'date': context.now,
-            'value': portfolio_value_num
+            'value': actual_portfolio_value
         })
         
-        print(f"💰 当日组合价值: {portfolio_value_num:,.2f}元")
+        print(f"💰 当日组合价值: {actual_portfolio_value:,.2f}元")
     
     def _execute_buy(self, context, stock_info: Dict[str, str]) -> bool:
         """执行买入操作"""
@@ -348,6 +393,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None):
                     
                     # 计算回测期间
                     end_date = datetime.now()
+                    #end_date = datetime(2025, 12, 30)
                     start_date = end_date - timedelta(days=strategy_params.get('backtest_days', 90))
                     
                     # 导入参数配置系统

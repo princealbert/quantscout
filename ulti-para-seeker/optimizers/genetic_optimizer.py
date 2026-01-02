@@ -133,7 +133,7 @@ class GeneticOptimizer(BaseOptimizer):
             weights_config = self._generate_random_weights_config(param_ranges['weights_step'])
             
             # 生成子权重配置
-            sub_weights_config = self._generate_sub_weights_combinations(test_mode, max_sub_combinations, use_advanced_mode=True)
+            sub_weights_config = self._generate_sub_weights_combinations(test_mode, max_combinations=max_sub_combinations, use_advanced_mode=True)
             
             # 如果没有生成子权重配置，使用默认配置
             if not sub_weights_config:

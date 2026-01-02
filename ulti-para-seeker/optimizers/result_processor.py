@@ -131,13 +131,16 @@ class ResultProcessor:
         # 子权重配置列
         sub_weight_columns = [col for col in combined_df.columns if col.startswith('子权重_')]
         
-        # 构建完整的去重依据列（不包括序号）
-        dedup_columns = base_columns + metric_columns + weight_columns + sub_weight_columns
+        # 构建去重依据列 - 只基于参数组合，不包括回测结果指标
+        # 这样可以确保相同参数组合的记录只保留一个，无论回测结果如何
+        param_columns = base_columns + weight_columns + sub_weight_columns
         
-        # 去重，确保没有重复行，仅基于关键参数组合，排除序号列
+        # 去重，确保没有重复行，仅基于参数组合
         if '序号' in combined_df.columns:
             combined_df = combined_df.drop('序号', axis=1)
-        combined_df = combined_df.drop_duplicates(subset=dedup_columns, keep='first')
+        # 先按参数组合去重，保留收益率最高的记录
+        combined_df = combined_df.sort_values(by='总收益率(%)', ascending=False)
+        combined_df = combined_df.drop_duplicates(subset=param_columns, keep='first')
         print(f"[Excel导出] 去重后包含 {len(combined_df)} 条记录")
         
         # 跳过空数据

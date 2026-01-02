@@ -141,7 +141,7 @@ class BruteForceOptimizer(BaseOptimizer):
             'weights_config': weights_config,
             
             # 子权重配置 (每个主指标的子权重总和必须为100) - 选股策略细节
-            'sub_weights_config': self._generate_sub_weights_combinations(test_mode, max_sub_combinations, use_advanced_mode=use_advanced_weights)
+            'sub_weights_config': self._generate_sub_weights_combinations(test_mode, max_combinations=max_sub_combinations, use_advanced_mode=use_advanced_weights)
         }
     
     def _generate_custom_weights_combinations(self, indicators: List[str], total: int, step: int, focus_indicators: List[str] = None, focus_weight_factor: float = 1.5) -> List[Dict[str, int]]:
@@ -459,16 +459,8 @@ class BruteForceOptimizer(BaseOptimizer):
                     'sub_weights_config': params['sub_weights_config'],
                     'strategy_type': '参数优化策略'
                 },
-                # 添加默认的选股结果（至少包含一个股票）
-                'selected_stocks': [
-                    {
-                        'symbol': '600000.SH',
-                        'sec_name': '浦发银行',
-                        'industry': '银行',
-                        'market_value': 300000000000,
-                        'score': 100
-                    }
-                ]
+                # 不硬编码选股结果，让回测系统根据参数重新选股
+                'selected_stocks': []
             }
             
             # 使用内存中的配置直接调用回测函数，避免配置文件的IO操作
@@ -487,18 +479,38 @@ class BruteForceOptimizer(BaseOptimizer):
                 import traceback
                 traceback.print_exc()
             
-            # 从文件中读取回测结果（backtest_runner总是将结果写入文件）
+            # 从文件中读取回测结果 - 等待固定名称的报告文件生成
             report = {}
+            import time
+            
+            # 等待回测结果文件生成（给回测系统一些时间）
+            max_wait = 10
+            wait_count = 0
             report_file = os.path.join(project_root, 'backtest_report.json')
+            
+            # 添加短暂延迟，确保报告文件有足够时间生成
+            time.sleep(0.5)
+            
+            while not os.path.exists(report_file) and wait_count < max_wait:
+                time.sleep(0.5)  # 500ms延迟，减少等待时间
+                wait_count += 1
+            
             if os.path.exists(report_file):
                 try:
                     with open(report_file, 'r', encoding='utf-8') as f:
                         report = json.load(f)
+                    logger.debug(f"成功读取报告文件: {report}")
+                    
+                    # 添加短暂延迟，确保其他进程有时间读取文件后再删除
+                    time.sleep(0.1)
+                    
                     # 删除结果文件，避免影响下一次回测
                     os.unlink(report_file)
                 except Exception as e:
                     logger.error(f"读取报告文件失败: {e}")
                     report = {}
+            else:
+                logger.warning(f"报告文件未生成: {report_file}")
             
             # 从报告中提取需要的结果
             performance_metrics = report.get('performance_metrics', {})

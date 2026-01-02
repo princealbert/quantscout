@@ -191,7 +191,7 @@ class ParameterOptimizer(BruteForceOptimizer):
             'weights_config': weights_config,
             
             # 子权重配置 (每个主指标的子权重总和必须为100) - 选股策略细节
-            'sub_weights_config': self._generate_sub_weights_combinations(test_mode, max_sub_combinations, use_advanced_mode=use_advanced_weights)
+            'sub_weights_config': self._generate_sub_weights_combinations(test_mode, max_combinations=max_sub_combinations, use_advanced_mode=use_advanced_weights)
         }
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 

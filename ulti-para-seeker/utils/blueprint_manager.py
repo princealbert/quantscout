@@ -53,8 +53,8 @@ class BlueprintManager:
         # 2. 根据算法类型选择最终使用的参数组合
         final_combinations = unique_new_combinations.copy()
         
-        if algorithm == "遗传算法" and len(final_combinations) > max_sub_combinations:
-            # 遗传算法只使用固定数量的组合
+        if algorithm in ["遗传算法", "粒子群算法"] and len(final_combinations) > max_sub_combinations:
+            # 遗传算法和粒子群算法只使用固定数量的组合
             import random
             random.shuffle(final_combinations)
             final_combinations = final_combinations[:max_sub_combinations]

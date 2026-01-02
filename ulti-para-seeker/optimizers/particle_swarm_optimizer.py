@@ -143,7 +143,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             weights_config = self._generate_random_weights_config(param_ranges['weights_step'])
             
             # 生成子权重配置
-            sub_weights_config = self._generate_sub_weights_combinations(test_mode, max_sub_combinations, use_advanced_mode=True)
+            sub_weights_config = self._generate_sub_weights_combinations(test_mode, max_combinations=max_sub_combinations, use_advanced_mode=True)
             
             # 如果没有生成子权重配置，使用默认配置
             if not sub_weights_config:
@@ -514,18 +514,4 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             particle['position']['stop_profit_ratio'] = particle['position']['stop_loss_ratio'] + 0.01
             particle['position']['stop_profit_ratio'] = round(particle['position']['stop_profit_ratio'], 3)
     
-    def _generate_sub_weights_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                           use_advanced_mode: bool = True) -> List[Dict[str, Dict[str, int]]]:
-        """
-        生成子权重组合（复用父类方法）
-        
-        Args:
-            test_mode: 是否为测试模式
-            max_sub_combinations: 最大子权重组合数
-            use_advanced_mode: 是否使用高级模式
-        
-        Returns:
-            List[Dict[str, Dict[str, int]]]: 子权重组合列表
-        """
-        # 简化实现，返回默认子权重配置
-        return [self._generate_default_sub_weights()]
+

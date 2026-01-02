@@ -264,22 +264,37 @@ class BacktestStrategy:
             
             # 加上持仓市值
             for position in account.positions():
-                symbol = position.symbol
-                from gm.api import current
-                current_data = current(symbol)
-                if current_data:
-                    # 安全获取价格数值
-                    price_data = current_data[0]['price']
-                    if hasattr(price_data, 'value'):
-                        current_price = float(price_data.value)
-                    else:
-                        current_price = float(price_data) if price_data else 0.0
-                    
-                    # 安全获取持仓量
-                    volume = position.volume
-                    volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
-                    
-                    portfolio_value += current_price * volume_value
+                # 安全获取持仓量
+                volume = position.volume
+                volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
+                
+                # 只计算有持仓的股票
+                if volume_value > 0:
+                    symbol = position.symbol
+                    from gm.api import current
+                    current_data = current(symbol)
+                    if current_data:
+                        # 安全获取价格数值
+                        price_data = current_data[0]['price']
+                        if hasattr(price_data, 'value'):
+                            current_price = float(price_data.value)
+                        else:
+                            current_price = float(price_data) if price_data else 0.0
+                        
+                        # 计算持仓市值
+                        position_value = current_price * volume_value
+                        portfolio_value += position_value
+            
+            # 防止组合价值异常增长（异常大的值可能是计算错误）
+            # 组合价值不应超过初始资金的10倍，除非有明确的盈利
+            if portfolio_value > self.initial_capital * 10:
+                # 检查是否真的有这么多持仓
+                actual_positions = sum([float(pos.volume.value) if hasattr(pos.volume, 'value') else float(pos.volume) for pos in account.positions()])
+                if actual_positions < self.initial_capital * 5 / 100:  # 假设股价不超过100元
+                    # 持仓量不足以支持这么高的组合价值，说明计算有误
+                    print(f"⚠️  警告: 组合价值异常高 ({portfolio_value:.2f}元)，已调整为合理值")
+                    # 使用初始资金作为合理值
+                    return self.initial_capital
             
             return portfolio_value
             

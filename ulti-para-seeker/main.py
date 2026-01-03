@@ -1,44 +1,41 @@
 #!/usr/bin/env python
 # coding=utf-8
 """
-参数优化专用主程序 - 避免调用原项目代码
+参数优化专用主程序 - 使用统一回测引擎
 """
 
 import sys
 import os
 from datetime import datetime, timedelta
 
-# 添加当前目录到sys.path
+# 添加项目根目录和当前目录到sys.path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from gm.api import *
 
-# 导入本地模块
+# 导入统一的回测引擎
 try:
-    from .backtest_runner import BacktestRunner
-except ImportError:
+    from strategy_engine.backtest_runner import BacktestRunner
+except ImportError as e:
+    print(f"从strategy_engine.backtest_runner导入失败: {e}")
+    # 尝试直接导入
+    import sys
+    sys.path.append(os.path.join(project_root, 'strategy_engine'))
     from backtest_runner import BacktestRunner
 
 def init(context):
     """策略初始化 - 参数优化专用"""
-    # 确保ulti-para-seeker目录在sys.path中，避免导入错误的模块
+    # 添加项目根目录到sys.path，确保能找到统一的回测引擎
     import sys
     import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
     
-    # 导入参数配置系统
-    try:
-        from config.strategy_params import get_current_params, load_params_from_file
-    except ImportError as e:
-        print(f"从config.strategy_params导入失败: {e}")
-        # 尝试更可靠的导入方式
-        try:
-            from .config.strategy_params import get_current_params, load_params_from_file
-        except ImportError as e2:
-            print(f"从相对路径导入失败: {e2}")
-            raise
+    # 导入参数配置系统 - 直接使用根目录config
+    from config.strategy_params import get_current_params, load_params_from_file
     
     # 获取当前策略参数（优先从文件加载）
     strategy_params = get_current_params()
@@ -48,8 +45,8 @@ def init(context):
     print(f"调试: main.py中获取的止盈比例={strategy_params.stop_profit_ratio}")
     print(f"调试: main.py中获取的止损比例={strategy_params.stop_loss_ratio}")
     
-    # 创建回测执行器
-    context.runner = BacktestRunner(strategy_params=strategy_params)
+    # 创建回测执行器 - 禁用图表生成，适合参数优化
+    context.runner = BacktestRunner(strategy_params=strategy_params, generate_charts=False)
     
     # 调用执行器的初始化方法
     context.runner.init(context)

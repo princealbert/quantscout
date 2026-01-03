@@ -52,7 +52,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         }
     
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                               use_advanced_weights: bool = True, end_date: str = '2025-12-25') -> Dict[str, Any]:
+                               use_advanced_weights: bool = True, end_date: str = '2025-12-25',
+                               focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                               backtest_days: int = 90) -> Dict[str, Any]:
         """
         定义参数范围
         
@@ -61,13 +63,17 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             use_advanced_weights: 是否使用高级权重配置模式
             end_date: 回测终点日期
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
         
         Returns:
             Dict[str, Any]: 参数范围字典
         """
         from utils.logger import logger
         logger.info("定义粒子群算法参数边界...")
-        logger.info(f"- 回测天数固定为90天，终点日期为{end_date}")
+        logger.info(f"- 回测天数: {backtest_days}天，终点日期为{end_date}")
         
         if test_mode:
             logger.info("[测试模式] 使用最小参数范围")
@@ -77,7 +83,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': -0.03, 'max': -0.01, 'step': 0.01},
                 'weights_step': 50,
                 'test_mode': True,
-                'end_date': end_date
+                'end_date': end_date,
+                'backtest_days': backtest_days
             }
         else:
             logger.info("- 止盈比例: 3%-15%，步长2%")
@@ -94,13 +101,16 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': -0.05, 'max': -0.01, 'step': 0.01},
                 'weights_step': weight_step,
                 'test_mode': False,
-                'end_date': end_date
+                'end_date': end_date,
+                'backtest_days': backtest_days
             }
         
         return param_ranges
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                       end_date: str = '2025-12-25') -> List[Dict[str, Any]]:
+                                       end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
+                                       focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                                       backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
         生成参数组合（粒子群初始化）
         
@@ -108,12 +118,16 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
         
         Returns:
             List[Dict[str, Any]]: 参数组合列表（初始化粒子群）
         """
         from utils.logger import logger
-        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, end_date=end_date)
+        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, end_date=end_date, backtest_days=backtest_days)
         
         logger.info(f"开始生成粒子群初始种群...")
         logger.info(f"- 粒子数量: {self.population_size}")
@@ -160,7 +174,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'stop_loss_ratio': stop_loss,
                 'weights_config': weights_config,
                 'sub_weights_config': sub_weights,
-                'initial_capital': self.initial_capital
+                'initial_capital': initial_capital
             }
             
             # 验证参数组合
@@ -175,7 +189,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             default_comb = format_parameter_combination({
                 'backtest_days': 90,
                 'end_date': end_date,
-                'initial_capital': self.initial_capital
+                'initial_capital': initial_capital
             })
             particles.append(default_comb)
         
@@ -183,7 +197,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         return particles
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
+                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
         """
         执行粒子群算法优化
         
@@ -192,6 +206,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             blueprint_file: 蓝图文件路径（粒子群算法通常不需要蓝图）
+            initial_capital: 初始资金
         
         Returns:
             List[Dict[str, Any]]: 优化结果列表
@@ -206,7 +221,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         logger.info(f"- 早期停止: {self.early_stopping_generations} 代无改进")
         
         # 初始化粒子群
-        particles = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date)
+        particles = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date, initial_capital)
         
         # 初始化粒子的速度和历史最优位置
         swarm = []

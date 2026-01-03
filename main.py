@@ -42,6 +42,41 @@ def on_backtest_finished(context, indicator):
     context.runner.on_backtest_finished(context, indicator)
 
 
+# 快速测试函数
+def quick_test():
+    """快速测试函数 - 用于验证模块功能"""
+    try:
+        from strategy_engine.config_manager import ConfigManager
+        from strategy_engine.report_generator import ReportGenerator
+        from strategy_engine.strategy import BacktestStrategy
+        
+        print("\n🔧 模块功能测试:")
+        
+        # 测试配置管理
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        print("✅ 配置管理模块: 正常")
+        
+        # 测试策略模块
+        strategy = BacktestStrategy()
+        print("✅ 策略模块: 正常")
+        
+        # 测试报告生成
+        report_generator = ReportGenerator()
+        print("✅ 报告生成模块: 正常")
+        
+        # 测试统一回测引擎
+        from strategy_engine.backtest_runner import BacktestRunner
+        print("✅ 统一回测引擎: 正常")
+        
+        print("\n🎉 所有模块测试通过！解耦重构成功！")
+        
+    except Exception as e:
+        print(f"❌ 模块测试失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 if __name__ == '__main__':
     """
     策略回测主函数 - 解耦重构版
@@ -105,36 +140,3 @@ if __name__ == '__main__':
         
         # 使用统一的回测执行函数
         run_backtest(config_path=config_path)
-
-
-# 快速测试函数
-def quick_test():
-    """快速测试函数 - 用于验证模块功能"""
-    try:
-        from strategy_engine import ConfigManager, ReportGenerator
-        from strategy_engine.strategy import BacktestStrategy
-        
-        print("\n🔧 模块功能测试:")
-        
-        # 测试配置管理
-        config_manager = ConfigManager()
-        config = config_manager.load_config()
-        print("✅ 配置管理模块: 正常")
-        
-        # 测试策略模块
-        strategy = BacktestStrategy()
-        print("✅ 策略模块: 正常")
-        
-        # 测试报告生成
-        report_generator = ReportGenerator()
-        print("✅ 报告生成模块: 正常")
-        
-        print("\n🎉 所有模块测试通过！解耦重构成功！")
-        
-    except Exception as e:
-        print(f"❌ 模块测试失败: {e}")
-
-
-if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == 'test':
-    # 运行测试模式
-    quick_test()

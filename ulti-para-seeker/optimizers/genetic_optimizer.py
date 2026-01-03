@@ -44,7 +44,9 @@ class GeneticOptimizer(BaseOptimizer):
         self.min_improvement = 0.1  # 最小改进阈值（百分比）
     
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                               use_advanced_weights: bool = True, end_date: str = '2025-12-25') -> Dict[str, Any]:
+                               use_advanced_weights: bool = True, end_date: str = '2025-12-25',
+                               focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                               backtest_days: int = 90) -> Dict[str, Any]:
         """
         定义参数范围（遗传算法使用参数边界而不是离散值）
         
@@ -53,12 +55,16 @@ class GeneticOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             use_advanced_weights: 是否使用高级权重配置模式
             end_date: 回测终点日期
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
         
         Returns:
             Dict[str, Any]: 参数范围字典
         """
         print("定义遗传算法参数边界...")
-        print(f"- 回测天数固定为90天，终点日期为{end_date}")
+        print(f"- 回测天数: {backtest_days}天，终点日期为{end_date}")
         
         if test_mode:
             print("[测试模式] 使用最小参数范围")
@@ -68,7 +74,8 @@ class GeneticOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': -0.03, 'max': -0.01, 'step': 0.01},
                 'weights_step': 50,
                 'test_mode': True,
-                'end_date': end_date
+                'end_date': end_date,
+                'backtest_days': backtest_days
             }
         else:
             print("- 止盈比例: 3%-15%，步长2%")
@@ -85,13 +92,16 @@ class GeneticOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': -0.05, 'max': -0.01, 'step': 0.01},
                 'weights_step': weight_step,
                 'test_mode': False,
-                'end_date': end_date
+                'end_date': end_date,
+                'backtest_days': backtest_days
             }
         
         return param_ranges
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                       end_date: str = '2025-12-25') -> List[Dict[str, Any]]:
+                                       end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
+                                       focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                                       backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
         生成参数组合（遗传算法初始化种群）
         
@@ -99,11 +109,15 @@ class GeneticOptimizer(BaseOptimizer):
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
         
         Returns:
             List[Dict[str, Any]]: 参数组合列表（初始化种群）
         """
-        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, end_date=end_date)
+        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, end_date=end_date, backtest_days=backtest_days)
         
         print(f"开始生成遗传算法初始种群...")
         print(f"- 种群大小: {self.population_size}")
@@ -144,13 +158,13 @@ class GeneticOptimizer(BaseOptimizer):
             
             # 创建参数组合
             param_comb = {
-                'backtest_days': 90,
+                'backtest_days': backtest_days,
                 'end_date': end_date,
                 'stop_profit_ratio': stop_profit,
                 'stop_loss_ratio': stop_loss,
                 'weights_config': weights_config,
                 'sub_weights_config': sub_weights,
-                'initial_capital': self.initial_capital
+                'initial_capital': initial_capital
             }
             
             # 验证参数组合
@@ -163,9 +177,9 @@ class GeneticOptimizer(BaseOptimizer):
         # 如果生成的有效组合不足，补充默认配置
         while len(population) < self.population_size:
             default_comb = format_parameter_combination({
-                'backtest_days': 90,
+                'backtest_days': backtest_days,
                 'end_date': end_date,
-                'initial_capital': self.initial_capital
+                'initial_capital': initial_capital
             })
             population.append(default_comb)
         
@@ -173,7 +187,7 @@ class GeneticOptimizer(BaseOptimizer):
         return population
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
+                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
         """
         执行遗传算法优化
         
@@ -182,6 +196,7 @@ class GeneticOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             blueprint_file: 蓝图文件路径（遗传算法通常不需要蓝图）
+            initial_capital: 初始资金
         
         Returns:
             List[Dict[str, Any]]: 优化结果列表
@@ -195,7 +210,7 @@ class GeneticOptimizer(BaseOptimizer):
         print(f"- 早期停止: {self.early_stopping_generations} 代无改进")
         
         # 初始化种群
-        population = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date)
+        population = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date, initial_capital)
         
         # 评估初始种群
         population_with_fitness = self._evaluate_population(population)

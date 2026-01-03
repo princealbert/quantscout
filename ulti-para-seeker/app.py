@@ -31,45 +31,7 @@ import streamlit as st
 # 导入参数优化器
 from parameter_optimizer import ParameterOptimizer
 
-# 从Excel文件读取回测结果
-def read_results_from_excel(excel_path):
-    import pandas as pd
-    
-    try:
-        # 读取Excel文件
-        df = pd.read_excel(excel_path)
-        
-        results = []
-        for index, row in df.iterrows():
-            # 转换权重配置格式
-            weights_config = {
-                'kdj_j': row['权重_kdj_j'],
-                'trend': row['权重_trend'],
-                'volume': row['权重_volume'],
-                'fundamental': row['权重_fundamental'],
-                'position': row['权重_position'],
-                'risk_reward': row['权重_risk_reward']
-            }
-            
-            # 构建结果字典
-            result = {
-                'id': row['序号'],
-                'stop_profit_ratio': row['止盈比例(%)'] / 100,  # 转换为小数形式
-                'stop_loss_ratio': -row['止损比例(%)'] / 100,  # 转换为小数形式（负数表示亏损）
-                'weights_config': weights_config,
-                'total_return_rate': row['总收益率(%)'] / 100,  # 转换为小数形式
-                'annual_return': row['年化收益率(%)'] / 100,  # 转换为小数形式
-                'max_drawdown': row['最大回撤(%)'] / 100,  # 转换为小数形式
-                'trades_count': row['交易次数'],
-                # 注意：Excel中可能没有这些字段，需要根据实际情况调整
-                'sharpe_ratio': row['夏普比率'] if '夏普比率' in row else 0.0,
-                'win_rate': row['胜率(%)'] if '胜率(%)' in row else 0.0
-            }
-            results.append(result)
-        
-        return results
-    except Exception as e:
-        raise Exception(f"读取Excel文件失败: {str(e)}")
+
 
 
 # 配置页面
@@ -194,6 +156,16 @@ weight_step = st.sidebar.slider(
     step=5
 )
 
+# 初始资金设置
+initial_capital = st.sidebar.number_input(
+    "初始资金",
+    min_value=10000,
+    max_value=1000000,
+    value=60000,
+    step=1000,
+    help="设置回测的初始资金，范围：1万-100万"
+)
+
 # 回测终点日期
 end_date = st.sidebar.date_input(
     "回测终点日期",
@@ -201,6 +173,16 @@ end_date = st.sidebar.date_input(
     min_value=datetime.now() - timedelta(days=365),
     max_value=datetime.now()
 ).strftime("%Y-%m-%d")
+
+# 回测天数
+backtest_days = st.sidebar.slider(
+    "回测天数",
+    min_value=30,
+    max_value=365,
+    value=90,
+    step=1,
+    help="设置回测天数，范围：30-365天"
+)
 
 # 主面板：显示信息和结果
 st.header("参数组合分析")
@@ -292,7 +274,9 @@ if st.button("生成参数组合"):
                 weight_step=weight_step,
                 use_advanced_weights=use_advanced_weights,
                 focus_indicators=selected_focus_indicators,
-                focus_weight_factor=focus_weight_factor
+                focus_weight_factor=focus_weight_factor,
+                initial_capital=initial_capital,
+                backtest_days=backtest_days
             )
             st.info(f"参数蓝图已保存到: {blueprint_path}")
             
@@ -540,20 +524,7 @@ if st.button("开始优化"):
                         # 更新状态为已完成
                         optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
                         
-                        # 将当前结果添加到Excel文件
-                        # 先读取所有已完成的结果
-                        all_completed_results = []
-                        for sub_file_info in blueprint['files']:
-                            sub_file_path = os.path.join(current_dir, sub_file_info['file'])
-                            if os.path.exists(sub_file_path):
-                                with open(sub_file_path, 'r', encoding='utf-8') as f:
-                                    sub_blueprint = json.load(f)
-                                for combo in sub_blueprint['combinations']:
-                                    if combo['status'] == 'completed' and combo['result']:
-                                        all_completed_results.append(combo['result'])
-                        
-                        # 更新Excel结果
-                        optimizer._update_excel_results(all_completed_results)
+
                         
                         # 更新进度
                         completed = optimizer._count_completed_combinations(blueprint)
@@ -601,15 +572,7 @@ if st.button("开始优化"):
                     optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
                     optimizer.save_blueprint(blueprint, blueprint_file)
                     
-                    # 将当前结果添加到Excel文件
-                    # 先读取所有已完成的结果
-                    all_completed_results = []
-                    for combo in blueprint['combinations']:
-                        if combo['status'] == 'completed' and combo['result']:
-                            all_completed_results.append(combo['result'])
-                    
-                    # 更新Excel结果
-                    optimizer._update_excel_results(all_completed_results)
+
                     
                     # 更新进度
                     completed = sum(1 for c in blueprint['combinations'] if c['status'] == 'completed')
@@ -623,6 +586,46 @@ if st.button("开始优化"):
                         break
         
         st.success("参数优化完成！")
+        
+        # 导出结果到Excel
+        if 'all_completed_results' in locals() and all_completed_results:
+            # 从所有蓝图文件中收集已完成的结果
+            all_completed_results = []
+            
+            # 获取所有蓝图文件
+            blueprints = optimizer.list_blueprints()
+            
+            for bp in blueprints:
+                bp_path = os.path.join(current_dir, bp['filename'])
+                if os.path.exists(bp_path):
+                    try:
+                        blueprint = optimizer.load_blueprint(bp['filename'], load_all=True)
+                        
+                        # 检查是否为分拆的蓝图文件
+                        if blueprint.get('files'):
+                            # 分拆的蓝图文件，遍历所有子文件
+                            for sub_file_info in blueprint['files']:
+                                sub_file_path = os.path.join(current_dir, sub_file_info['file'])
+                                if os.path.exists(sub_file_path):
+                                    with open(sub_file_path, 'r', encoding='utf-8') as f:
+                                        sub_blueprint = json.load(f)
+                                    for combo in sub_blueprint['combinations']:
+                                        if combo['status'] == 'completed' and combo['result']:
+                                            all_completed_results.append(combo['result'])
+                        else:
+                            # 完整的蓝图文件，直接遍历组合
+                            for combo in blueprint['combinations']:
+                                if combo['status'] == 'completed' and combo['result']:
+                                    all_completed_results.append(combo['result'])
+                    except Exception as e:
+                        st.warning(f"读取蓝图文件 {bp['filename']} 失败: {e}")
+            
+            if all_completed_results:
+                # 导出结果到Excel
+                output_file = "parameter_optimization_results.xlsx"
+                optimizer.export_to_excel(all_completed_results, output_file)
+                st.info(f"回测结果已导出到Excel文件: {output_file}")
+        
         # 设置自动显示结果的标志
         show_results = True
         
@@ -649,15 +652,97 @@ if st.button("查看回测结果") or show_results:
     st.session_state['show_results'] = True
     
     try:
-        # 从Excel文件读取结果
-        excel_file = os.path.join(current_dir, "parameter_optimization_results.xlsx")
+        # 从所有蓝图文件中收集已完成的结果
+        all_completed_results = []
         
-        if os.path.exists(excel_file):
-            # 直接读取Excel文件
-            df = pd.read_excel(excel_file, engine='openpyxl')
+        # 获取所有蓝图文件
+        blueprints = optimizer.list_blueprints()
+        
+        for bp in blueprints:
+            bp_path = os.path.join(current_dir, bp['filename'])
+            if os.path.exists(bp_path):
+                try:
+                    blueprint = optimizer.load_blueprint(bp['filename'], load_all=True)
+                    
+                    # 检查是否为分拆的蓝图文件
+                    if blueprint.get('files'):
+                        # 分拆的蓝图文件，遍历所有子文件
+                        for sub_file_info in blueprint['files']:
+                            sub_file_path = os.path.join(current_dir, sub_file_info['file'])
+                            if os.path.exists(sub_file_path):
+                                with open(sub_file_path, 'r', encoding='utf-8') as f:
+                                    sub_blueprint = json.load(f)
+                                for combo in sub_blueprint['combinations']:
+                                    if combo['status'] == 'completed' and combo['result']:
+                                        all_completed_results.append(combo['result'])
+                    else:
+                        # 完整的蓝图文件，直接遍历组合
+                        for combo in blueprint['combinations']:
+                            if combo['status'] == 'completed' and combo['result']:
+                                all_completed_results.append(combo['result'])
+                except Exception as e:
+                    st.warning(f"读取蓝图文件 {bp['filename']} 失败: {e}")
+        
+        if all_completed_results:
+            # 将结果转换为DataFrame
+            df_list = []
+            seen_results = set()
+            
+            for i, result in enumerate(all_completed_results):
+                # 创建用于去重的唯一标识符
+                key_params = (
+                    result.get('backtest_days', 90),
+                    result.get('start_date', ''),
+                    result.get('end_date', ''),
+                    result.get('stop_profit_ratio', 0.0),
+                    result.get('stop_loss_ratio', 0.0),
+                    tuple(sorted(result.get('weights_config', {}).items())),
+                    tuple(sorted((main_ind, tuple(sorted(sub_config['sub_weights'].items()))) 
+                               for main_ind, sub_config in result.get('sub_weights_config', {}).items() 
+                               if isinstance(sub_config, dict) and 'sub_weights' in sub_config))
+                )
+                
+                if key_params in seen_results:
+                    continue
+                seen_results.add(key_params)
+                
+                # 跳过无效结果
+                if result.get('total_return', 0.0) <= -100:
+                    continue
+                
+                row = {
+                    '回测天数': result.get('backtest_days', 90),
+                    '回测起始日期': result.get('start_date', ''),
+                    '回测终止日期': result.get('end_date', ''),
+                    '止盈比例(%)': result.get('stop_profit_ratio', 0.0) * 100,
+                    '止损比例(%)': abs(result.get('stop_loss_ratio', 0.0) * 100),
+                    '总收益率(%)': result.get('total_return', 0.0),
+                    '年化收益率(%)': result.get('annual_return', 0.0),
+                    '最大回撤(%)': result.get('max_drawdown', 0.0),
+                    '夏普比率': result.get('sharpe_ratio', 0.0),
+                    '胜率(%)': result.get('win_rate', 0.0),
+                    '交易次数': result.get('trades_count', 0)
+                }
+                
+                # 添加权重配置
+                weights_config = result.get('weights_config', {})
+                for indicator, weight in weights_config.items():
+                    row[f'权重_{indicator}'] = weight
+                
+                # 添加子权重配置
+                sub_weights_config = result.get('sub_weights_config', {})
+                for main_indicator, sub_config in sub_weights_config.items():
+                    if isinstance(sub_config, dict) and 'sub_weights' in sub_config:
+                        for sub_indicator, weight in sub_config['sub_weights'].items():
+                            row[f'子权重_{main_indicator}_{sub_indicator}'] = weight
+                
+                df_list.append(row)
+            
+            # 创建DataFrame
+            df = pd.DataFrame(df_list)
             
             if not df.empty:
-                # 确保所有数值列都有正确的格式，处理可能缺失的字段
+                # 确保所有数值列都有正确的格式
                 if '序号' in df.columns:
                     df['序号'] = df['序号'].astype(int)
                 if '总收益率(%)' in df.columns:
@@ -674,6 +759,12 @@ if st.button("查看回测结果") or show_results:
                     df['胜率(%)'] = df['胜率(%)'].round(2)
                 else:
                     df['胜率(%)'] = 0.0
+                
+                # 添加序号列
+                df['序号'] = range(1, len(df) + 1)
+                
+                # 按总收益率降序排序
+                df = df.sort_values(by='总收益率(%)', ascending=False)
                 
                 # 显示表格
                 st.dataframe(df)
@@ -777,7 +868,7 @@ if st.button("查看回测结果") or show_results:
                         st.metric("胜率", f"{best_result.get('胜率(%)', 0)}%")
                         st.metric("交易次数", f"{best_result.get('交易次数', 0)}")
         else:
-            st.info("Excel文件不存在，尚未生成回测结果")
+            st.info("尚未生成回测结果")
             st.session_state['show_results'] = False
             st.session_state['best_result'] = None
             st.session_state['weight_columns'] = []

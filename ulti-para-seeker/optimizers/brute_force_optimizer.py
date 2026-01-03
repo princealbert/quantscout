@@ -35,7 +35,8 @@ class BruteForceOptimizer(BaseOptimizer):
     
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                                use_advanced_weights: bool = True, end_date: str = '2025-12-25',
-                               focus_indicators: List[str] = None, focus_weight_factor: float = 1.5) -> Dict[str, List[Any]]:
+                               focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                               backtest_days: int = 90) -> Dict[str, List[Any]]:
         """
         定义参数范围
 
@@ -46,12 +47,14 @@ class BruteForceOptimizer(BaseOptimizer):
             end_date: 回测终点日期（格式：YYYY-MM-DD）
             focus_indicators: 需要重点关注的指标列表
             focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
 
         Returns:
             Dict[str, List[Any]]: 参数范围字典
         """
         logger.info("定义参数范围...")
-        logger.info(f"- 回测天数固定为90天，终点日期为{end_date}")
+        logger.info(f"- 回测天数: {'10天' if test_mode else f'{backtest_days}天'}，终点日期为{end_date}")
         
         # 根据模式调整参数范围
         if test_mode:
@@ -125,8 +128,8 @@ class BruteForceOptimizer(BaseOptimizer):
             weights_config = self._generate_weights_combinations(core_indicators, 100, weight_step, min_weight=5, max_weight=95)
         
         return {
-            # 回测天数 - 固定为90天（适合超跌反弹策略）
-            'backtest_days': [90],
+            # 回测天数 - 使用传入的参数值
+            'backtest_days': [10] if test_mode else [backtest_days],
             
             # 回测终点日期 - 确保所有组合在相同时间段回测
             'end_date': [end_date],
@@ -317,7 +320,8 @@ class BruteForceOptimizer(BaseOptimizer):
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                                        end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
-                                       focus_weight_factor: float = 1.5) -> List[Dict[str, Any]]:
+                                       focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                                       backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
         生成所有参数组合
 
@@ -327,11 +331,13 @@ class BruteForceOptimizer(BaseOptimizer):
             end_date: 回测终点日期（格式：YYYY-MM-DD）
             focus_indicators: 需要重点关注的指标列表
             focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, True, end_date, focus_indicators, focus_weight_factor)
+        param_ranges = self.define_parameter_ranges(test_mode, max_sub_combinations, True, end_date, focus_indicators, focus_weight_factor, initial_capital, backtest_days)
         
         # 优化：参数空间剪枝 - 减少不必要的参数组合
         print(f"开始生成参数组合...")
@@ -366,14 +372,14 @@ class BruteForceOptimizer(BaseOptimizer):
                             weights_config_with_zero_deepv['deepv'] = 0
                             
                             param_comb = {
-                                'backtest_days': backtest_days,
-                                'end_date': end_date,
-                                'stop_profit_ratio': stop_profit_ratio,
-                                'stop_loss_ratio': stop_loss_ratio,
-                                'weights_config': weights_config_with_zero_deepv,
-                                'sub_weights_config': sub_weights_config,
-                                'initial_capital': self.initial_capital
-                            }
+                            'backtest_days': backtest_days,
+                            'end_date': end_date,
+                            'stop_profit_ratio': stop_profit_ratio,
+                            'stop_loss_ratio': stop_loss_ratio,
+                            'weights_config': weights_config_with_zero_deepv,
+                            'sub_weights_config': sub_weights_config,
+                            'initial_capital': initial_capital
+                        }
                             combinations.append(param_comb)
                             current_count += 1
                             
@@ -441,10 +447,11 @@ class BruteForceOptimizer(BaseOptimizer):
             # 准备符合标准回测要求的配置结构
             # 测试模式下使用100只股票，非测试模式下使用1只股票
             is_test_mode = params.get('backtest_days', 90) == 10  # 检测是否为测试模式
-            # 使用BaseOptimizer类的initial_capital属性，而不是params字典中的值
+            # 使用参数组合中的initial_capital，如果不存在则使用默认值
+            initial_capital = params.get('initial_capital', self.initial_capital)
             frontend_config = {
                 'backtest': {
-                    'initial_capital': self.initial_capital,
+                    'initial_capital': initial_capital,
                     'backtest_days': params['backtest_days'],
                     'start_date': start_date.strftime('%Y-%m-%d'),
                     'end_date': end_date.strftime('%Y-%m-%d'),
@@ -471,46 +478,73 @@ class BruteForceOptimizer(BaseOptimizer):
                     sys.path.remove(current_dir)
                 sys.path.insert(0, current_dir)
                 
-                # 直接导入并调用backtest_runner的run_backtest函数，传入配置对象
-                from backtest_runner import run_backtest as run_backtest_func
-                run_backtest_func(config=frontend_config)
+                # 直接导入并调用backtest_modified的run_optimizer_backtest函数，传入配置对象
+                from backtest_modified import run_optimizer_backtest as run_backtest_func
+                # 直接获取回测结果，而不是依赖文件
+                report = run_backtest_func(config=frontend_config)
+                logger.info(f"直接从回测函数获取到结果: {'成功' if report else '空结果'}")
             except Exception as e:
                 logger.error(f"调用回测函数失败: {e}")
                 import traceback
                 traceback.print_exc()
             
-            # 从文件中读取回测结果 - 等待固定名称的报告文件生成
-            report = {}
-            import time
-            
-            # 等待回测结果文件生成（给回测系统一些时间）
-            max_wait = 10
-            wait_count = 0
-            report_file = os.path.join(project_root, 'backtest_report.json')
-            
-            # 添加短暂延迟，确保报告文件有足够时间生成
-            time.sleep(0.5)
-            
-            while not os.path.exists(report_file) and wait_count < max_wait:
-                time.sleep(0.5)  # 500ms延迟，减少等待时间
-                wait_count += 1
-            
-            if os.path.exists(report_file):
-                try:
-                    with open(report_file, 'r', encoding='utf-8') as f:
-                        report = json.load(f)
-                    logger.debug(f"成功读取报告文件: {report}")
-                    
-                    # 添加短暂延迟，确保其他进程有时间读取文件后再删除
-                    time.sleep(0.1)
-                    
-                    # 删除结果文件，避免影响下一次回测
-                    os.unlink(report_file)
-                except Exception as e:
-                    logger.error(f"读取报告文件失败: {e}")
+            # 检查是否已经从回测函数获取到结果
+            if not report or isinstance(report, bool):
+                logger.warning("从回测函数获取的结果为空或无效，尝试从文件读取")
+                
+                # 等待回测结果文件生成（给回测系统一些时间）
+                max_wait = 10
+                wait_count = 0
+                
+                # 检查多个可能的报告文件位置和名称
+                possible_report_files = [
+                    os.path.join(project_root, 'backtest_report.json'),
+                    os.path.join(os.path.dirname(project_root), 'backtest_report.json'),
+                    os.path.join(os.path.dirname(os.path.dirname(project_root)), 'backtest_report.json')
+                ]
+                
+                # 检查是否有报告文件生成
+                report_file = None
+                for possible_file in possible_report_files:
+                    if os.path.exists(possible_file):
+                        report_file = possible_file
+                        logger.info(f"找到回测报告文件: {report_file}")
+                        break
+                
+                # 如果没有立即找到，等待一段时间
+                if not report_file:
+                    logger.info("等待回测报告文件生成...")
+                    wait_count = 0
+                    while wait_count < max_wait:
+                        time.sleep(0.5)  # 500ms延迟
+                        wait_count += 1
+                        for possible_file in possible_report_files:
+                            if os.path.exists(possible_file):
+                                report_file = possible_file
+                                logger.info(f"找到回测报告文件: {report_file}")
+                                break
+                        if report_file:
+                            break
+                
+                if report_file and os.path.exists(report_file):
+                    try:
+                        with open(report_file, 'r', encoding='utf-8') as f:
+                            report = json.load(f)
+                        logger.info(f"成功读取回测报告，包含 {len(report)} 个键值对")
+                        logger.debug(f"报告内容: {json.dumps(report, ensure_ascii=False, indent=2)}")
+                        
+                        # 添加短暂延迟，确保其他进程有时间读取文件后再删除
+                        time.sleep(0.1)
+                        
+                        # 删除结果文件，避免影响下一次回测
+                        os.unlink(report_file)
+                        logger.info(f"已删除回测报告文件: {report_file}")
+                    except Exception as e:
+                        logger.error(f"读取报告文件失败: {e}")
+                        report = {}
+                else:
+                    logger.warning(f"未找到回测报告文件，检查了位置: {possible_report_files}")
                     report = {}
-            else:
-                logger.warning(f"报告文件未生成: {report_file}")
             
             # 从报告中提取需要的结果
             performance_metrics = report.get('performance_metrics', {})
@@ -579,7 +613,7 @@ class BruteForceOptimizer(BaseOptimizer):
                 end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
                 focus_weight_factor: float = 1.5, blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        执行暴力优化
+        生成暴力优化的参数组合
 
         Args:
             test_mode: 是否为测试模式（使用最小参数范围，仅生成第一个组合）
@@ -587,199 +621,21 @@ class BruteForceOptimizer(BaseOptimizer):
             end_date: 回测终点日期（格式：YYYY-MM-DD）
             focus_indicators: 需要重点关注的指标列表
             focus_weight_factor: 重点指标的权重放大倍数
-            blueprint_file: 蓝图文件路径（用于断点续传）
+            blueprint_file: 蓝图文件路径（用于保存参数组合）
 
         Returns:
-            List[Dict[str, Any]]: 按收益率排序的结果列表
+            List[Dict[str, Any]]: 参数组合列表
         """
-        # 加载蓝图（如果提供）
-        blueprint = None
+        # 生成参数组合
+        param_combinations = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date, focus_indicators, focus_weight_factor)
+        
+        # 如果提供了蓝图文件路径，生成蓝图
         if blueprint_file:
-            try:
-                blueprint = self.load_blueprint(blueprint_file)
-            except FileNotFoundError:
-                print(f"蓝图文件 {blueprint_file} 不存在，将生成新的蓝图")
-        
-        # 如果没有蓝图或蓝图为空，生成新的参数组合
-        if not blueprint or len(blueprint['combinations']) == 0:
-            param_combinations = self.generate_parameter_combinations(test_mode, max_sub_combinations, end_date, focus_indicators, focus_weight_factor)
+            blueprint_path = self.generate_blueprint(test_mode, max_sub_combinations, end_date, blueprint_file)
             
-            # 如果提供了蓝图文件路径但文件不存在，生成新蓝图
-            if blueprint_file:
-                blueprint_path = self.generate_blueprint(test_mode, max_sub_combinations, end_date, blueprint_file)
-                blueprint = self.load_blueprint(blueprint_file)
-            else:
-                # 没有蓝图文件路径，直接使用参数组合
-                blueprint = {
-                    'combinations': [
-                        {
-                            'id': i + 1,
-                            'params': param,
-                            'status': 'pending',
-                            'result': None
-                        }
-                        for i, param in enumerate(param_combinations)
-                    ],
-                    'total_combinations': len(param_combinations)
-                }
-        else:
-            # 从蓝图中提取待处理的参数组合
-            param_combinations = [combo['params'] for combo in blueprint['combinations'] if combo['status'] in ['pending', 'failed']]
-        
-        # 执行优化
-        results = self.run_parallel_optimization(param_combinations, blueprint=blueprint, blueprint_file=blueprint_file)
-        
-        return results
+        return param_combinations
     
-    def run_parallel_optimization(self, param_combinations: List[Dict[str, Any]], num_workers: int = None, batch_size: int = 50, save_interval: int = 1, blueprint: Optional[Dict[str, Any]] = None, blueprint_file: str = "parameter_blueprint.json") -> List[Dict[str, Any]]:
-        """
-        使用ProcessPoolExecutor并行运行参数优化（支持断点续传和结果更新）
 
-        Args:
-            param_combinations: 参数组合列表
-            num_workers: 并行工作进程数，None表示使用CPU核心数
-            batch_size: 每批处理的参数组合数（已废弃，保留参数兼容性）
-            save_interval: 保存中间结果的批次间隔
-            blueprint: 参数组合蓝图数据（用于断点续传）
-            blueprint_file: 蓝图文件路径
-
-        Returns:
-            List[Dict[str, Any]]: 按收益率排序的结果列表
-        """
-        # 导入日志系统
-        import os
-        from utils.logger import logger
-        
-        total_combinations = len(param_combinations)
-        self.start_time = datetime.now()
-        all_results = []
-        
-        # 设置默认工作进程数
-        if num_workers is None:
-            num_workers = os.cpu_count() - 1 if os.cpu_count() > 1 else 1
-        
-        logger.info("\n=== 并行处理模式 ===")
-        logger.info(f"开始并行优化，使用 {num_workers} 个进程")
-        logger.info(f"总参数组合数: {total_combinations}")
-        logger.info(f"每 {save_interval} 个组合更新一次Excel结果")
-        logger.info(f"支持断点续传: {'是' if blueprint else '否'}")
-        logger.info("=" * 50)
-        
-        # 准备要处理的组合列表，包括其在蓝图中的ID（如果有）
-        combo_list = []
-        for i, param in enumerate(param_combinations):
-            combo_id = None
-            if blueprint:
-                for combo in blueprint['combinations']:
-                    if combo['params'] == param:
-                        combo_id = combo['id']
-                        # 更新状态为running
-                        combo['status'] = 'running'
-                        combo['started_at'] = datetime.now().isoformat()
-                        break
-            combo_list.append((i, param, combo_id))
-        
-        # 保存更新后的蓝图（如果有）
-        if blueprint:
-            self.save_blueprint(blueprint, blueprint_file)
-        
-        # 使用ProcessPoolExecutor并行处理
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-        import os
-        import threading
-        
-        logger.info(f"\n🚀 开始提交并行任务，使用 {num_workers} 个进程")
-        logger.info(f"📋 总任务数: {total_combinations}")
-        
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            # 提交所有任务
-            future_to_combo = {}
-            for i, param, combo_id in combo_list:
-                # 添加任务提交日志
-                logger.info(f"📌 提交任务 {i + 1}/{total_combinations} 到进程池")
-                future = executor.submit(self.run_backtest, param)
-                future_to_combo[future] = (i, param, combo_id)
-            
-            # 处理结果
-            processed = 0
-            for future in as_completed(future_to_combo):
-                i, param, combo_id = future_to_combo[future]
-                try:
-                    result = future.result()
-                    all_results.append(result)
-                    processed += 1
-                    
-                    # 计算进度
-                    progress = (processed / total_combinations) * 100
-                    
-                    # 使用logger记录进度，不使用end="", 因为logger已经有自己的输出方式
-                    logger.info(f"✅ 已完成 {processed}/{total_combinations} 个组合 ({progress:.1f}%)")
-                    
-                    # 更新蓝图中的组合状态为completed
-                    if blueprint and combo_id is not None:
-                        blueprint = self.update_combination_status(blueprint, combo_id, 'completed', result)
-                    
-                    # 按指定间隔更新Excel结果和蓝图
-                    if processed % save_interval == 0 or processed == total_combinations:
-                        # 保存更新后的蓝图（如果有）
-                        if blueprint:
-                            self.save_blueprint(blueprint, blueprint_file)
-                        # 更新Excel结果
-                        self._update_excel_results(all_results)
-                except Exception as e:
-                    logger.error(f"❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
-                    
-                    # 更新蓝图中的组合状态为failed
-                    if blueprint and combo_id is not None:
-                        blueprint = self.update_combination_status(blueprint, combo_id, 'failed')
-                        self.save_blueprint(blueprint, blueprint_file)
-                    
-                    # 添加失败结果
-                    all_results.append({
-                        **param,
-                        'total_return': -100.0,
-                        'annual_return': -100.0,
-                        'max_drawdown': -100.0,
-                        'trades_count': 0
-                    })
-                    processed += 1
-        
-        self.end_time = datetime.now()
-        total_duration = self.end_time - self.start_time
-        
-        # 按总收益率降序排序
-        if all_results:
-            all_results.sort(key=lambda x: x['total_return'], reverse=True)
-            logger.info(f"\n{'='*50}")
-            logger.success(f"优化完成！总耗时: {total_duration.total_seconds():.2f} 秒")
-            logger.info(f"总共处理 {len(all_results)} 个参数组合")
-            logger.info(f"使用 {num_workers} 个进程并行处理")
-        
-        return all_results
-    
-    def _update_excel_results(self, results: List[Dict[str, Any]], fixed_file_name: str = "parameter_optimization_results.xlsx"):
-        """
-        更新固定Excel文件的结果（支持从已有文件读取并追加）
-        
-        Args:
-            results: 回测结果列表
-            fixed_file_name: 固定的Excel文件名
-        """
-        # 导入日志系统
-        from utils.logger import logger
-        
-        logger.info(f"\n🔄 更新Excel结果文件: {fixed_file_name}")
-        
-        # 使用ResultProcessor类来处理结果，确保与export_to_excel方法保持一致
-        from .result_processor import ResultProcessor
-        processor = ResultProcessor()
-        
-        # 获取结果文件的完整路径 - 保存到项目根目录，与app.py保持一致
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        file_path = os.path.join(project_root, fixed_file_name)
-        
-        # 调用export_to_excel方法，确保字段完整和列顺序一致
-        processor.export_to_excel(results, file_path)
 
 # 测试代码
 if __name__ == "__main__":

@@ -61,7 +61,7 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
     with col1:
         backtest_days = st.selectbox(
             "回测天数",
-            [30, 60, 90, 180, 360],
+            [10, 30, 60, 90, 180, 360],
             index=3,
             help="选择回测的时间长度"
         )
@@ -79,7 +79,7 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
     with col3:
         max_stocks = st.selectbox(
             "回测股票数量",
-            [1, 3, 5, 10],
+            [1, 2, 3, 5, 10],
             index=0,
             help="选择排名前几的股票进行回测"
         )

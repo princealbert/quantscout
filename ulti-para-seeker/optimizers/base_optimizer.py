@@ -24,7 +24,9 @@ class BaseOptimizer(ABC):
     
     @abstractmethod
     def define_parameter_ranges(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                               use_advanced_weights: bool = True, end_date: str = '2025-12-25') -> Dict[str, List[Any]]:
+                               use_advanced_weights: bool = True, end_date: str = '2025-12-25',
+                               focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, initial_capital: int = 60000,
+                               backtest_days: int = 90) -> Dict[str, List[Any]]:
         """
         定义参数范围
         
@@ -33,6 +35,10 @@ class BaseOptimizer(ABC):
             max_sub_combinations: 最大子权重组合数
             use_advanced_weights: 是否使用高级权重配置模式
             end_date: 回测终点日期
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
+            backtest_days: 回测天数
             
         Returns:
             参数范围字典
@@ -41,7 +47,8 @@ class BaseOptimizer(ABC):
     
     @abstractmethod
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                       end_date: str = '2025-12-25') -> List[Dict[str, Any]]:
+                                       end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
+                                       focus_weight_factor: float = 1.5, backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
         生成参数组合
         
@@ -49,6 +56,9 @@ class BaseOptimizer(ABC):
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            focus_indicators: 需要重点关注的指标列表
+            focus_weight_factor: 重点指标的权重放大倍数
+            backtest_days: 回测天数
             
         Returns:
             参数组合列表
@@ -70,7 +80,7 @@ class BaseOptimizer(ABC):
     
     @abstractmethod
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None) -> List[Dict[str, Any]]:
+                end_date: str = '2025-12-25', blueprint_file: Optional[str] = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
         """
         执行优化
         
@@ -90,6 +100,7 @@ class BaseOptimizer(ABC):
             focus_indicators: 重点指标列表
             focus_weight_factor: 重点指标权重因子
             blueprint_file: 蓝图文件路径（用于断点续传）
+            initial_capital: 初始资金
             
         Returns:
             优化结果列表
@@ -313,7 +324,7 @@ class BaseOptimizer(ABC):
     def _generate_weights_combinations(self, indicators: List[str], total: int, step: int, 
                                       min_weight: int = 0, max_weight: int = 100) -> List[Dict[str, int]]:
         """
-        生成权重组合
+        生成权重组合（使用weight_utils模块）
         
         Args:
             indicators: 指标列表
@@ -325,92 +336,13 @@ class BaseOptimizer(ABC):
         Returns:
             权重组合列表
         """
-        import itertools
-        
-        combinations = []
-        n = len(indicators)
-        
-        if n == 0:
-            return []
-        
-        # 方法1: 笛卡尔积生成 - 基础方法
-        ranges = [range(min_weight, max_weight + 1, step) for _ in range(n)]
-        
-        for weights in itertools.product(*ranges):
-            if sum(weights) == total and all(w >= min_weight and w <= max_weight for w in weights):
-                combinations.append(dict(zip(indicators, weights)))
-        
-        # 方法2: 如果笛卡尔积没有生成足够的组合，使用递归生成更灵活的组合
-        if len(combinations) < 5 and n > 1:
-            def recursive_generate(start_idx, remaining, current):
-                if start_idx == n - 1:
-                    if remaining >= min_weight and remaining <= max_weight:
-                        current[indicators[start_idx]] = remaining
-                        combinations.append(dict(current))
-                    return
-                
-                min_val = min_weight
-                max_val = min(max_weight, remaining - (n - 1 - start_idx) * min_weight)
-                
-                for weight in range(min_val, max_val + 1, step):
-                    current[indicators[start_idx]] = weight
-                    recursive_generate(start_idx + 1, remaining - weight, current.copy())
-            
-            recursive_generate(0, total, {})
-        
-        # 方法3: 添加一些特殊组合
-        if n > 0 and len(combinations) < 10:
-            # 添加平均分配组合
-            avg_weight = total // n
-            remainder = total % n
-            avg_weights = [avg_weight] * n
-            for i in range(remainder):
-                avg_weights[i] += 1
-            
-            # 验证平均分配组合
-            if sum(avg_weights) == total and all(w >= min_weight for w in avg_weights):
-                combinations.append(dict(zip(indicators, avg_weights)))
-            
-            # 添加极端权重组合（一个指标占大部分权重）
-            for i in range(min(3, n)):  # 最多为前3个指标生成极端组合
-                extreme_weights = [min_weight] * n
-                extreme_weights[i] = total - (n - 1) * min_weight
-                
-                # 验证极端权重组合
-                if sum(extreme_weights) == total and extreme_weights[i] <= max_weight and all(w >= min_weight for w in extreme_weights):
-                    combinations.append(dict(zip(indicators, extreme_weights)))
-            
-            # 添加两两指标占主导的组合
-            if n >= 2:
-                for i in range(n - 1):
-                    for j in range(i + 1, n):
-                        if len(combinations) >= 15:  # 控制总数
-                            break
-                        pair_weights = [min_weight] * n
-                        pair_weights[i] = (total - (n - 2) * min_weight) // 2
-                        pair_weights[j] = total - (n - 2) * min_weight - pair_weights[i]
-                        
-                        # 验证两两主导组合
-                        if sum(pair_weights) == total and pair_weights[i] <= max_weight and pair_weights[j] <= max_weight and all(w >= min_weight for w in pair_weights):
-                            combinations.append(dict(zip(indicators, pair_weights)))
-        
-        # 去重
-        seen = set()
-        unique_combinations = []
-        for combo in combinations:
-            # 再次验证组合的有效性
-            if sum(combo.values()) == total and all(w >= min_weight and w <= max_weight for w in combo.values()):
-                key = tuple(sorted(combo.items()))
-                if key not in seen:
-                    seen.add(key)
-                    unique_combinations.append(combo)
-        
-        return unique_combinations
+        from utils.weight_utils import generate_weights_combinations
+        return generate_weights_combinations(indicators, total, step, min_weight, max_weight)
     
     def _generate_sub_weights_combinations(self, test_mode: bool = False, max_combinations: int = 10, 
                                           use_advanced_mode: bool = True) -> List[Dict[str, Dict[str, int]]]:
         """
-        生成子权重组合
+        生成子权重组合（使用weight_utils模块）
 
         Args:
             test_mode: 是否为测试模式
@@ -420,182 +352,8 @@ class BaseOptimizer(ABC):
         Returns:
             子权重组合列表
         """
-        import itertools
-        import random
-
-        # 定义每个主指标的子指标
-        sub_indicators = {
-            'kdj_j': ['j_0_20', 'j_-10_0', 'j_-20_-10', 'j_-30_-20', 'j_below_-30'],
-            'position': ['above_white', 'between_lines', 'below_yellow'],
-            'volume': ['big_volume', 'volume_anomaly', 'volume_breathing'],
-            'fundamental': ['pe_positive', 'pe_low', 'market_cap', 'volume_threshold'],
-            'trend': ['up_trend', 'volume_price_rise', 'volume_contraction']
-        }
-
-        # 测试模式：只生成一个简单的子权重组合
-        if test_mode:
-            simple_sub_weights = {}
-            for main_indicator, subs in sub_indicators.items():
-                num_subs = len(subs)
-                # 计算每个子指标的权重（相等分配）
-                weight_per_sub = 100 // num_subs
-                remainder = 100 % num_subs
-
-                weights = [weight_per_sub] * num_subs
-                for i in range(remainder):
-                    weights[i] += 1
-
-                simple_sub_weights[main_indicator] = {'sub_weights': dict(zip(subs, weights))}
-
-            return [simple_sub_weights]
-
-        # 正式模式：生成可控数量的子权重组合
-
-        # 为每个主指标生成子权重组合
-        sub_weights_combinations = {}
-        for main_indicator, subs in sub_indicators.items():
-            # 根据子指标数量选择合适的步长
-            num_subs = len(subs)
-            if use_advanced_mode:
-                # 高级模式：使用更小的步长
-                if num_subs == 3:
-                    step = 5
-                elif num_subs == 4:
-                    step = 5
-                else:  # num_subs == 5
-                    step = 5
-            else:
-                # 普通模式：使用较大步长
-                if num_subs == 3:
-                    step = 10
-                elif num_subs == 4:
-                    step = 10
-                else:  # num_subs == 5
-                    step = 10
-
-            # 生成子权重组合，限制子权重范围为5%-90%
-            sub_weights = self._generate_weights_combinations(subs, 100, step, min_weight=5, max_weight=90)
-
-            # 提前筛选有效的子权重组合
-            valid_sub_weights = []
-            for sw in sub_weights:
-                if sum(sw.values()) == 100 and all(5 <= w <= 90 for w in sw.values()):
-                    valid_sub_weights.append(sw)
-
-            sub_weights_combinations[main_indicator] = valid_sub_weights
-
-        # 生成所有主指标的子权重组合的笛卡尔积
-        main_indicators = list(sub_weights_combinations.keys())
-        sub_weights_lists = [sub_weights_combinations[ind] for ind in main_indicators]
-
-        # 计算总笛卡尔积数量
-        total_cartesian = 1
-        for sub_list in sub_weights_lists:
-            total_cartesian *= len(sub_list)
-
-        # 生成笛卡尔积，但限制数量
-        combinations = []
-
-        # 高级模式：使用多种策略生成组合
-        if use_advanced_mode and total_cartesian > max_combinations:
-            # 策略1: 分层随机采样
-            stratified_samples = []
-
-            # 为每个主指标选择固定数量的子权重组合
-            samples_per_indicator = 3  # 每个主指标至少采样3个组合
-
-            # 为每个主指标创建子权重组合池
-            indicator_pools = {}
-            for main_ind, sub_weights_list in sub_weights_combinations.items():
-                # 为每个主指标随机选择samples_per_indicator个组合
-                if len(sub_weights_list) > samples_per_indicator:
-                    indicator_pools[main_ind] = random.sample(sub_weights_list, samples_per_indicator)
-                else:
-                    indicator_pools[main_ind] = sub_weights_list.copy()
-
-            # 生成这些组合的笛卡尔积
-            stratified_cartesian = list(itertools.product(*[indicator_pools[ind] for ind in main_indicators]))
-
-            # 如果生成的组合过多，再次随机采样
-            if len(stratified_cartesian) > max_combinations:
-                stratified_samples = random.sample(stratified_cartesian, max_combinations)
-            else:
-                stratified_samples = stratified_cartesian
-
-            # 将采样结果转换为标准格式
-            stratified_combinations = []
-            for combo in stratified_samples:
-                sub_weights_config = {}
-                for i, main_indicator in enumerate(main_indicators):
-                    sub_weights_config[main_indicator] = {'sub_weights': combo[i]}
-                stratified_combinations.append(sub_weights_config)
-
-            combinations.extend(stratified_combinations)
-
-            # 策略2: 变异策略
-            if len(combinations) < max_combinations and len(combinations) > 0:
-                mutation_count = min(5, max_combinations - len(combinations))
-
-                for _ in range(mutation_count):
-                    # 随机选择一个基础组合
-                    base_combo = random.choice(combinations)
-                    mutated_combo = base_combo.copy()
-
-                    # 随机选择一个主指标进行变异
-                    mutate_indicator = random.choice(main_indicators)
-                    mutate_subs = sub_indicators[mutate_indicator]
-                    num_subs = len(mutate_subs)
-
-                    # 获取当前子权重
-                    current_weights = base_combo[mutate_indicator]['sub_weights']
-
-                    # 随机选择两个子指标进行权重交换或调整
-                    if num_subs >= 2:
-                        i, j = random.sample(range(num_subs), 2)
-                        sub_i = mutate_subs[i]
-                        sub_j = mutate_subs[j]
-
-                        # 随机调整权重（±5%范围内）
-                        adjust_amount = random.randint(1, 10)
-                        if random.random() > 0.5:
-                            # 增加i，减少j
-                            if current_weights[sub_i] + adjust_amount <= 90 and current_weights[sub_j] - adjust_amount >= 5:
-                                current_weights[sub_i] += adjust_amount
-                                current_weights[sub_j] -= adjust_amount
-                        else:
-                            # 增加j，减少i
-                            if current_weights[sub_j] + adjust_amount <= 90 and current_weights[sub_i] - adjust_amount >= 5:
-                                current_weights[sub_j] += adjust_amount
-                                current_weights[sub_i] -= adjust_amount
-
-                    # 验证变异后的组合是否有效
-                    if sum(current_weights.values()) == 100 and all(w > 0 for w in current_weights.values()):
-                        # 更新变异后的组合
-                        mutated_combo[mutate_indicator]['sub_weights'] = current_weights.copy()
-                        combinations.append(mutated_combo)
-        else:
-            # 普通模式：遍历笛卡尔积
-            current = 0
-            for combination in itertools.product(*sub_weights_lists):
-                sub_weights_config = {}
-                for i, main_indicator in enumerate(main_indicators):
-                    sub_weights_config[main_indicator] = {'sub_weights': combination[i]}
-                combinations.append(sub_weights_config)
-
-                current += 1
-                if current >= max_combinations:
-                    break
-
-        # 去重
-        seen = set()
-        unique_combinations = []
-        for combo in combinations:
-            key = tuple(sorted((k, tuple(sorted(v['sub_weights'].items()))) for k, v in combo.items()))
-            if key not in seen:
-                seen.add(key)
-                unique_combinations.append(combo)
-
-        return unique_combinations[:max_combinations]
+        from utils.weight_utils import generate_sub_weights_combinations
+        return generate_sub_weights_combinations(test_mode, max_combinations, use_advanced_mode)
     
     def _get_cache_key(self, params: Dict[str, Any]) -> str:
         """

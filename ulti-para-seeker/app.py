@@ -175,13 +175,13 @@ end_date = st.sidebar.date_input(
 ).strftime("%Y-%m-%d")
 
 # 回测天数
-backtest_days = st.sidebar.slider(
+backtest_days = st.sidebar.number_input(
     "回测天数",
-    min_value=30,
+    min_value=3,
     max_value=365,
     value=90,
     step=1,
-    help="设置回测天数，范围：30-365天"
+    help="设置回测天数，范围：3-365天"
 )
 
 # 主面板：显示信息和结果

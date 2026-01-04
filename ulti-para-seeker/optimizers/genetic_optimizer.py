@@ -290,7 +290,7 @@ class GeneticOptimizer(BaseOptimizer):
     
     def run_backtest(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        运行单个参数组合的回测（与暴力优化器相同）
+        运行单个参数组合的回测（使用基类实现）
         
         Args:
             params: 参数组合
@@ -298,10 +298,8 @@ class GeneticOptimizer(BaseOptimizer):
         Returns:
             Dict[str, Any]: 回测结果
         """
-        # 复用暴力优化器的回测方法
-        from .brute_force_optimizer import BruteForceOptimizer
-        brute_optimizer = BruteForceOptimizer()
-        return brute_optimizer.run_backtest(params)
+        # 使用基类的回测方法
+        return super().run_backtest(params)
     
     def _generate_random_weights_config(self, step: int) -> Dict[str, int]:
         """

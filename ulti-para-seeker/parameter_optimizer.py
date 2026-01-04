@@ -237,8 +237,143 @@ class ParameterOptimizer:
         Returns:
             Dict[str, Any]: 回测结果
         """
-        # 调用暴力搜索优化器的run_backtest方法
-        return self.optimizers["暴力搜索"].run_backtest(params)
+        # 直接使用回测引擎包装器，避免通过优化器层级
+        try:
+            import sys
+            import os
+            import json
+            from datetime import datetime, timedelta
+            
+            # 设置项目根目录到sys.path
+            project_root = os.path.dirname(os.path.abspath(__file__))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            
+            # 导入日志系统
+            from utils.logger import logger
+            
+            # 获取进程ID，用于显示并行执行情况
+            pid = os.getpid()
+            
+            # 记录进程开始执行信息
+            logger.info(f"\n📋 进程 {pid} 开始执行回测")
+            logger.debug(f"   参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
+            
+            # 创建策略ID
+            strategy_id = f"optimization_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+            
+            # 计算回测区间
+            end_date = datetime.strptime(params['end_date'], '%Y-%m-%d')
+            start_date = end_date - timedelta(days=params['backtest_days'])
+            
+            # 准备符合标准回测要求的配置结构
+            # 测试模式下使用100只股票，非测试模式下使用1只股票
+            is_test_mode = params.get('backtest_days', 90) == 10  # 检测是否为测试模式
+            # 使用参数组合中的initial_capital，如果不存在则使用默认值
+            initial_capital = params.get('initial_capital', 60000)
+            frontend_config = {
+                'backtest': {
+                    'initial_capital': initial_capital,
+                    'backtest_days': params['backtest_days'],
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
+                    'max_stocks_to_backtest': 100 if is_test_mode else 1,
+                    'strategy_id': strategy_id,
+                    'commission_ratio': 0.0003
+                },
+                'strategy': {
+                    'stop_profit_ratio': params['stop_profit_ratio'],
+                    'stop_loss_ratio': params['stop_loss_ratio'],
+                    'weights_config': params['weights_config'],
+                    'sub_weights_config': params['sub_weights_config'],
+                    'strategy_type': '参数优化策略'
+                },
+                # 不硬编码选股结果，让回测系统根据参数重新选股
+                'selected_stocks': []
+            }
+            
+            # 使用内存中的配置直接调用回测函数，避免配置文件的IO操作
+            try:
+                # 确保ulti-para-seeker目录在sys.path的最前面
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                if current_dir in sys.path:
+                    sys.path.remove(current_dir)
+                sys.path.insert(0, current_dir)
+                
+                # 直接导入并调用backtest_modified的run_optimizer_backtest函数，传入配置对象
+                from backtest_modified import run_optimizer_backtest as run_backtest_func
+                # 直接获取回测结果，而不是依赖文件
+                report = run_backtest_func(config=frontend_config)
+                logger.info(f"直接从回测函数获取到结果: {'成功' if report else '空结果'}")
+            except Exception as e:
+                logger.error(f"调用回测函数失败: {e}")
+                import traceback
+                traceback.print_exc()
+                # 返回失败结果
+                return {
+                    **params,
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
+                    'total_return': -100.0,
+                    'annual_return': -100.0,
+                    'max_drawdown': -100.0,
+                    'sharpe_ratio': 0.0,
+                    'win_rate': 0.0,
+                    'trades_count': 0
+                }
+            
+            # 从报告中提取需要的结果
+            performance_metrics = report.get('performance_metrics', {})
+            trade_statistics = report.get('trade_statistics', {})
+            
+            # 直接从report中提取数据，处理不同的报告格式
+            if not performance_metrics:
+                # 尝试直接从report中提取数据（兼容旧格式）
+                performance_metrics = {
+                    'total_return': report.get('total_return', 0.0),
+                    'annual_return': report.get('annual_return', 0.0),
+                    'max_drawdown': report.get('max_drawdown', 0.0),
+                    'sharpe_ratio': report.get('sharpe_ratio', 0.0)
+                }
+            
+            if not trade_statistics:
+                # 尝试直接从report中提取数据（兼容旧格式）
+                trade_statistics = {
+                    'total_trades': report.get('trades_count', 0),
+                    'win_rate': report.get('win_rate', 0.0)
+                }
+            
+            # 返回结果，包含完整的回测指标和关键参数
+            result = {
+                **params,
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'total_return': performance_metrics.get('total_return', 0.0),
+                'annual_return': performance_metrics.get('annual_return', 0.0),
+                'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
+                'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
+                'win_rate': trade_statistics.get('win_rate', 0.0),
+                'trades_count': trade_statistics.get('total_trades', 0)
+            }
+            
+            # 记录进程完成信息
+            logger.info(f"✅ 进程 {pid} 回测完成")
+            
+            return result
+            
+        except Exception as e:
+            from utils.logger import logger
+            logger.error(f"回测失败: {e}")
+            result = {
+                **params,
+                'total_return': -100.0,  # 失败时返回极低收益率
+                'annual_return': -100.0,
+                'max_drawdown': -100.0,
+                'sharpe_ratio': 0.0,
+                'win_rate': 0.0,
+                'trades_count': 0
+            }
+            return result
     
     def export_to_excel(self, results: List[Dict[str, Any]], file_path: str = "parameter_optimization_results.xlsx"):
         """

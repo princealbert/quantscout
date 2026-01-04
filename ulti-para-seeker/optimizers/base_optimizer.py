@@ -65,7 +65,6 @@ class BaseOptimizer(ABC):
         """
         pass
     
-    @abstractmethod
     def run_backtest(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         运行单个参数组合的回测
@@ -74,9 +73,216 @@ class BaseOptimizer(ABC):
             params: 参数组合
             
         Returns:
-            回测结果
+            Dict[str, Any]: 回测结果
         """
-        pass
+        # 先检查缓存中是否已有结果
+        cached_result = self._get_cached_result(params)
+        if cached_result is not None:
+            import os
+            from utils.logger import logger
+            pid = os.getpid()
+            logger.info(f"\n📋 进程 {pid} 使用缓存结果")
+            logger.debug(f"   参数组合: {params}")
+            logger.info(f"✅ 进程 {pid} 回测完成（缓存命中）")
+            return cached_result
+        
+        try:
+            import sys
+            import os
+            import json
+            from datetime import datetime, timedelta
+            
+            # 设置项目根目录到sys.path
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            
+            # 在子进程中重新导入日志系统
+            from utils.logger import logger
+            
+            # 获取进程ID，用于显示并行执行情况
+            pid = os.getpid()
+            
+            # 记录进程开始执行信息
+            logger.info(f"\n📋 进程 {pid} 开始执行回测")
+            logger.debug(f"   参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
+            
+            # 创建策略ID
+            strategy_id = f"optimization_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+            
+            # 计算回测区间
+            end_date = datetime.strptime(params['end_date'], '%Y-%m-%d')
+            start_date = end_date - timedelta(days=params['backtest_days'])
+            
+            # 准备符合标准回测要求的配置结构
+            # 测试模式下使用100只股票，非测试模式下使用1只股票
+            is_test_mode = params.get('backtest_days', 90) == 10  # 检测是否为测试模式
+            # 使用参数组合中的initial_capital，如果不存在则使用默认值
+            initial_capital = params.get('initial_capital', self.initial_capital)
+            frontend_config = {
+                'backtest': {
+                    'initial_capital': initial_capital,
+                    'backtest_days': params['backtest_days'],
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
+                    'max_stocks_to_backtest': 100 if is_test_mode else 1,
+                    'strategy_id': strategy_id,
+                    'commission_ratio': 0.0003
+                },
+                'strategy': {
+                    'stop_profit_ratio': params['stop_profit_ratio'],
+                    'stop_loss_ratio': params['stop_loss_ratio'],
+                    'weights_config': params['weights_config'],
+                    'sub_weights_config': params['sub_weights_config'],
+                    'strategy_type': '参数优化策略'
+                },
+                # 不硬编码选股结果，让回测系统根据参数重新选股
+                'selected_stocks': []
+            }
+            
+            # 使用内存中的配置直接调用回测函数，避免配置文件的IO操作
+            try:
+                # 确保ulti-para-seeker目录在sys.path的最前面
+                current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                if current_dir in sys.path:
+                    sys.path.remove(current_dir)
+                sys.path.insert(0, current_dir)
+                
+                # 直接导入并调用backtest_modified的run_optimizer_backtest函数，传入配置对象
+                from backtest_modified import run_optimizer_backtest as run_backtest_func
+                # 直接获取回测结果，而不是依赖文件
+                report = run_backtest_func(config=frontend_config)
+                logger.info(f"直接从回测函数获取到结果: {'成功' if report else '空结果'}")
+            except Exception as e:
+                logger.error(f"调用回测函数失败: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # 检查是否已经从回测函数获取到结果
+            if not report or isinstance(report, bool):
+                logger.warning("从回测函数获取的结果为空或无效，尝试从文件读取")
+                
+                # 等待回测结果文件生成（给回测系统一些时间）
+                max_wait = 10
+                wait_count = 0
+                
+                # 检查多个可能的报告文件位置和名称
+                possible_report_files = [
+                    os.path.join(project_root, 'backtest_report.json'),
+                    os.path.join(os.path.dirname(project_root), 'backtest_report.json'),
+                    os.path.join(os.path.dirname(os.path.dirname(project_root)), 'backtest_report.json')
+                ]
+                
+                # 检查是否有报告文件生成
+                report_file = None
+                for possible_file in possible_report_files:
+                    if os.path.exists(possible_file):
+                        report_file = possible_file
+                        logger.info(f"找到回测报告文件: {report_file}")
+                        break
+                
+                # 如果没有立即找到，等待一段时间
+                if not report_file:
+                    logger.info("等待回测报告文件生成...")
+                    wait_count = 0
+                    while wait_count < max_wait:
+                        import time
+                        time.sleep(0.5)  # 500ms延迟
+                        wait_count += 1
+                        for possible_file in possible_report_files:
+                            if os.path.exists(possible_file):
+                                report_file = possible_file
+                                logger.info(f"找到回测报告文件: {report_file}")
+                                break
+                        if report_file:
+                            break
+                
+                if report_file and os.path.exists(report_file):
+                    try:
+                        with open(report_file, 'r', encoding='utf-8') as f:
+                            report = json.load(f)
+                        logger.info(f"成功读取回测报告，包含 {len(report)} 个键值对")
+                        logger.debug(f"报告内容: {json.dumps(report, ensure_ascii=False, indent=2)}")
+                        
+                        # 添加短暂延迟，确保其他进程有时间读取文件后再删除
+                        import time
+                        time.sleep(0.1)
+                        
+                        # 删除结果文件，避免影响下一次回测
+                        os.unlink(report_file)
+                        logger.info(f"已删除回测报告文件: {report_file}")
+                    except Exception as e:
+                        logger.error(f"读取报告文件失败: {e}")
+                        report = {}
+                else:
+                    logger.warning(f"未找到回测报告文件，检查了位置: {possible_report_files}")
+                    report = {}
+            
+            # 从报告中提取需要的结果
+            performance_metrics = report.get('performance_metrics', {})
+            trade_statistics = report.get('trade_statistics', {})
+            
+            # 直接从report中提取数据，处理不同的报告格式
+            if not performance_metrics:
+                # 尝试直接从report中提取数据（兼容旧格式）
+                performance_metrics = {
+                    'total_return': report.get('total_return', 0.0),
+                    'annual_return': report.get('annual_return', 0.0),
+                    'max_drawdown': report.get('max_drawdown', 0.0),
+                    'sharpe_ratio': report.get('sharpe_ratio', 0.0)
+                }
+            
+            if not trade_statistics:
+                # 尝试直接从report中提取数据（兼容旧格式）
+                trade_statistics = {
+                    'total_trades': report.get('trades_count', 0),
+                    'win_rate': report.get('win_rate', 0.0)
+                }
+            
+            # 记录调试信息，确保参数和结果正确关联
+            logger.debug(f"[调试] 参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
+            logger.debug(f"[调试] 回测报告: {json.dumps(report, ensure_ascii=False, indent=2)}")
+            logger.debug(f"[调试] 回测结果: {performance_metrics}, {trade_statistics}")
+            
+            # 返回结果，包含完整的回测指标和关键参数
+            result = {
+                **params,
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'total_return': performance_metrics.get('total_return', 0.0),
+                'annual_return': performance_metrics.get('annual_return', 0.0),
+                'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
+                'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
+                'win_rate': trade_statistics.get('win_rate', 0.0),
+                'trades_count': trade_statistics.get('total_trades', 0)
+            }
+            logger.debug(f"[调试] 准备返回的结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            
+            # 将结果存入缓存
+            self._cache_result(params, result)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"回测失败: {e}")
+            result = {
+                **params,
+                'total_return': -100.0,  # 失败时返回极低收益率
+                'annual_return': -100.0,
+                'max_drawdown': -100.0,
+                'sharpe_ratio': 0.0,
+                'win_rate': 0.0,
+                'trades_count': 0
+            }
+            # 失败结果也存入缓存，避免重复计算
+            self._cache_result(params, result)
+            return result
+        finally:
+            # 记录进程完成信息
+            from utils.logger import logger
+            import os
+            pid = os.getpid()
+            logger.info(f"✅ 进程 {pid} 回测完成")
     
     @abstractmethod
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 

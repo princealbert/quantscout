@@ -168,7 +168,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             
             # 创建参数组合
             param_comb = {
-                'backtest_days': 90,
+                'backtest_days': backtest_days,
                 'end_date': end_date,
                 'stop_profit_ratio': stop_profit,
                 'stop_loss_ratio': stop_loss,
@@ -187,7 +187,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         # 如果生成的有效组合不足，补充默认配置
         while len(particles) < self.population_size:
             default_comb = format_parameter_combination({
-                'backtest_days': 90,
+                'backtest_days': backtest_days,
                 'end_date': end_date,
                 'initial_capital': initial_capital
             })
@@ -326,7 +326,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
     
     def run_backtest(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        运行单个参数组合的回测（与暴力优化器相同）
+        运行单个参数组合的回测（使用基类实现）
         
         Args:
             params: 参数组合
@@ -334,10 +334,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         Returns:
             Dict[str, Any]: 回测结果
         """
-        # 复用暴力优化器的回测方法，确保使用缓存机制
-        from .brute_force_optimizer import BruteForceOptimizer
-        brute_optimizer = BruteForceOptimizer()
-        return brute_optimizer.run_backtest(params)
+        # 使用基类的回测方法
+        return super().run_backtest(params)
     
     def _generate_random_weights_config(self, step: int) -> Dict[str, int]:
         """

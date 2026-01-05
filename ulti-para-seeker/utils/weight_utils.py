@@ -30,15 +30,54 @@ def generate_weights_combinations(indicators: List[str], total: int, step: int,
     if n == 0:
         return []
     
-    # 方法1: 笛卡尔积生成 - 基础方法
-    ranges = [range(min_weight, max_weight + 1, step) for _ in range(n)]
+    # 首先生成一些基本的有效组合，确保至少有一些组合可用
+    # 1. 平均分配组合
+    avg_weight = total // n
+    remainder = total % n
+    avg_weights = [avg_weight] * n
+    for i in range(remainder):
+        avg_weights[i] += 1
     
-    for weights in itertools.product(*ranges):
-        if sum(weights) == total and all(w >= min_weight and w <= max_weight for w in weights):
+    # 验证并添加平均分配组合
+    if sum(avg_weights) == total and all(min_weight <= w <= max_weight for w in avg_weights):
+        combinations.append(dict(zip(indicators, avg_weights)))
+    
+    # 2. 生成一些随机组合
+    for _ in range(20):  # 生成20个随机组合
+        weights = []
+        remaining = total
+        
+        # 为前n-1个指标分配随机权重
+        for i in range(n - 1):
+            # 计算当前指标可分配的最大权重
+            max_possible = min(max_weight, remaining - (n - 1 - i) * min_weight)
+            if max_possible < min_weight:
+                break
+            
+            # 随机选择一个权重，确保是step的倍数
+            weight = random.randrange(min_weight, max_possible + 1, step)
+            weights.append(weight)
+            remaining -= weight
+        
+        # 最后一个指标分配剩余权重
+        if n > 0:
+            last_weight = remaining
+            weights.append(last_weight)
+        
+        # 验证随机组合
+        if len(weights) == n and sum(weights) == total and all(min_weight <= w <= max_weight for w in weights):
             combinations.append(dict(zip(indicators, weights)))
     
-    # 方法2: 如果笛卡尔积没有生成足够的组合，使用递归生成更灵活的组合
-    if len(combinations) < 5 and n > 1:
+    # 3. 方法1: 笛卡尔积生成 - 基础方法（仅当指标数量较少时使用）
+    if n <= 3:  # 仅当指标数量较少时使用笛卡尔积
+        ranges = [range(min_weight, max_weight + 1, step) for _ in range(n)]
+        
+        for weights in itertools.product(*ranges):
+            if sum(weights) == total and all(w >= min_weight and w <= max_weight for w in weights):
+                combinations.append(dict(zip(indicators, weights)))
+    
+    # 4. 方法2: 如果笛卡尔积没有生成足够的组合，使用递归生成更灵活的组合
+    if len(combinations) < 10 and n > 1:
         def recursive_generate(start_idx, remaining, current):
             if start_idx == n - 1:
                 if remaining >= min_weight and remaining <= max_weight:
@@ -49,46 +88,84 @@ def generate_weights_combinations(indicators: List[str], total: int, step: int,
             min_val = min_weight
             max_val = min(max_weight, remaining - (n - 1 - start_idx) * min_weight)
             
+            # 只生成有限数量的组合，避免性能问题
+            if len(combinations) >= 20:
+                return
+            
             for weight in range(min_val, max_val + 1, step):
                 current[indicators[start_idx]] = weight
                 recursive_generate(start_idx + 1, remaining - weight, current.copy())
         
         recursive_generate(0, total, {})
     
-    # 方法3: 添加一些特殊组合
-    if n > 0 and len(combinations) < 10:
-        # 添加平均分配组合
-        avg_weight = total // n
-        remainder = total % n
-        avg_weights = [avg_weight] * n
-        for i in range(remainder):
-            avg_weights[i] += 1
-        
-        # 验证平均分配组合
-        if sum(avg_weights) == total and all(w >= min_weight for w in avg_weights):
-            combinations.append(dict(zip(indicators, avg_weights)))
-        
+    # 5. 方法3: 添加一些特殊组合
+    if n > 0 and len(combinations) < 15:
         # 添加极端权重组合（一个指标占大部分权重）
         for i in range(min(3, n)):  # 最多为前3个指标生成极端组合
             extreme_weights = [min_weight] * n
-            extreme_weights[i] = total - (n - 1) * min_weight
+            # 计算极端权重，确保不超过max_weight
+            extreme_weight = min(max_weight, total - (n - 1) * min_weight)
+            extreme_weights[i] = extreme_weight
+            
+            # 调整剩余权重，确保总和为100
+            adjusted = False
+            while sum(extreme_weights) != total:
+                diff = total - sum(extreme_weights)
+                if diff > 0:
+                    # 增加其他指标的权重
+                    for j in range(n):
+                        if j != i and extreme_weights[j] + step <= max_weight:
+                            extreme_weights[j] += step
+                            break
+                else:
+                    # 减少极端指标的权重
+                    if extreme_weights[i] - step >= min_weight:
+                        extreme_weights[i] -= step
+                    else:
+                        break
             
             # 验证极端权重组合
-            if sum(extreme_weights) == total and extreme_weights[i] <= max_weight and all(w >= min_weight for w in extreme_weights):
+            if sum(extreme_weights) == total and all(min_weight <= w <= max_weight for w in extreme_weights):
                 combinations.append(dict(zip(indicators, extreme_weights)))
         
         # 添加两两指标占主导的组合
         if n >= 2:
             for i in range(n - 1):
                 for j in range(i + 1, n):
-                    if len(combinations) >= 15:  # 控制总数
+                    if len(combinations) >= 20:  # 控制总数
                         break
                     pair_weights = [min_weight] * n
-                    pair_weights[i] = (total - (n - 2) * min_weight) // 2
-                    pair_weights[j] = total - (n - 2) * min_weight - pair_weights[i]
+                    # 计算两两指标的权重，确保不超过max_weight
+                    pair_total = total - (n - 2) * min_weight
+                    weight1 = min(max_weight, pair_total // 2)
+                    weight2 = pair_total - weight1
+                    
+                    # 确保权重是step的倍数
+                    weight1 = (weight1 // step) * step
+                    weight2 = (weight2 // step) * step
+                    
+                    # 调整权重，确保总和正确
+                    while weight1 + weight2 != pair_total and weight1 >= min_weight and weight2 >= min_weight:
+                        if weight1 + weight2 < pair_total:
+                            if weight1 + step <= max_weight:
+                                weight1 += step
+                            elif weight2 + step <= max_weight:
+                                weight2 += step
+                            else:
+                                break
+                        else:
+                            if weight1 - step >= min_weight:
+                                weight1 -= step
+                            elif weight2 - step >= min_weight:
+                                weight2 -= step
+                            else:
+                                break
+                    
+                    pair_weights[i] = weight1
+                    pair_weights[j] = weight2
                     
                     # 验证两两主导组合
-                    if sum(pair_weights) == total and pair_weights[i] <= max_weight and pair_weights[j] <= max_weight and all(w >= min_weight for w in pair_weights):
+                    if sum(pair_weights) == total and all(min_weight <= w <= max_weight for w in pair_weights):
                         combinations.append(dict(zip(indicators, pair_weights)))
     
     # 去重
@@ -96,13 +173,31 @@ def generate_weights_combinations(indicators: List[str], total: int, step: int,
     unique_combinations = []
     for combo in combinations:
         # 再次验证组合的有效性
-        if sum(combo.values()) == total and all(w >= min_weight and w <= max_weight for w in combo.values()):
+        if sum(combo.values()) == total and all(min_weight <= w <= max_weight for w in combo.values()):
             key = tuple(sorted(combo.items()))
             if key not in seen:
                 seen.add(key)
                 unique_combinations.append(combo)
     
-    return unique_combinations
+    # 如果仍然没有组合，生成一个简单的有效组合
+    if not unique_combinations:
+        simple_weights = {}
+        remaining = total
+        
+        for i, ind in enumerate(indicators):
+            if i == len(indicators) - 1:
+                # 最后一个指标分配剩余权重
+                simple_weights[ind] = remaining
+            else:
+                # 其他指标分配min_weight
+                simple_weights[ind] = min_weight
+                remaining -= min_weight
+        
+        # 调整权重，确保总和为100
+        if sum(simple_weights.values()) == total and all(min_weight <= w <= max_weight for w in simple_weights.values()):
+            unique_combinations.append(simple_weights)
+    
+    return unique_combinations[:50]  # 最多返回50个组合，避免过多
 
 
 def generate_custom_weights_combinations(indicators: List[str], total: int, step: int, 

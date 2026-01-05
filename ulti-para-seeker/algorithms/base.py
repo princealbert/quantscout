@@ -10,12 +10,13 @@ from typing import Dict, Any, List, Optional
 
 class BaseOptimizer(ABC):
     """
-    基础优化器抽象类 - 仅定义算法接口
+    基础优化器抽象类 - 定义算法接口和通用参数生成逻辑
     """
     
     def __init__(self):
         """初始化优化器"""
         self.initial_capital = 60000  # 固定初始资金
+        self.population_size = 50  # 默认种群大小
     
     @abstractmethod
     def define_parameter_space(self, test_mode: bool = False, max_sub_combinations: int = 10, 
@@ -132,3 +133,168 @@ class BaseOptimizer(ABC):
             
         except Exception:
             return False
+    
+    def _generate_random_weights_config(self, step: int) -> Dict[str, int]:
+        """
+        生成随机权重配置
+        
+        Args:
+            step: 权重步长
+        
+        Returns:
+            Dict[str, int]: 权重配置字典
+        """
+        import random
+        core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
+        num_indicators = len(core_indicators)
+        
+        # 生成随机权重（确保在5%-95%之间，使用随机步长）
+        weights = []
+        remaining = 100
+        
+        # 为前n-1个指标分配随机权重
+        for i in range(num_indicators - 1):
+            # 计算当前指标可分配的最大权重
+            max_possible = min(95, remaining - (num_indicators - 1 - i) * 5)
+            if max_possible < 5:
+                weight = 5
+            else:
+                # 生成随机权重，确保是step的倍数
+                weight = random.randrange(5, max_possible + 1, step)
+            weights.append(weight)
+            remaining -= weight
+        
+        # 最后一个指标分配剩余权重
+        weights.append(remaining)
+        
+        # 随机打乱权重顺序，增加多样性
+        random.shuffle(weights)
+        
+        # 创建权重配置字典
+        weights_config = dict(zip(core_indicators, weights))
+        weights_config['deepv'] = 0  # deepv权重设为0
+        
+        # 确保权重总和为100
+        assert sum(weights_config.values()) == 100, f"权重总和必须为100，当前为{sum(weights_config.values())}"
+        
+        return weights_config
+    
+    def _generate_default_sub_weights(self) -> Dict[str, Dict[str, int]]:
+        """
+        生成默认子权重配置
+        
+        Returns:
+            Dict[str, Dict[str, int]]: 默认子权重配置
+        """
+        default_sub_weights = {
+            'kdj_j': {'sub_weights': {'j_0_20': 20, 'j_-10_0': 20, 'j_-20_-10': 20, 'j_-30_-20': 20, 'j_below_-30': 20}},
+            'position': {'sub_weights': {'above_white': 33, 'between_lines': 34, 'below_yellow': 33}},
+            'volume': {'sub_weights': {'big_volume': 33, 'volume_anomaly': 34, 'volume_breathing': 33}},
+            'fundamental': {'sub_weights': {'pe_positive': 25, 'pe_low': 25, 'market_cap': 25, 'volume_threshold': 25}},
+            'trend': {'sub_weights': {'up_trend': 34, 'volume_price_rise': 33, 'volume_contraction': 33}}
+        }
+        return default_sub_weights
+    
+    def _generate_random_sub_weights(self, test_mode: bool, max_combinations: int = 5) -> Dict[str, Dict[str, int]]:
+        """
+        生成随机子权重配置
+        
+        Args:
+            test_mode: 是否为测试模式
+            max_combinations: 最大生成组合数
+        
+        Returns:
+            Dict[str, Dict[str, int]]: 随机子权重配置
+        """
+        from utils.weight_utils import generate_sub_weights_combinations
+        sub_weights_combos = generate_sub_weights_combinations(
+            test_mode, max_combinations=max_combinations, use_advanced_mode=True
+        )
+        if sub_weights_combos:
+            import random
+            return random.choice(sub_weights_combos)
+        else:
+            return self._generate_default_sub_weights()
+    
+    def _generate_parameter_combination(self, param_space: Dict[str, Any], sub_weights_configs: List[Dict[str, Dict[str, int]]], 
+                                      backtest_days: int, end_date: str, initial_capital: int = 60000) -> Dict[str, Any]:
+        """
+        生成单个参数组合
+        
+        Args:
+            param_space: 参数空间
+            sub_weights_configs: 子权重配置列表
+            backtest_days: 回测天数
+            end_date: 回测终点日期
+            initial_capital: 初始资金
+        
+        Returns:
+            Dict[str, Any]: 参数组合
+        """
+        import random
+        
+        # 随机生成止盈止损比例
+        stop_profit = random.uniform(
+            param_space['stop_profit_ratio']['min'],
+            param_space['stop_profit_ratio']['max']
+        )
+        stop_profit = round(stop_profit, 3)  # 保留3位小数
+        
+        stop_loss = random.uniform(
+            param_space['stop_loss_ratio']['min'],
+            param_space['stop_loss_ratio']['max']
+        )
+        stop_loss = round(stop_loss, 3)  # 保留3位小数
+        
+        # 确保止盈大于止损
+        if stop_profit <= stop_loss:
+            # 调整止盈比例略大于止损比例
+            stop_profit = stop_loss + 0.01
+            stop_profit = round(stop_profit, 3)
+        
+        # 生成权重配置
+        weights_config = self._generate_random_weights_config(param_space['weights_step'])
+        
+        # 随机选择一个子权重配置
+        if sub_weights_configs:
+            sub_weights = random.choice(sub_weights_configs)
+        else:
+            sub_weights = self._generate_random_sub_weights(param_space.get('test_mode', False))
+        
+        # 创建参数组合
+        param_comb = {
+            'backtest_days': backtest_days,
+            'end_date': end_date,
+            'stop_profit_ratio': stop_profit,
+            'stop_loss_ratio': stop_loss,
+            'weights_config': weights_config,
+            'sub_weights_config': sub_weights,
+            'initial_capital': initial_capital
+        }
+        
+        return param_comb
+    
+    def _generate_random_params(self, param_space: Dict[str, Any], backtest_days: int, end_date: str, 
+                              initial_capital: int = 60000) -> Dict[str, Any]:
+        """
+        生成随机参数组合
+        
+        Args:
+            param_space: 参数空间
+            backtest_days: 回测天数
+            end_date: 回测终点日期
+            initial_capital: 初始资金
+        
+        Returns:
+            Dict[str, Any]: 随机参数组合
+        """
+        # 生成子权重配置
+        from utils.weight_utils import generate_sub_weights_combinations
+        sub_weights_configs = generate_sub_weights_combinations(
+            param_space.get('test_mode', False), 
+            max_combinations=5, 
+            use_advanced_mode=True
+        )
+        
+        # 生成参数组合
+        return self._generate_parameter_combination(param_space, sub_weights_configs, backtest_days, end_date, initial_capital)

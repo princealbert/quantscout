@@ -202,30 +202,19 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                     if len(particles) >= self.population_size:
                         break
         
-        # 如果生成的有效组合不足，补充不同的默认配置
+        # 如果生成的有效组合不足，补充不同的配置
         while len(particles) < self.population_size:
-            # 生成不同的默认配置，通过添加随机扰动确保不重复
-            default_comb = format_parameter_combination({
-                'backtest_days': backtest_days,
-                'end_date': end_date
-            })
+            # 使用基类的通用方法生成随机参数组合
+            param_comb = self._generate_random_params(param_space, backtest_days, end_date)
             
-            # 添加随机扰动，确保不重复
-            default_comb['stop_profit_ratio'] += random.uniform(-0.01, 0.01)
-            default_comb['stop_loss_ratio'] += random.uniform(-0.01, 0.01)
-            default_comb['stop_profit_ratio'] = round(default_comb['stop_profit_ratio'], 3)
-            default_comb['stop_loss_ratio'] = round(default_comb['stop_loss_ratio'], 3)
-            
-            # 确保止盈大于止损
-            if default_comb['stop_profit_ratio'] <= default_comb['stop_loss_ratio']:
-                default_comb['stop_profit_ratio'] = default_comb['stop_loss_ratio'] + 0.01
-            
-            # 再次检查不重复
-            from utils.parameter_utils import generate_param_hash
-            comb_hash = generate_param_hash(default_comb)
-            if comb_hash not in generated_combs:
-                particles.append(default_comb)
-                generated_combs.add(comb_hash)
+            # 验证参数组合
+            if validate_parameter_combination(param_comb):
+                # 检查是否重复
+                from utils.parameter_utils import generate_param_hash
+                comb_hash = generate_param_hash(param_comb)
+                if comb_hash not in generated_combs:
+                    particles.append(param_comb)
+                    generated_combs.add(comb_hash)
         
         logger.info(f"已生成 {len(particles)} 个初始粒子")
         return particles
@@ -363,66 +352,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         sorted_results = sorted(all_results, key=lambda x: x.get('fitness', 0), reverse=True)
         return sorted_results[:10]  # 返回前10个最佳结果
     
-    def _generate_random_weights_config(self, step: int) -> Dict[str, int]:
-        """
-        生成随机权重配置
-        
-        Args:
-            step: 权重步长
-        
-        Returns:
-            Dict[str, int]: 权重配置字典
-        """
-        import random
-        core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
-        num_indicators = len(core_indicators)
-        
-        # 生成随机权重（确保在5%-95%之间）
-        weights = []
-        for _ in range(num_indicators):
-            weight = random.randrange(5, 96, step)
-            weights.append(weight)
-        
-        # 调整权重总和为100
-        total = sum(weights)
-        if total != 100:
-            # 按比例调整
-            scale = 100.0 / total
-            weights = [max(5, min(95, int(round(w * scale)))) for w in weights]
-            
-            # 再次调整总和
-            total = sum(weights)
-            diff = 100 - total
-            if diff > 0:
-                # 增加权重最大的指标
-                max_index = weights.index(max(weights))
-                weights[max_index] = min(95, weights[max_index] + diff)
-            elif diff < 0:
-                # 减少权重最大的指标
-                max_index = weights.index(max(weights))
-                weights[max_index] = max(5, weights[max_index] + diff)
-        
-        # 创建权重配置字典
-        weights_config = dict(zip(core_indicators, weights))
-        weights_config['deepv'] = 0  # deepv权重设为0
-        
-        return weights_config
-    
-    def _generate_default_sub_weights(self) -> Dict[str, Dict[str, int]]:
-        """
-        生成默认子权重配置
-        
-        Returns:
-            Dict[str, Dict[str, int]]: 默认子权重配置
-        """
-        default_sub_weights = {
-            'kdj_j': {'sub_weights': {'j_0_20': 20, 'j_-10_0': 20, 'j_-20_-10': 20, 'j_-30_-20': 20, 'j_below_-30': 20}},
-            'position': {'sub_weights': {'above_white': 33, 'between_lines': 34, 'below_yellow': 33}},
-            'volume': {'sub_weights': {'big_volume': 33, 'volume_anomaly': 34, 'volume_breathing': 33}},
-            'fundamental': {'sub_weights': {'pe_positive': 25, 'pe_low': 25, 'market_cap': 25, 'volume_threshold': 25}},
-            'trend': {'sub_weights': {'up_trend': 34, 'volume_price_rise': 33, 'volume_contraction': 33}}
-        }
-        return default_sub_weights
+
     
     def _evaluate_swarm(self, swarm: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

@@ -99,9 +99,9 @@ def validate_parameter_combination(params: Dict[str, Any]) -> bool:
         if not validate_weights_config(weights):
             return False
         
-        # 验证子权重配置
+        # 验证子权重配置 - 如果存在则验证，否则跳过
         sub_weights = params.get('sub_weights_config', {})
-        if not validate_sub_weights_config(sub_weights):
+        if sub_weights and not validate_sub_weights_config(sub_weights):
             return False
         
         # 验证回测天数
@@ -164,31 +164,40 @@ def format_parameter_combination(params: Dict[str, Any]) -> Dict[str, Any]:
     # 确保权重配置存在并包含所有核心指标
     core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
     weights = formatted.setdefault('weights_config', {})
+    
+    # 先设置deepv权重为0，不参与后续调整
+    weights['deepv'] = 0
+    
+    # 设置核心指标的默认权重
     for indicator in core_indicators:
         weights.setdefault(indicator, 10)  # 默认10%
-    weights.setdefault('deepv', 0)  # deepv默认0%
     
-    # 重新计算权重总和为100
-    total_weight = sum(weights.values())
-    if total_weight != 100:
-        # 按比例调整权重
-        scale = 100.0 / total_weight
-        for indicator in weights:
+    # 只调整核心指标的权重，确保总和为100
+    core_weights = {ind: weights[ind] for ind in core_indicators}
+    core_total = sum(core_weights.values())
+    
+    if core_total != 100:
+        # 按比例调整核心指标权重
+        scale = 100.0 / core_total
+        for indicator in core_indicators:
             weights[indicator] = int(round(weights[indicator] * scale))
         
-        # 确保总和精确为100
-        total_weight = sum(weights.values())
-        if total_weight < 100:
-            # 增加最大权重指标的权重
-            max_indicator = max(weights, key=weights.get)
-            weights[max_indicator] += (100 - total_weight)
-        elif total_weight > 100:
-            # 减少最小权重指标的权重
-            min_indicator = min(weights, key=weights.get)
-            weights[min_indicator] -= (total_weight - 100)
+        # 再次计算核心指标总和
+        core_total = sum(weights[ind] for ind in core_indicators)
+        
+        # 确保核心指标总和精确为100
+        if core_total < 100:
+            # 增加最大权重的核心指标
+            max_indicator = max(core_indicators, key=lambda x: weights[x])
+            weights[max_indicator] += (100 - core_total)
+        elif core_total > 100:
+            # 减少最小权重的核心指标
+            min_indicator = min(core_indicators, key=lambda x: weights[x])
+            weights[min_indicator] -= (core_total - 100)
     
-    # 确保子权重配置存在基本结构
-    sub_weights = formatted.setdefault('sub_weights_config', {})
+    # 确保子权重配置存在且有值
+    from utils.weight_utils import generate_default_sub_weights
+    formatted.setdefault('sub_weights_config', generate_default_sub_weights())
     
     # 其他默认值
     formatted.setdefault('backtest_days', 90)

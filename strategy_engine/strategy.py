@@ -63,6 +63,10 @@ class BacktestStrategy:
             # 获取当前日期
             current_date = context.now.strftime('%Y-%m-%d')
             
+            print(f"\n📊 开始选股流程 [{current_date}]")
+            print(f"📋 使用的权重配置: {self.params.weights_config}")
+            print(f"📋 使用的子权重配置: {self.params.sub_weights_config}")
+            
             # 尝试调用现有的选股系统
             try:
                 import json
@@ -74,25 +78,32 @@ class BacktestStrategy:
                 weights_config = self.params.weights_config
                 sub_weights_config = self.params.sub_weights_config
                 
+                print(f"📊 选股系统调用参数:")
+                print(f"   weights_config: {weights_config}")
+                print(f"   sub_weights_config: {sub_weights_config}")
+                
                 # 如果参数中没有配置权重，尝试从文件加载
                 if not weights_config:
+                    print(f"⚠️ 权重配置为空，尝试从文件加载")
                     weights_configs = self.params.load_weights_from_file()
                     if weights_configs:
                         weights_config = weights_configs.get('weights_config')
                         sub_weights_config = weights_configs.get('sub_weights_config')
-                        print(f"[{current_date}] 成功加载权重配置")
-                        print(f"[{current_date}] 权重配置: {weights_config}")
-                        print(f"[{current_date}] 子权重配置: {sub_weights_config}")
+                        print(f"✅ 成功从文件加载权重配置")
+                        print(f"   权重配置: {weights_config}")
+                        print(f"   子权重配置: {sub_weights_config}")
                     else:
-                        print(f"[{current_date}] 使用默认权重配置")
+                        print(f"⚠️ 从文件加载权重配置失败，使用默认权重配置")
                 
                 # 创建选股器实例
+                print(f"📊 创建ZGeStrategyScreener实例")
                 screener = ZGeStrategyScreener(
                     batch_size=100,  # 小批量处理，适应回测环境
                     max_workers=2,   # 减少线程数，避免资源竞争
                     weights_config=weights_config,  # 使用碗选股策略权重
                     sub_weights_config=sub_weights_config
                 )
+                print(f"✅ ZGeStrategyScreener实例创建成功")
                 
                 # 获取真实股票池（调用选股系统的get_stock_pool方法）
                 current_date = context.now.strftime('%Y-%m-%d')

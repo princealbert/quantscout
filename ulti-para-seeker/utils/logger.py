@@ -15,12 +15,22 @@ import os
 class OptimizerLogger:
     """参数优化器日志管理器"""
     
-    def __init__(self, log_file=None, max_lines=1000):
+    # 日志级别优先级（数字越小，优先级越高）
+    LOG_LEVELS = {
+        'ERROR': 0,
+        'WARNING': 1,
+        'INFO': 2,
+        'DEBUG': 3,
+        'SUCCESS': 2  # SUCCESS级别与INFO级别相同
+    }
+    
+    def __init__(self, log_file=None, max_lines=1000, log_level='INFO'):
         self.log_queue = Queue()
         self.max_lines = max_lines
         self.lock = threading.Lock()
         self.log_lines = []
         self.log_file = log_file
+        self.log_level = log_level
         
         # 创建日志目录
         if self.log_file:
@@ -30,6 +40,10 @@ class OptimizerLogger:
         
     def log(self, level: str, message: str):
         """记录日志"""
+        # 检查日志级别是否应该被记录
+        if self.LOG_LEVELS.get(level, 3) > self.LOG_LEVELS.get(self.log_level, 2):
+            return  # 跳过低于当前日志级别的日志
+        
         # 生成完整的时间戳（包含日期）
         full_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         short_timestamp = datetime.now().strftime("%H:%M:%S")
@@ -125,5 +139,5 @@ FIXED_PROJECT_ROOT = "c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-
 # 创建日志文件路径 - 生成在固定项目根目录
 log_file_path = os.path.join(FIXED_PROJECT_ROOT, "parameter_optimizer.log")
 
-# 全局日志实例
-logger = OptimizerLogger(log_file=log_file_path, max_lines=1000)
+# 全局日志实例，设置为DEBUG级别以显示所有调试信息
+logger = OptimizerLogger(log_file=log_file_path, max_lines=1000, log_level='DEBUG')

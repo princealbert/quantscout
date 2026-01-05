@@ -108,28 +108,41 @@ class StrategyParams:
         for key, value in config.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+    
+    def copy(self):
+        """
+        创建参数对象的副本
+        
+        Returns:
+            StrategyParams: 参数对象的副本
+        """
+        return StrategyParams(**self.to_dict())
 
 
 # 参数文件路径（用于进程间参数传递）
 _PARAMS_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'current_backtest_config.json')
 
 
-def save_params_to_file(params=None) -> str:
+def save_params_to_file(params=None, file_path=None) -> str:
     """
     保存策略参数到文件（用于进程间参数传递）
     
     Args:
-        params: 策略参数字典或StrategyParams对象，默认为当前参数
+        params: 策略参数字典或StrategyParams对象
+        file_path: 自定义文件路径，默认为默认路径
     
     Returns:
         str: 参数文件路径
     """
-    global _current_params
     if params is None:
-        params = _current_params
+        raise ValueError("必须提供params参数")
     
     if not isinstance(params, StrategyParams):
         params = StrategyParams(**params)
+    
+    # 使用指定的文件路径或默认路径
+    if file_path is None:
+        file_path = _PARAMS_FILE_PATH
     
     try:
         # 将参数转换为前端配置文件的嵌套结构
@@ -153,10 +166,10 @@ def save_params_to_file(params=None) -> str:
             }
         }
         
-        with open(_PARAMS_FILE_PATH, 'w', encoding='utf-8') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(frontend_config, f, ensure_ascii=False, indent=2)
-        print(f"✅ 策略参数已保存到文件: {_PARAMS_FILE_PATH}")
-        return _PARAMS_FILE_PATH
+        print(f"✅ 策略参数已保存到文件: {file_path}")
+        return file_path
     except Exception as e:
         print(f"❌ 保存策略参数到文件失败: {e}")
         return None
@@ -172,6 +185,12 @@ def load_params_from_file(file_path=None) -> Optional[StrategyParams]:
     Returns:
         Optional[StrategyParams]: 策略参数对象，如果加载失败则返回None
     """
+    # 优先从环境变量获取文件路径（用于并行进程）
+    env_file_path = os.environ.get('BACKTEST_PARAMS_FILE')
+    if env_file_path:
+        file_path = env_file_path
+    
+    # 如果没有环境变量，使用传入的路径或默认路径
     if file_path is None:
         file_path = _PARAMS_FILE_PATH
     
@@ -216,17 +235,19 @@ def load_params_from_file(file_path=None) -> Optional[StrategyParams]:
         params = StrategyParams(**params_dict)
         print(f"✅ 从文件加载策略参数成功: {file_path}")
         print(f"💰 初始资金: {params.initial_capital:,}元")
+        print(f"📈 止盈比例: {params.stop_profit_ratio*100:.2f}%")
+        print(f"📉 止损比例: {params.stop_loss_ratio*100:.2f}%")
+        print(f"⚖️ 权重配置: {params.weights_config}")
         return params
     except Exception as e:
         print(f"❌ 解析策略参数失败: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
 # 默认参数配置
 default_params = StrategyParams()
-
-# 当前参数实例（支持动态更新）
-_current_params = default_params
 
 
 def create_strategy_params(**kwargs) -> StrategyParams:
@@ -244,31 +265,22 @@ def create_strategy_params(**kwargs) -> StrategyParams:
 
 def get_current_params() -> StrategyParams:
     """
-    获取当前策略参数（优先从文件加载，然后是全局变量，最后是默认值）
+    获取默认策略参数
     
     Returns:
-        StrategyParams: 当前策略参数
+        StrategyParams: 默认策略参数
     """
-    global _current_params
-    
-    # 1. 优先从文件加载参数（用于解决进程间参数传递问题）
-    file_params = load_params_from_file()
-    if file_params is not None:
-        return file_params
-    
-    # 2. 如果文件不存在或加载失败，使用全局变量
-    return _current_params
+    return default_params.copy()
 
 
 def set_current_params(params: Dict[str, Any]):
     """
-    设置当前策略参数
+    已废弃：不再支持全局参数设置
     
     Args:
         params: 策略参数字典
     """
-    global _current_params
-    _current_params = StrategyParams(**params)
-    # 将参数保存到文件，确保进程间参数传递正确
-    save_params_to_file(_current_params)
-    print(f"✅ 策略参数已更新: 策略ID={_current_params.strategy_id}")
+    print("⚠️ 警告：set_current_params 函数已废弃，不再支持全局参数设置")
+    print("建议：直接创建 StrategyParams 实例并使用")
+    # 不再更新全局变量，仅创建新实例
+    return StrategyParams(**params)

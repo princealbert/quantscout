@@ -19,11 +19,26 @@ from strategy_engine.config_manager import FrontendConfigLoader
 
 def init(context):
     """策略初始化 - 使用解耦后的策略引擎"""
-    # 导入参数配置系统
-    from config.strategy_params import get_current_params
+    # 直接从gm.api的context中获取参数，避免使用全局变量和文件
+    # 回测引擎会将参数传递到context中
+    strategy_params = getattr(context, 'strategy_params', None)
     
-    # 获取当前策略参数（从配置文件加载的）
-    strategy_params = get_current_params()
+    # 如果context中没有参数，才从配置文件加载（兼容旧模式）
+    if not strategy_params:
+        try:
+            from config.strategy_params import StrategyParams, load_params_from_file
+            
+            # 尝试从文件加载参数
+            file_params = load_params_from_file()
+            if file_params:
+                strategy_params = file_params
+            else:
+                # 使用默认参数
+                strategy_params = StrategyParams()
+        except Exception as e:
+            print(f"加载参数失败，使用默认参数: {e}")
+            from config.strategy_params import StrategyParams
+            strategy_params = StrategyParams()
     
     # 创建回测执行器 - 传递配置参数
     context.runner = BacktestRunner(strategy_params=strategy_params)
@@ -119,6 +134,7 @@ if __name__ == '__main__':
     # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description='z哥选股策略回测系统')
     parser.add_argument('-c', '--config', type=str, help='指定前端生成的JSON配置文件路径')
+    parser.add_argument('--params-file', type=str, help='指定策略参数文件路径（用于并行回测）')
     
     # 解析命令行参数
     args, _ = parser.parse_known_args()
@@ -132,11 +148,38 @@ if __name__ == '__main__':
         # 恢复原始的sys.argv，避免与gm.api的run()函数冲突
         sys.argv = original_argv
         
+        # 打印当前进程信息和环境变量（用于调试）
+        print(f"[MAIN] 进程ID: {os.getpid()}")
+        print(f"[MAIN] 当前工作目录: {os.getcwd()}")
+        print(f"[MAIN] BACKTEST_PARAMS_FILE环境变量: {os.environ.get('BACKTEST_PARAMS_FILE')}")
+        
+        # 优先从--params-file参数获取配置文件路径（用于并行回测）
+        params_file_path = args.params_file
+        
+        # 其次从环境变量获取配置文件路径
+        env_config_path = os.environ.get('BACKTEST_PARAMS_FILE')
+        
         # 获取固定配置文件路径
         fixed_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "current_backtest_config.json")
         
-        # 确定要使用的配置文件路径
-        config_path = args.config if args.config else fixed_config_path
+        # 确定要使用的配置文件路径：--params-file > -c/--config > 环境变量 > 固定路径
+        config_path = params_file_path if params_file_path else args.config if args.config else env_config_path if env_config_path else fixed_config_path
+        
+        print(f"[MAIN] 最终使用的配置文件: {config_path}")
         
         # 使用统一的回测执行函数
-        run_backtest(config_path=config_path)
+        report_data = run_backtest(config_path=config_path)
+        
+        # 检查是否需要将结果保存到指定文件
+        result_file_path = os.environ.get('BACKTEST_RESULT_FILE')
+        if result_file_path:
+            print(f"[MAIN] 检测到BACKTEST_RESULT_FILE环境变量，准备保存结果到: {result_file_path}")
+            try:
+                import json
+                with open(result_file_path, 'w', encoding='utf-8') as f:
+                    json.dump(report_data, f, ensure_ascii=False, indent=2, default=str)
+                print(f"[MAIN] ✅ 回测结果已成功保存到: {result_file_path}")
+            except Exception as e:
+                print(f"[MAIN] ❌ 保存回测结果失败: {e}")
+                import traceback
+                traceback.print_exc()

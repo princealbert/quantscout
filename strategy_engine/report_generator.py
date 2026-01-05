@@ -66,6 +66,10 @@ class ReportGenerator:
                 'trades_count': 0,
                 'stop_profit_ratio': getattr(strategy.params, 'stop_profit_ratio', 0.0),
                 'stop_loss_ratio': getattr(strategy.params, 'stop_loss_ratio', 0.0),
+                'weights_config': getattr(strategy.params, 'weights_config', None),
+                'sub_weights_config': getattr(strategy.params, 'sub_weights_config', None),
+                'backtest_days': getattr(strategy.params, 'backtest_days', 0),
+                'strategy_type': getattr(strategy.params, 'strategy_type', '参数优化策略'),
                 'trading_records': [],
                 'portfolio_values': getattr(strategy, 'portfolio_values', [])
             }
@@ -156,21 +160,6 @@ class ReportGenerator:
             if annualized_volatility > 0:
                 sharpe_ratio = annualized_return / annualized_volatility
         
-        # 打印报告
-        print("\n" + "="*60)
-        print("📊 回测报告")
-        print("="*60)
-        print(f"初始资金: {initial_value:,.2f}元")
-        print(f"最终资金: {final_value:,.2f}元")
-        print(f"总收益率: {total_return:.2f}%")
-        print(f"年化收益率: {annual_return_pct:.2f}%")
-        print(f"最大回撤: {max_drawdown:.2f}%")
-        print(f"夏普比率: {sharpe_ratio:.2f}")
-        print(f"胜率: {win_rate:.2f}%")
-        print(f"交易次数: {len(trades_df)}次")
-        print(f"止盈比例: {strategy.params.stop_profit_ratio*100:.2f}%")
-        print(f"止损比例: {strategy.params.stop_loss_ratio*100:.2f}%")
-        
         report_data = {
             'initial_capital': initial_value,
             'final_value': final_value,
@@ -182,6 +171,10 @@ class ReportGenerator:
             'trades_count': len(trades_df),
             'stop_profit_ratio': strategy.params.stop_profit_ratio,
             'stop_loss_ratio': strategy.params.stop_loss_ratio,
+            'weights_config': strategy.params.weights_config,
+            'sub_weights_config': strategy.params.sub_weights_config,
+            'backtest_days': strategy.params.backtest_days,
+            'strategy_type': strategy.params.strategy_type,
             'trading_records': trades_df.to_dict('records'),
             'portfolio_values': portfolio_df.to_dict('records')
         }

@@ -29,7 +29,7 @@ if 'streamlit' not in sys.modules:
 import streamlit as st
 
 # 导入参数优化器
-from parameter_optimizer import ParameterOptimizer
+from core import OptimizerManager
 
 
 
@@ -45,7 +45,7 @@ st.set_page_config(
 st.markdown("<h1 style='text-align: center;'>参数优化器</h1>", unsafe_allow_html=True)
 
 # 初始化优化器实例
-optimizer = ParameterOptimizer()
+optimizer = OptimizerManager()
 
 # 侧边栏：算法选择和参数设置
 st.sidebar.header("算法配置")
@@ -697,17 +697,19 @@ if st.button("查看回测结果") or show_results:
                     result.get('stop_profit_ratio', 0.0),
                     result.get('stop_loss_ratio', 0.0),
                     tuple(sorted(result.get('weights_config', {}).items())),
-                    tuple(sorted((main_ind, tuple(sorted(sub_config['sub_weights'].items()))) 
-                               for main_ind, sub_config in result.get('sub_weights_config', {}).items() 
-                               if isinstance(sub_config, dict) and 'sub_weights' in sub_config))
+                    tuple(
+                        (main_ind, tuple(sorted(sub_config['sub_weights'].items())))
+                        for main_ind, sub_config in (result.get('sub_weights_config', {}) or {}).items()
+                        if isinstance(sub_config, dict) and 'sub_weights' in sub_config and isinstance(sub_config['sub_weights'], dict)
+                    )
                 )
                 
                 if key_params in seen_results:
                     continue
                 seen_results.add(key_params)
                 
-                # 跳过无效结果
-                if result.get('total_return', 0.0) <= -100:
+                # 跳过无效结果，只跳过那些明显错误的结果（远低于-100%）
+                if result.get('total_return', 0.0) < -101:
                     continue
                 
                 row = {

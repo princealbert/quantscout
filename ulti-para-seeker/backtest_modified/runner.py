@@ -9,7 +9,7 @@ import sys
 import os
 from datetime import datetime, timedelta
 from typing import Dict, Any
-from gm.api import *
+# 移除gm.api的全局导入，避免全局状态问题
 
 # 添加项目根目录到sys.path，确保能找到统一的回测引擎
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

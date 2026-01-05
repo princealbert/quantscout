@@ -86,9 +86,9 @@ class BatchProcessor:
         self.batch_size = batch_size
         self.max_workers = max_workers
         
-        # 记录实际接收到的权重配置
-        logger.info(f"[BATCH_PROCESSOR] 接收到的权重配置: {custom_weights}")
-        logger.info(f"[BATCH_PROCESSOR] 接收到的子权重配置: {sub_weights_config}")
+        # 记录实际接收到的权重配置 - 已注释
+        # logger.info(f"[BATCH_PROCESSOR] 接收到的权重配置: {custom_weights}")
+        # logger.info(f"[BATCH_PROCESSOR] 接收到的子权重配置: {sub_weights_config}")
         
         self.weights_config = custom_weights
         self.sub_weights_config = sub_weights_config

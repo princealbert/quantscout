@@ -65,7 +65,7 @@ def main():
         
         # 权重配置 - 始终显示权重配置组件，但根据配置加载状态设置初始值
         weights_config = display_weight_configuration(strategy_type)
-        print(f"[MAIN] 当前权重配置: {weights_config}")
+        # print(f"[MAIN] 当前权重配置: {weights_config}")
         
         st.session_state.weights_config = weights_config  # 实时保存到session state
         

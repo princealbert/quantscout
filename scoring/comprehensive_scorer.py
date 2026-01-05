@@ -20,9 +20,7 @@ class ComprehensiveScorer:
         try:
             score_details = {}
             
-            # 调试信息：显示当前使用的权重配置
-            if hasattr(self.weight_scorer, 'score_weights'):
-                print(f"[DEBUG] 当前权重配置: {self.weight_scorer.score_weights}")
+            # 调试信息：显示当前使用的权重配置已被注释
             
             # 1. KDJ J值权重
             j_value = float(stock_data.get('kdj_j', 50))
@@ -30,25 +28,25 @@ class ComprehensiveScorer:
             score_details['kdj_score'] = kdj_final_score
             
             # 调试KDJ评分计算
-            print(f"[DEBUG] KDJ J值: {j_value}, KDJ总分: {kdj_final_score}")
+            # print(f"[DEBUG] KDJ J值: {j_value}, KDJ总分: {kdj_final_score}")
             
             # 2. 趋势权重
             trend_score = self.weight_scorer.calculate_trend_score(stock_data)
             score_details['trend_score'] = trend_score
-            print(f"[DEBUG] 趋势总分: {trend_score}")
+            # print(f"[DEBUG] 趋势总分: {trend_score}")
             
             # 3. 深V信号权重
             deepv_data = stock_data.get('deepv', {})
             deepv_signal = deepv_data.get('deepv_signal', False)
             deepv_score = 1 if deepv_signal else 0
             score_details['deepv_score'] = round(deepv_score * self.score_weights['deepv'], 1)
-            print(f"[DEBUG] 深V信号: {deepv_signal}, 深V总分: {score_details['deepv_score']}")
+            # print(f"[DEBUG] 深V信号: {deepv_signal}, 深V总分: {score_details['deepv_score']}")
             
             # 4. 成交量权重
             volume_analysis = stock_data.get('volume_analysis', {})
             volume_score = self.weight_scorer.calculate_volume_weight(volume_analysis)
             score_details['volume_score'] = volume_score
-            print(f"[DEBUG] 成交量总分: {volume_score}")
+            # print(f"[DEBUG] 成交量总分: {volume_score}")
             
             # 5. 基本面权重
             fundamental_data = {
@@ -58,7 +56,7 @@ class ComprehensiveScorer:
             }
             fundamental_score = self.weight_scorer.calculate_fundamental_score(fundamental_data)
             score_details['fundamental_score'] = fundamental_score
-            print(f"[DEBUG] 基本面总分: {fundamental_score}")
+            # print(f"[DEBUG] 基本面总分: {fundamental_score}")
             
             # 6. 位置权重
             close_price = float(stock_data.get('close', 0))
@@ -70,13 +68,13 @@ class ComprehensiveScorer:
             )
             score_details['position_score'] = float(position_score)
             score_details['position_desc'] = position_desc
-            print(f"[DEBUG] 位置: {position_desc}, 位置总分: {position_score}")
+            # print(f"[DEBUG] 位置: {position_desc}, 位置总分: {position_score}")
             
             # 7. 盈亏比权重
             risk_reward_data = self._calculate_risk_reward_ratio(stock_data)
             risk_reward_score = risk_reward_data.get('risk_reward_score', 0)
             score_details['risk_reward_score'] = round(risk_reward_score * self.score_weights['risk_reward'], 1)
-            print(f"[DEBUG] 盈亏比: {risk_reward_data.get('risk_reward_ratio', 0)}, 盈亏比总分: {score_details['risk_reward_score']}")
+            # print(f"[DEBUG] 盈亏比: {risk_reward_data.get('risk_reward_ratio', 0)}, 盈亏比总分: {score_details['risk_reward_score']}")
             
             # 将盈亏比数据添加到股票数据中
             stock_data['risk_reward_data'] = risk_reward_data

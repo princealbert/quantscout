@@ -130,7 +130,8 @@ class ParameterOptimizer:
                         stop_profit_step: int = None, stop_loss_min: int = None, 
                         stop_loss_max: int = None, stop_loss_step: int = None, 
                         weight_step: int = None, use_advanced_weights: bool = True,
-                        focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
+                        focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000, 
+                        use_parallel: bool = False) -> List[Dict[str, Any]]:
         """
         执行参数优化
 
@@ -152,6 +153,7 @@ class ParameterOptimizer:
             focus_indicators: 重点关注的指标列表
             focus_weight_factor: 重点指标权重因子
             initial_capital: 初始资金
+            use_parallel: 是否使用并行模式，默认False（串行执行）
 
         Returns:
             List[Dict[str, Any]]: 回测结果列表
@@ -168,15 +170,21 @@ class ParameterOptimizer:
         
         optimizer = self.optimizers[algorithm]
         
-        # 使用蓝图文件或生成新的参数组合
+        # 执行回测，根据use_parallel参数选择并行或串行模式
         if blueprint_file:
             logger.info(f"从蓝图文件加载参数组合: {blueprint_file}")
             blueprint = self.load_blueprint(blueprint_file, load_all=True)
             # 过滤出待处理的组合
             pending_combinations = [combo['params'] for combo in blueprint['combinations'] if combo['status'] == 'pending']
             
-            # 执行回测（使用ParameterOptimizer自己的并行回测功能，因为它支持蓝图管理）
-            results = self.run_parallel_optimization(pending_combinations, blueprint=blueprint, blueprint_file=blueprint_file)
+            if use_parallel:
+                # 使用并行回测
+                logger.info(f"使用并行模式执行回测，线程数: {max_workers or 'CPU核心数-1'}")
+                results = self.run_parallel_optimization(pending_combinations, blueprint=blueprint, blueprint_file=blueprint_file, num_workers=max_workers)
+            else:
+                # 使用串行回测
+                logger.info(f"使用串行模式执行回测")
+                results = self.run_serial_optimization(pending_combinations, blueprint=blueprint, blueprint_file=blueprint_file, optimizer=optimizer)
         else:
             # 直接调用对应算法的优化方法
             if algorithm == "暴力搜索":
@@ -200,7 +208,15 @@ class ParameterOptimizer:
                 # 为每个参数组合添加初始资金
                 for param in param_combinations:
                     param['initial_capital'] = initial_capital
-                results = optimizer.run_parallel_optimization(param_combinations)
+                
+                if use_parallel:
+                    # 使用并行回测
+                    logger.info(f"使用并行模式执行回测，线程数: {max_workers or 'CPU核心数-1'}")
+                    results = self.run_parallel_optimization(param_combinations, num_workers=max_workers, optimizer=optimizer)
+                else:
+                    # 使用串行回测
+                    logger.info(f"使用串行模式执行回测")
+                    results = self.run_serial_optimization(param_combinations, optimizer=optimizer)
             else:
                 # 遗传算法和粒子群算法自身包含参数生成和优化逻辑
                 # 这里需要确保optimize方法能处理initial_capital参数
@@ -237,143 +253,8 @@ class ParameterOptimizer:
         Returns:
             Dict[str, Any]: 回测结果
         """
-        # 直接使用回测引擎包装器，避免通过优化器层级
-        try:
-            import sys
-            import os
-            import json
-            from datetime import datetime, timedelta
-            
-            # 设置项目根目录到sys.path
-            project_root = os.path.dirname(os.path.abspath(__file__))
-            if project_root not in sys.path:
-                sys.path.insert(0, project_root)
-            
-            # 导入日志系统
-            from utils.logger import logger
-            
-            # 获取进程ID，用于显示并行执行情况
-            pid = os.getpid()
-            
-            # 记录进程开始执行信息
-            logger.info(f"\n📋 进程 {pid} 开始执行回测")
-            logger.debug(f"   参数组合: {json.dumps(params, ensure_ascii=False, indent=2)}")
-            
-            # 创建策略ID
-            strategy_id = f"optimization_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
-            
-            # 计算回测区间
-            end_date = datetime.strptime(params['end_date'], '%Y-%m-%d')
-            start_date = end_date - timedelta(days=params['backtest_days'])
-            
-            # 准备符合标准回测要求的配置结构
-            # 测试模式下使用100只股票，非测试模式下使用1只股票
-            is_test_mode = params.get('backtest_days', 90) == 10  # 检测是否为测试模式
-            # 使用参数组合中的initial_capital，如果不存在则使用默认值
-            initial_capital = params.get('initial_capital', 60000)
-            frontend_config = {
-                'backtest': {
-                    'initial_capital': initial_capital,
-                    'backtest_days': params['backtest_days'],
-                    'start_date': start_date.strftime('%Y-%m-%d'),
-                    'end_date': end_date.strftime('%Y-%m-%d'),
-                    'max_stocks_to_backtest': 100 if is_test_mode else 1,
-                    'strategy_id': strategy_id,
-                    'commission_ratio': 0.0003
-                },
-                'strategy': {
-                    'stop_profit_ratio': params['stop_profit_ratio'],
-                    'stop_loss_ratio': params['stop_loss_ratio'],
-                    'weights_config': params['weights_config'],
-                    'sub_weights_config': params['sub_weights_config'],
-                    'strategy_type': '参数优化策略'
-                },
-                # 不硬编码选股结果，让回测系统根据参数重新选股
-                'selected_stocks': []
-            }
-            
-            # 使用内存中的配置直接调用回测函数，避免配置文件的IO操作
-            try:
-                # 确保ulti-para-seeker目录在sys.path的最前面
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                if current_dir in sys.path:
-                    sys.path.remove(current_dir)
-                sys.path.insert(0, current_dir)
-                
-                # 直接导入并调用backtest_modified的run_optimizer_backtest函数，传入配置对象
-                from backtest_modified import run_optimizer_backtest as run_backtest_func
-                # 直接获取回测结果，而不是依赖文件
-                report = run_backtest_func(config=frontend_config)
-                logger.info(f"直接从回测函数获取到结果: {'成功' if report else '空结果'}")
-            except Exception as e:
-                logger.error(f"调用回测函数失败: {e}")
-                import traceback
-                traceback.print_exc()
-                # 返回失败结果
-                return {
-                    **params,
-                    'start_date': start_date.strftime('%Y-%m-%d'),
-                    'end_date': end_date.strftime('%Y-%m-%d'),
-                    'total_return': -100.0,
-                    'annual_return': -100.0,
-                    'max_drawdown': -100.0,
-                    'sharpe_ratio': 0.0,
-                    'win_rate': 0.0,
-                    'trades_count': 0
-                }
-            
-            # 从报告中提取需要的结果
-            performance_metrics = report.get('performance_metrics', {})
-            trade_statistics = report.get('trade_statistics', {})
-            
-            # 直接从report中提取数据，处理不同的报告格式
-            if not performance_metrics:
-                # 尝试直接从report中提取数据（兼容旧格式）
-                performance_metrics = {
-                    'total_return': report.get('total_return', 0.0),
-                    'annual_return': report.get('annual_return', 0.0),
-                    'max_drawdown': report.get('max_drawdown', 0.0),
-                    'sharpe_ratio': report.get('sharpe_ratio', 0.0)
-                }
-            
-            if not trade_statistics:
-                # 尝试直接从report中提取数据（兼容旧格式）
-                trade_statistics = {
-                    'total_trades': report.get('trades_count', 0),
-                    'win_rate': report.get('win_rate', 0.0)
-                }
-            
-            # 返回结果，包含完整的回测指标和关键参数
-            result = {
-                **params,
-                'start_date': start_date.strftime('%Y-%m-%d'),
-                'end_date': end_date.strftime('%Y-%m-%d'),
-                'total_return': performance_metrics.get('total_return', 0.0),
-                'annual_return': performance_metrics.get('annual_return', 0.0),
-                'max_drawdown': performance_metrics.get('max_drawdown', 0.0),
-                'sharpe_ratio': performance_metrics.get('sharpe_ratio', 0.0),
-                'win_rate': trade_statistics.get('win_rate', 0.0),
-                'trades_count': trade_statistics.get('total_trades', 0)
-            }
-            
-            # 记录进程完成信息
-            logger.info(f"✅ 进程 {pid} 回测完成")
-            
-            return result
-            
-        except Exception as e:
-            from utils.logger import logger
-            logger.error(f"回测失败: {e}")
-            result = {
-                **params,
-                'total_return': -100.0,  # 失败时返回极低收益率
-                'annual_return': -100.0,
-                'max_drawdown': -100.0,
-                'sharpe_ratio': 0.0,
-                'win_rate': 0.0,
-                'trades_count': 0
-            }
-            return result
+        # 使用暴力搜索优化器的run_backtest方法，该方法使用了进程隔离
+        return self.optimizers["暴力搜索"].run_backtest(params)
     
     def export_to_excel(self, results: List[Dict[str, Any]], file_path: str = "parameter_optimization_results.xlsx"):
         """
@@ -605,12 +486,12 @@ class ParameterOptimizer:
     def _generate_sub_weights_combinations(self, test_mode: bool = False, max_combinations: int = 10, use_advanced_mode: bool = True) -> List[Dict[str, Dict[str, int]]]:
         """
         生成子权重组合（委托给暴力搜索优化器）
-        
+
         Args:
             test_mode: 是否为测试模式
             max_combinations: 最大子权重组合数
             use_advanced_mode: 是否使用高级模式
-            
+
         Returns:
             子权重组合列表
         """
@@ -769,6 +650,109 @@ class ParameterOptimizer:
         
         return all_results
 
+    def run_serial_optimization(self, param_combinations: List[Dict[str, Any]], blueprint: Optional[Dict[str, Any]] = None, blueprint_file: str = "parameter_blueprint.json", optimizer=None) -> List[Dict[str, Any]]:
+        """
+        串行运行参数优化（支持断点续传和结果更新）
+        
+        Args:
+            param_combinations: 参数组合列表
+            blueprint: 参数组合蓝图数据（用于断点续传）
+            blueprint_file: 蓝图文件路径
+            optimizer: 具体的优化器实例，用于运行回测
+            
+        Returns:
+            List[Dict[str, Any]]: 按收益率排序的结果列表
+        """
+        import os
+        from utils.logger import logger
+        from datetime import datetime
+        
+        total_combinations = len(param_combinations)
+        self.start_time = datetime.now()
+        all_results = []
+        
+        logger.info(f"\n=== 串行处理模式 ===")
+        logger.info(f"开始串行优化")
+        logger.info(f"总参数组合数: {total_combinations}")
+        logger.info(f"支持断点续传: {'是' if blueprint else '否'}")
+        logger.info("=" * 50)
+        
+        # 准备要处理的组合列表，包括其在蓝图中的ID（如果有）
+        combo_list = []
+        for i, param in enumerate(param_combinations):
+            combo_id = None
+            if blueprint:
+                for combo in blueprint['combinations']:
+                    if combo['params'] == param:
+                        combo_id = combo['id']
+                        # 更新状态为running
+                        combo['status'] = 'running'
+                        combo['started_at'] = datetime.now().isoformat()
+                        break
+            combo_list.append((i, param, combo_id))
+        
+        # 保存更新后的蓝图（如果有）
+        if blueprint:
+            self.blueprint_manager.save_blueprint(blueprint, os.path.join(self.current_dir, blueprint_file))
+        
+        logger.info(f"\n🚀 开始串行执行任务")
+        logger.info(f"📋 总任务数: {total_combinations}")
+        
+        # 串行执行所有任务
+        processed = 0
+        for i, param, combo_id in combo_list:
+            logger.info(f"📌 开始执行任务 {i + 1}/{total_combinations}")
+            
+            # 使用指定的优化器运行回测，默认使用暴力搜索优化器
+            if optimizer is None:
+                optimizer = self.optimizers["暴力搜索"]
+            
+            try:
+                # 直接调用回测函数
+                result = optimizer.run_backtest(param)
+                all_results.append(result)
+                processed += 1
+                
+                # 计算进度
+                progress = (processed / total_combinations) * 100
+                
+                logger.info(f"✅ 已完成 {processed}/{total_combinations} 个组合 ({progress:.1f}%)")
+                
+                # 更新蓝图中的组合状态为completed
+                if blueprint and combo_id is not None:
+                    blueprint = self.blueprint_manager.update_combination_status(blueprint, combo_id, 'completed', result)
+                    # 保存更新后的蓝图
+                    self.blueprint_manager.save_blueprint(blueprint, os.path.join(self.current_dir, blueprint_file))
+            except Exception as e:
+                logger.error(f"❌ 组合 {i + 1}/{total_combinations} 处理失败: {e}")
+                
+                # 更新蓝图中的组合状态为failed
+                if blueprint and combo_id is not None:
+                    blueprint = self.blueprint_manager.update_combination_status(blueprint, combo_id, 'failed')
+                    self.blueprint_manager.save_blueprint(blueprint, os.path.join(self.current_dir, blueprint_file))
+                
+                # 添加失败结果
+                all_results.append({
+                    **param,
+                    'total_return': -100.0,
+                    'annual_return': -100.0,
+                    'max_drawdown': -100.0,
+                    'trades_count': 0
+                })
+                processed += 1
+        
+        self.end_time = datetime.now()
+        total_duration = self.end_time - self.start_time
+        
+        # 按总收益率降序排序
+        if all_results:
+            all_results.sort(key=lambda x: x['total_return'], reverse=True)
+            logger.info(f"\n{'='*50}")
+            logger.success(f"优化完成！总耗时: {total_duration.total_seconds():.2f} 秒")
+            logger.info(f"总共处理 {len(all_results)} 个参数组合")
+        
+        return all_results
+
 
 def main():
     """
@@ -796,6 +780,7 @@ def main():
     parser.add_argument('--weight-step', type=int, help='权重步长（%）')
     parser.add_argument('--dry-run', action='store_true', help='仅生成参数组合，不执行回测')
     parser.add_argument('--generate-blueprint', action='store_true', help='生成参数组合蓝图文件')
+    parser.add_argument('--use-parallel', action='store_true', help='使用并行模式执行回测，默认串行模式')
     
     args = parser.parse_args()
     
@@ -863,7 +848,8 @@ def main():
         stop_loss_min=args.stop_loss_min,
         stop_loss_max=args.stop_loss_max,
         stop_loss_step=args.stop_loss_step,
-        weight_step=args.weight_step
+        weight_step=args.weight_step,
+        use_parallel=args.use_parallel
     )
     
     # 保存结果到Excel和生成可视化

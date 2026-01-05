@@ -337,6 +337,7 @@ class GeneticOptimizer(BaseOptimizer):
         Returns:
             Dict[str, int]: 权重配置字典
         """
+        import random
         core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
         num_indicators = len(core_indicators)
         

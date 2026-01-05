@@ -30,7 +30,7 @@ class BacktestAdapter:
             Dict[str, Any]: 回测结果
         """
         # 导入回测执行模块
-        from backtest_modified.runner import run_optimizer_backtest
+        from .runner import run_optimizer_backtest
         
         # 转换参数格式为回测引擎所需格式
         backtest_config = BacktestAdapter._convert_params_to_backtest_config(params)

@@ -24,7 +24,7 @@ from algorithms.genetic import GeneticOptimizer
 from algorithms.particle_swarm import ParticleSwarmOptimizer
 
 # 导入结果处理器
-from optimizers.result_processor import ResultProcessor
+from core.result_processor import ResultProcessor
 
 # 导入参数工具
 from utils.parameter_utils import generate_param_hash, remove_duplicate_combinations

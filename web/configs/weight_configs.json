@@ -334,5 +334,29 @@
       "initial_capital": 60000,
       "commission_ratio": 0.0003
     }
+  },
+  "f46807c2-1cb9-4c26-bb44-b24c07236e7a": {
+    "id": "f46807c2-1cb9-4c26-bb44-b24c07236e7a",
+    "name": "20260105_最优组合",
+    "description": "由参数优化器生成的最优组合，生成时间：2026-01-05T15:31:14.683205",
+    "weights": {
+      "kdj_j": 17,
+      "trend": 17,
+      "volume": 17,
+      "fundamental": 17,
+      "position": 17,
+      "risk_reward": 17,
+      "deepv": -2
+    },
+    "sub_weights": {},
+    "created_at": "2026-01-05T15:31:14.683205",
+    "is_default": false,
+    "backtest_params": {
+      "stop_profit_ratio": 0.045,
+      "stop_loss_ratio": -0.023,
+      "backtest_days": 11,
+      "initial_capital": 60000,
+      "commission_ratio": 0.0003
+    }
   }
 }

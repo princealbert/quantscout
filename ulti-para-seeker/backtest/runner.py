@@ -43,7 +43,7 @@ class OptimizerBacktestRunner(UnifiedBacktestRunner):
         """
         # 调用统一回测引擎的初始化方法，禁用图表生成
         super().__init__(strategy_params=strategy_params, generate_charts=generate_charts)
-        print(f"🔄 使用统一回测引擎，图表生成: {'开启' if generate_charts else '关闭'}")
+        print(f"使用统一回测引擎，图表生成: {'开启' if generate_charts else '关闭'}")
 
 
 # 导出优化器专用的回测函数

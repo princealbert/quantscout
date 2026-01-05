@@ -120,10 +120,10 @@ class OptimizerBacktestStrategy(BaseBacktestStrategy):
         """
         current_date = context.now.strftime('%Y-%m-%d')
         if has_logger:
-            logger.info(f"\n📅 交易日: {current_date}")
+            logger.info(f"\n交易日: {current_date}")
             logger.debug(f"daily_strategy开始执行")
         else:
-            print(f"\n📅 交易日: {current_date}")
+            print(f"\n交易日: {current_date}")
             print(f"daily_strategy开始执行")
         
         # 调用父类的每日策略执行

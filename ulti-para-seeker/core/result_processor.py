@@ -58,8 +58,8 @@ class ResultProcessor:
                 result.get('stop_loss_ratio', 0.0),
                 tuple(sorted(result.get('weights_config', {}).items())),
                 tuple(sorted((main_ind, tuple(sorted(sub_config['sub_weights'].items()))) 
-                           for main_ind, sub_config in result.get('sub_weights_config', {}).items() 
-                           if isinstance(sub_config, dict) and 'sub_weights' in sub_config))
+                           for main_ind, sub_config in (result.get('sub_weights_config', {}) or {}).items() 
+                           if isinstance(sub_config, dict) and 'sub_weights' in sub_config and isinstance(sub_config['sub_weights'], dict)))
             )
             
             # 如果该结果已经处理过，则跳过

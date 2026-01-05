@@ -4,8 +4,8 @@
 参数优化器模块 - 提供参数优化相关的功能
 """
 
-# 从新的backtest_modified模块导入
-from .backtest_modified import (
+# 从backtest模块导入
+from .backtest import (
     OptimizerBacktestStrategy as BacktestStrategy,
     OptimizerBacktestRunner as BacktestRunner,
     run_optimizer_backtest as run_backtest,
@@ -14,8 +14,8 @@ from .backtest_modified import (
     OptimizerFrontendConfigLoader
 )
 
-# 从新的backtest_modified.config导入配置管理功能
-from .backtest_modified.config import get_current_config, update_backtest_config, validate_current_config
+# 从backtest.config导入配置管理功能
+from .backtest.config import get_current_config, update_backtest_config, validate_current_config
 from .token_manager import TokenManager, get_token_manager, get_token, validate_token, update_token, get_token_info
 
 __all__ = [

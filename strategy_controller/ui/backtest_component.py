@@ -67,13 +67,11 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
         )
     
     with col2:
-        initial_capital = st.number_input(
-            "初始资金（元）",
-            min_value=10000,
-            max_value=1000000,
-            value=100000,
-            step=10000,
-            help="回测的初始资金"
+        end_date = st.date_input(
+            "回测终止日期",
+            value=datetime.now(),
+            max_value=datetime.now(),
+            help="选择回测的终止日期，默认是当前日期"
         )
     
     with col3:
@@ -83,6 +81,16 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
             index=0,
             help="选择排名前几的股票进行回测"
         )
+    
+    # 初始资金配置
+    initial_capital = st.number_input(
+        "初始资金（元）",
+        min_value=10000,
+        max_value=1000000,
+        value=100000,
+        step=10000,
+        help="回测的初始资金"
+    )
     
     # 止盈止损配置
     col4, col5 = st.columns(2)
@@ -120,6 +128,7 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
                 weights_config,
                 sub_weights_config,
                 backtest_days,
+                end_date,
                 initial_capital,
                 stop_profit,
                 stop_loss
@@ -135,6 +144,7 @@ def _execute_backtest(stocks_to_backtest: List[Dict[str, Any]],
                      weights_config: Dict[str, int],
                      sub_weights_config: Dict[str, Any],
                      backtest_days: int,
+                     end_date: datetime,
                      initial_capital: float,
                      stop_profit: float,
                      stop_loss: float) -> None:
@@ -165,6 +175,7 @@ def _execute_backtest(stocks_to_backtest: List[Dict[str, Any]],
         print("="*80)
         print(f"[DEBUG] 策略类型: {strategy_type}")
         print(f"[DEBUG] 回测天数: {backtest_days}")
+        print(f"[DEBUG] 回测终止日期: {end_date}")
         print(f"[DEBUG] 初始资金: {initial_capital}")
         print(f"[DEBUG] 止盈比例: {stop_profit}%")
         print(f"[DEBUG] 止损比例: {stop_loss}%")
@@ -200,15 +211,16 @@ def _execute_backtest(stocks_to_backtest: List[Dict[str, Any]],
         # 直接使用备用方案（API暂时禁用）
         print("[DEBUG] 开始创建回测配置...")
         backtest_config = _create_backtest_config(
-            stocks_to_backtest,
-            strategy_type,
-            weights_config,
-            sub_weights_config,
-            backtest_days,
-            initial_capital,
-            stop_profit,
-            stop_loss
-        )
+                    stocks_to_backtest,
+                    strategy_type,
+                    weights_config,
+                    sub_weights_config,
+                    backtest_days,
+                    end_date,
+                    initial_capital,
+                    stop_profit,
+                    stop_loss
+                )
         
         # 检查配置创建结果
         print(f"[DEBUG] 回测配置创建完成，类型: {type(backtest_config)}")
@@ -251,6 +263,7 @@ def _create_backtest_config(stocks_to_backtest: List[Dict[str, Any]],
                            weights_config: Dict[str, int],
                            sub_weights_config: Dict[str, Any],
                            backtest_days: int,
+                           end_date: datetime,
                            initial_capital: float,
                            stop_profit: float,
                            stop_loss: float) -> Dict[str, Any]:
@@ -260,6 +273,7 @@ def _create_backtest_config(stocks_to_backtest: List[Dict[str, Any]],
         "backtest_info": {
             "strategy_type": strategy_type,
             "backtest_days": backtest_days,
+            "end_date": end_date.strftime("%Y-%m-%d"),
             "initial_capital": initial_capital,
             "stop_profit": stop_profit,
             "stop_loss": stop_loss,
@@ -330,6 +344,7 @@ def _generate_backtest_script(config: Dict[str, Any]) -> str:
         "backtest": {
             "initial_capital": config['backtest_info']['initial_capital'],
             "backtest_days": config['backtest_info']['backtest_days'],
+            "end_date": config['backtest_info'].get('end_date', datetime.now().strftime('%Y-%m-%d')),
             "max_stocks_to_backtest": config['backtest_info']['selected_stocks_count'],
             "strategy_id": f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         },

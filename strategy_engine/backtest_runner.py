@@ -683,6 +683,17 @@ with open(result_path, 'w', encoding='utf-8') as f:
                 with open(unique_report_file, 'r', encoding='utf-8') as f:
                     report_data = json.load(f)
                 print(f"成功生成回测报告: {unique_report_file}")
+                
+                # 添加回测起始日期和终止日期到报告数据中
+                if report_data:
+                    report_data['start_date'] = start_date.strftime('%Y-%m-%d')
+                    report_data['end_date'] = end_date.strftime('%Y-%m-%d')
+                    print(f"添加回测日期到报告: 开始日期={report_data['start_date']}, 结束日期={report_data['end_date']}")
+                    
+                    # 将更新后的报告数据写回文件
+                    with open(unique_report_file, 'w', encoding='utf-8') as f:
+                        json.dump(report_data, f, ensure_ascii=False, indent=2)
+                    print(f"已更新报告文件: {unique_report_file}")
             except Exception as e:
                 print(f"读取回测报告失败: {e}")
                 import traceback

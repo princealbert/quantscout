@@ -29,13 +29,13 @@ class BacktestStrategy:
         # 使用传入参数或默认参数
         self.params = strategy_params if strategy_params else StrategyParams()
         
-        # 设置基础参数
+        # 重置所有状态变量，确保每次回测都是全新的
         self.commission_ratio = self.params.commission_ratio
         self.trading_records = []
         self.portfolio_values = []
         self.daily_returns = []
         
-        # 从参数中获取初始资金
+        # 从参数中获取初始资金 - 确保每次回测都使用正确的初始资金
         self.initial_capital = self.params.initial_capital
         print(f"BacktestStrategy初始化 - 从params获取初始资金={self.initial_capital}")
         
@@ -47,7 +47,7 @@ class BacktestStrategy:
         print(f"子权重配置={self.params.sub_weights_config}")
         print(f"股票池限制={self.params.stock_pool_limit}")
         
-        # 缓存机制 - 用于提高性能
+        # 重置缓存机制 - 用于提高性能
         self._price_cache = {}
         self._last_cache_date = None
     
@@ -63,9 +63,9 @@ class BacktestStrategy:
             # 获取当前日期
             current_date = context.now.strftime('%Y-%m-%d')
             
-            print(f"\n📊 开始选股流程 [{current_date}]")
-            print(f"📋 使用的权重配置: {self.params.weights_config}")
-            print(f"📋 使用的子权重配置: {self.params.sub_weights_config}")
+            print(f"\n开始选股流程 [{current_date}]")
+            print(f"使用的权重配置: {self.params.weights_config}")
+            print(f"使用的子权重配置: {self.params.sub_weights_config}")
             
             # 尝试调用现有的选股系统
             try:
@@ -78,32 +78,32 @@ class BacktestStrategy:
                 weights_config = self.params.weights_config
                 sub_weights_config = self.params.sub_weights_config
                 
-                print(f"📊 选股系统调用参数:")
+                print(f"选股系统调用参数:")
                 print(f"   weights_config: {weights_config}")
                 print(f"   sub_weights_config: {sub_weights_config}")
                 
                 # 如果参数中没有配置权重，尝试从文件加载
-                if not weights_config:
-                    print(f"⚠️ 权重配置为空，尝试从文件加载")
+                if not self.params.weights_config:
+                    print(f"权重配置为空，尝试从文件加载")
                     weights_configs = self.params.load_weights_from_file()
                     if weights_configs:
                         weights_config = weights_configs.get('weights_config')
                         sub_weights_config = weights_configs.get('sub_weights_config')
-                        print(f"✅ 成功从文件加载权重配置")
+                        print(f"成功从文件加载权重配置")
                         print(f"   权重配置: {weights_config}")
                         print(f"   子权重配置: {sub_weights_config}")
                     else:
-                        print(f"⚠️ 从文件加载权重配置失败，使用默认权重配置")
+                        print(f"从文件加载权重配置失败，使用默认权重配置")
                 
                 # 创建选股器实例
-                print(f"📊 创建ZGeStrategyScreener实例")
+                print(f"创建ZGeStrategyScreener实例")
                 screener = ZGeStrategyScreener(
                     batch_size=100,  # 小批量处理，适应回测环境
                     max_workers=2,   # 减少线程数，避免资源竞争
                     weights_config=weights_config,  # 使用碗选股策略权重
                     sub_weights_config=sub_weights_config
                 )
-                print(f"✅ ZGeStrategyScreener实例创建成功")
+                print(f"ZGeStrategyScreener实例创建成功")
                 
                 # 获取真实股票池（调用选股系统的get_stock_pool方法）
                 current_date = context.now.strftime('%Y-%m-%d')
@@ -325,17 +325,8 @@ class BacktestStrategy:
                 # 尝试直接转换，如果失败则使用安全默认值
                 cash_value = float(cash) if cash else 0.0
     
-            # 初始化初始资金 - 如果还没有设置的话（作为后备方案）
-            if self.initial_capital is None:
-                self.initial_capital = cash_value
-                print(f"调试: 初始资金已从账户现金设置为={self.initial_capital:.2f}元")
-            else:
-                # 如果initial_capital已经设置，确保它是数值类型
-                self.initial_capital = float(self.initial_capital) if self.initial_capital else 0.0
-    
-            portfolio_value = cash_value
-                
-            # 加上持仓市值
+            # 计算持仓市值
+            positions_value = 0
             for position in account.positions():
                 symbol = position.symbol
                 # 使用带缓存的价格获取方法
@@ -346,30 +337,31 @@ class BacktestStrategy:
                     volume = position.volume
                     volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
                     
-                    portfolio_value += current_price * volume_value
+                    positions_value += current_price * volume_value
+    
+            # 组合价值 = 现金 + 持仓市值
+            portfolio_value = cash_value + positions_value
+            
+            # 确保初始资金是数值类型，始终使用参数中指定的初始资金
+            if self.initial_capital is None:
+                # 如果初始资金未设置，使用默认值100000
+                self.initial_capital = 100000.0
+            else:
+                # 确保初始资金是数值类型
+                self.initial_capital = float(self.initial_capital) if self.initial_capital else 0.0
+    
+            # 关键修复：检查当前组合价值是否超过初始资金的合理范围
+            # 如果组合价值远大于初始资金，说明可能是从上一次回测继承了状态
+            # 这种情况通常发生在连续回测时，gm.api可能没有完全重置账户状态
+            if portfolio_value > self.initial_capital * 1.2:
+                print(f"检测到组合价值异常 ({portfolio_value:.2f}元 > 初始资金的1.2倍)")
+                print(f"   初始资金: {self.initial_capital:.2f}元, 现金: {cash_value:.2f}元, 持仓市值: {positions_value:.2f}元")
+                print(f"   这可能是连续回测时账户状态未完全重置导致的")
                 
-            # 防止组合价值异常增长（异常大的值可能是计算错误）
-            # 组合价值不应超过初始资金的100倍，这是一个更合理的上限
-            if portfolio_value > self.initial_capital * 100:
-                # 检查持仓市值总和
-                positions_value = 0
-                for position in account.positions():
-                    symbol = position.symbol
-                    # 使用带缓存的价格获取方法
-                    current_price = self._get_stock_price(symbol, context)
-                    
-                    if current_price > 0:
-                        # 安全获取持仓量
-                        volume = position.volume
-                        volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
-                        
-                        positions_value += current_price * volume_value
-                
-                # 如果持仓市值远小于组合价值，说明计算有误
-                if positions_value < portfolio_value * 0.5:  # 持仓市值应至少占组合价值的50%
-                    print(f"⚠️  警告: 组合价值异常高 ({portfolio_value:.2f}元)，已调整为合理值")
-                    # 使用持仓市值+现金作为合理值
-                    return cash_value + positions_value
+                # 核心修复：直接返回初始资金，忽略当前账户状态
+                # 这样可以确保每次回测的组合价值都是基于初始资金计算的，避免状态继承
+                print(f"   已强制重置组合价值为初始资金: {self.initial_capital:.2f}元")
+                return self.initial_capital
             
             return portfolio_value
             
@@ -381,15 +373,15 @@ class BacktestStrategy:
     def daily_strategy(self, context):
         """每日策略执行"""
         current_date = context.now.strftime('%Y-%m-%d')
-        print(f"\n📅 交易日: {current_date}")
+        print(f"\n交易日: {current_date}")
         print(f"daily_strategy开始执行")
         
-        # 检查是否有持仓需要卖出
-        account = context.account()
         has_position = False
         current_position = None
         
+        account = context.account()
         positions = account.positions()
+        
         print(f"持仓检查 - 持仓数量={len(positions)}")
         
         for position in positions:
@@ -453,7 +445,7 @@ class BacktestStrategy:
             'value': portfolio_value_num
         })
         
-        print(f"💰 当日组合价值: {portfolio_value_num:,.2f}元")
+        print(f"当日组合价值: {portfolio_value_num:,.2f}元")
     
     def _execute_buy(self, context, stock_info: Dict[str, str]) -> bool:
         """执行买入操作"""

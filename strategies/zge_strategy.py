@@ -84,12 +84,12 @@ class ZGeStrategyScreener:
             # 限制结果数量
             final_results = all_stocks[:max_results]
             
-            print(f"✅ 并行筛选完成：从 {len(stock_pool)} 只股票中筛选出 {len(final_results)} 只符合条件的股票")
+            print(f"并行筛选完成：从 {len(stock_pool)} 只股票中筛选出 {len(final_results)} 只符合条件的股票")
             
             return final_results
             
         except Exception as e:
-            print(f"❌ 并行处理失败，回退到串行处理: {e}")
+            print(f"并行处理失败，回退到串行处理: {e}")
             
             # 回退到串行处理
             all_stocks = self.process_stock_batch(stock_pool, trade_date)
@@ -100,7 +100,7 @@ class ZGeStrategyScreener:
             # 限制结果数量
             final_results = all_stocks[:max_results]
             
-            print(f"✅ 串行筛选完成：从 {len(stock_pool)} 只股票中筛选出 {len(final_results)} 只符合条件的股票")
+            print(f"串行筛选完成：从 {len(stock_pool)} 只股票中筛选出 {len(final_results)} 只符合条件的股票")
             
             return final_results
     

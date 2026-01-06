@@ -60,8 +60,8 @@ class BacktestRunner:
         schedule(schedule_func=self.daily_strategy, date_rule='1d', time_rule='09:30:00')
         
         # 显示回测系统初始化信息
-        print("🎯 回测系统初始化完成")
-        print(f"📊 图表生成: {'开启' if self.generate_charts else '关闭'}")
+        print("回测系统初始化完成")
+        print(f"图表生成: {'开启' if self.generate_charts else '关闭'}")
     
     def daily_strategy(self, context):
         """每日策略执行 - 委托给策略实例执行"""
@@ -104,23 +104,23 @@ class BacktestRunner:
             # 保存报告文件
             with open(report_file, 'w', encoding='utf-8') as f:
                 json.dump(report_data, f, ensure_ascii=False, indent=2, default=str)
-            print(f"✅ 回测报告已生成: {report_file}")
+            print(f"回测报告已生成: {report_file}")
             
             # 打印完整的回测报告日志
             print("\n" + "="*80)
-            print(f"📊 完整回测报告")
+            print(f"完整回测报告")
             print("="*80)
-            print(f"📅 回测天数: {report_data.get('backtest_days', 0)}天")
-            print(f"💰 初始资金: {report_data.get('initial_capital', 0):,.2f}元")
-            print(f"📈 最终资金: {report_data.get('final_value', 0):,.2f}元")
-            print(f"📊 总收益率: {report_data.get('total_return', 0):.2f}%")
-            print(f"📉 年化收益率: {report_data.get('annual_return', 0):.2f}%")
-            print(f"💹 最大回撤: {report_data.get('max_drawdown', 0):.2f}%")
-            print(f"📊 夏普比率: {report_data.get('sharpe_ratio', 0):.2f}")
-            print(f"🎯 胜率: {report_data.get('win_rate', 0):.2f}%")
-            print(f"🔄 交易次数: {report_data.get('trades_count', 0)}次")
-            print(f"📈 止盈比例: {report_data.get('stop_profit_ratio', 0)*100:.2f}%")
-            print(f"📉 止损比例: {report_data.get('stop_loss_ratio', 0)*100:.2f}%")
+            print(f"回测天数: {report_data.get('backtest_days', 0)}天")
+            print(f"初始资金: {report_data.get('initial_capital', 0):,.2f}元")
+            print(f"最终资金: {report_data.get('final_value', 0):,.2f}元")
+            print(f"总收益率: {report_data.get('total_return', 0):.2f}%")
+            print(f"年化收益率: {report_data.get('annual_return', 0):.2f}%")
+            print(f"最大回撤: {report_data.get('max_drawdown', 0):.2f}%")
+            print(f"夏普比率: {report_data.get('sharpe_ratio', 0):.2f}")
+            print(f"胜率: {report_data.get('win_rate', 0):.2f}%")
+            print(f"交易次数: {report_data.get('trades_count', 0)}次")
+            print(f"止盈比例: {report_data.get('stop_profit_ratio', 0)*100:.2f}%")
+            print(f"止损比例: {report_data.get('stop_loss_ratio', 0)*100:.2f}%")
             print("="*80)
             
             # 如果需要生成图表（适合单次回测）
@@ -129,7 +129,7 @@ class BacktestRunner:
                 try:
                     self._generate_charts(report_data)
                 except Exception as chart_error:
-                    print(f"⚠️ 图表生成失败，已跳过: {chart_error}")
+                    print(f"图表生成失败，已跳过: {chart_error}")
                     import traceback
                     traceback.print_exc()
                 
@@ -159,9 +159,9 @@ class BacktestRunner:
                 # 生成交易分析图表（仅显示，不保存）
                 analyzer.plot_trading_analysis()
                 
-                print(f"✅ 回测图表已生成")
+                print(f"回测图表已生成")
         except ImportError as e:
-            print(f"⚠️ 图表生成器导入失败，跳过图表生成: {e}")
+            print(f"图表生成器导入失败，跳过图表生成: {e}")
         except Exception as e:
             print(f"生成图表失败: {e}")
             import traceback
@@ -182,7 +182,115 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
         Dict[str, Any]: 回测报告数据
     """
     import sys
+    import json
+    import subprocess
+    import tempfile
+    import os
     from datetime import datetime, timedelta
+    
+    # 对于循环模式，使用进程隔离的方式运行回测，确保完全的状态隔离
+    if is_cycle_mode:
+        print("循环模式 - 使用进程隔离运行回测")
+        
+        # 获取当前项目根目录的绝对路径
+        current_script_path = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(current_script_path))
+        
+        # 创建临时配置文件，保存当前回测的配置
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
+            temp_config = {
+                'config': config,
+                'config_path': config_path,
+                'generate_charts': generate_charts,
+                'is_cycle_mode': False,  # 子进程中不需要再使用循环模式
+                'project_root': project_root  # 将项目根目录传递给子进程
+            }
+            json.dump(temp_config, f, ensure_ascii=False, indent=2)
+            temp_config_path = f.name
+        
+        try:
+            # 构建子进程命令 - 完整的Python脚本，而不是使用-c选项
+            python_script = f"""
+import sys
+import os
+import json
+
+# 从临时文件加载配置
+with open(r'{temp_config_path}', 'r', encoding='utf-8') as f:
+    temp_config = json.load(f)
+
+# 添加项目根目录到sys.path
+project_root = temp_config['project_root']
+sys.path.insert(0, project_root)
+
+# 导入并运行回测
+from strategy_engine.backtest_runner import run_backtest as inner_run_backtest
+report_data = inner_run_backtest(
+    config=temp_config['config'],
+    config_path=temp_config['config_path'],
+    generate_charts=temp_config['generate_charts'],
+    is_cycle_mode=temp_config['is_cycle_mode']
+)
+
+# 将结果保存到临时文件
+result_path = r'{temp_config_path}' + '.result'
+with open(result_path, 'w', encoding='utf-8') as f:
+    json.dump(report_data, f, ensure_ascii=False, indent=2)
+"""
+            
+            # 创建临时Python脚本文件
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+                f.write(python_script)
+                temp_script_path = f.name
+            
+            # 执行子进程
+            print(f"启动回测子进程...")
+            result = subprocess.run(
+                [sys.executable, temp_script_path],
+                capture_output=True,
+                text=True
+            )
+            
+            # 打印子进程的输出
+            if result.stdout:
+                print(f"子进程输出:\n{result.stdout}")
+            if result.stderr:
+                print(f"子进程错误:\n{result.stderr}")
+            
+            # 读取回测结果
+            result_path = temp_config_path + '.result'
+            if os.path.exists(result_path):
+                with open(result_path, 'r', encoding='utf-8') as f:
+                    report_data = json.load(f)
+                
+                # 删除临时文件
+                os.unlink(temp_config_path)
+                os.unlink(temp_script_path)
+                os.unlink(result_path)
+                
+                return report_data
+            else:
+                print(f"回测结果文件不存在: {result_path}")
+                # 删除临时文件
+                os.unlink(temp_config_path)
+                os.unlink(temp_script_path)
+                return None
+        except Exception as e:
+            print(f"进程隔离回测失败: {e}")
+            import traceback
+            traceback.print_exc()
+            # 删除临时文件
+            if os.path.exists(temp_config_path):
+                os.unlink(temp_config_path)
+            temp_script_path = temp_config_path + '.py'
+            if os.path.exists(temp_script_path):
+                os.unlink(temp_script_path)
+            result_path = temp_config_path + '.result'
+            if os.path.exists(result_path):
+                os.unlink(result_path)
+            return None
+    
+    # 非循环模式，使用原有方式运行回测
     params = None
     
     # 检查是否提供了前端配置文件路径
@@ -207,21 +315,21 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                 # 验证前端配置
                 validation_result = FrontendConfigLoader.validate_frontend_config(frontend_config)
                 if validation_result['is_valid']:
-                    print("✅ 前端配置验证通过")
+                    print("前端配置验证通过")
                     
                     # 转换为策略参数格式
                     strategy_params = FrontendConfigLoader.convert_to_strategy_params(frontend_config)
                     
                     # 显示配置信息
-                    print("🎯 z哥选股策略回测系统 - 前端配置模式")
+                    print("z哥选股策略回测系统 - 前端配置模式")
                     print("="*50)
-                    print(f"💰 初始资金: {strategy_params.get('initial_capital', 100000):,}元")
-                    print(f"📊 佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}‱")
-                    print(f"📈 止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
-                    print(f"📉 止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
-                    print(f"📅 回测天数: {strategy_params.get('backtest_days', 90)}天")
-                    print(f"🎯 策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
-                    print(f"📈 回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
+                    print(f"初始资金: {strategy_params.get('initial_capital', 100000):,}元")
+                    print(f"佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}千分")
+                    print(f"止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
+                    print(f"止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
+                    print(f"回测天数: {strategy_params.get('backtest_days', 90)}天")
+                    print(f"策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
+                    print(f"回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
                     print("="*50)
                     
                     # 从前端配置中获取回测结束日期和天数
@@ -254,12 +362,12 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                     # 直接创建策略参数实例，不使用全局变量
                     params = StrategyParams(**strategy_params)
                 else:
-                    print("❌ 前端配置验证失败:")
+                    print("前端配置验证失败:")
                     for issue in validation_result['issues']:
                         print(f"   - {issue}")
                     return
         except Exception as e:
-            print(f"❌ 加载前端配置失败: {e}")
+            print(f"加载前端配置失败: {e}")
             return
     elif config:
         # 使用直接传入的配置参数
@@ -282,23 +390,23 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                 # 从strategy_params中提取实际参数
                 strategy_params = config['strategy_params']
                 
-                print("🎯 z哥选股策略回测系统 - 参数优化器模式")
+                print("z哥选股策略回测系统 - 参数优化器模式")
                 print("="*50)
-                print(f"💰 初始资金: {strategy_params.get('initial_capital', 100000):,}元")
-                print(f"📊 佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}‱")
-                print(f"📈 止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
-                print(f"📉 止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
-                print(f"📅 回测天数: {strategy_params.get('backtest_days', 90)}天")
-                print(f"🎯 策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
-                print(f"📈 回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
+                print(f"初始资金: {strategy_params.get('initial_capital', 100000):,}元")
+                print(f"佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}千分")
+                print(f"止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
+                print(f"止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
+                print(f"回测天数: {strategy_params.get('backtest_days', 90)}天")
+                print(f"策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
+                print(f"回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
                 
                 # 显示权重配置信息
                 weights_config = strategy_params.get('weights_config', {})
                 sub_weights_config = strategy_params.get('sub_weights_config', {})
                 if weights_config:
-                    print(f"⚖️ 权重配置: {weights_config}")
+                    print(f"权重配置: {weights_config}")
                 if sub_weights_config:
-                    print(f"🔄 子权重配置: {sub_weights_config}")
+                    print(f"子权重配置: {sub_weights_config}")
                 print("="*50)
                 
                 # 直接创建策略参数实例，不使用全局变量
@@ -309,73 +417,73 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                 backtest_days = strategy_params.get('backtest_days', 90)
             # 检查是否为嵌套配置结构（来自前端配置）
             elif 'backtest' in config and 'strategy' in config:
-                # 解析嵌套配置结构，类似于前端配置文件
-                print("🎯 z哥选股策略回测系统 - 嵌套配置模式")
-                print("="*50)
-                
-                # 提取backtest部分参数
-                backtest_config = config['backtest']
-                strategy_config = config['strategy']
-                
-                # 构建策略参数字典
-                strategy_params = {
-                    'initial_capital': backtest_config.get('initial_capital'),
-                    'commission_ratio': backtest_config.get('commission_ratio'),
-                    'backtest_days': backtest_config.get('backtest_days'),
-                    'strategy_id': backtest_config.get('strategy_id'),
-                    'max_stocks_to_backtest': backtest_config.get('max_stocks_to_backtest'),
-                    'stop_profit_ratio': strategy_config.get('stop_profit_ratio'),
-                    'stop_loss_ratio': strategy_config.get('stop_loss_ratio'),
-                    'weights_config': strategy_config.get('weights_config'),
-                    'sub_weights_config': strategy_config.get('sub_weights_config'),
-                    'strategy_type': strategy_config.get('strategy_type')
-                }
-                
-                # 显示配置信息
-                print(f"💰 初始资金: {strategy_params.get('initial_capital', 100000):,}元")
-                print(f"📊 佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}‱")
-                print(f"📈 止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
-                print(f"📉 止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
-                print(f"📅 回测天数: {strategy_params.get('backtest_days', 90)}天")
-                print(f"🎯 策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
-                print(f"📈 回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
-                
-                # 显示权重配置信息
-                weights_config = strategy_params.get('weights_config', {})
-                sub_weights_config = strategy_params.get('sub_weights_config', {})
-                if weights_config:
-                    print(f"⚖️ 权重配置: {weights_config}")
-                if sub_weights_config:
-                    print(f"🔄 子权重配置: {sub_weights_config}")
-                print("="*50)
-                
-                # 直接创建策略参数实例，不使用全局变量
-                params = StrategyParams(**strategy_params)
-                
-                # 从配置中获取回测结束日期和天数
-                end_date_str = backtest_config.get('end_date', '')
-                backtest_days = backtest_config.get('backtest_days', 90)
+                    # 解析嵌套配置结构，类似于前端配置文件
+                    print("z哥选股策略回测系统 - 嵌套配置模式")
+                    print("="*50)
+                    
+                    # 提取backtest部分参数
+                    backtest_config = config['backtest']
+                    strategy_config = config['strategy']
+                    
+                    # 构建策略参数字典
+                    strategy_params = {
+                        'initial_capital': backtest_config.get('initial_capital', 100000),
+                        'commission_ratio': backtest_config.get('commission_ratio', 0.0003),
+                        'backtest_days': backtest_config.get('backtest_days', 90),
+                        'strategy_id': backtest_config.get('strategy_id', 'test_strategy'),
+                        'max_stocks_to_backtest': backtest_config.get('max_stocks_to_backtest', 1),
+                        'stop_profit_ratio': strategy_config.get('stop_profit_ratio', 0.03),
+                        'stop_loss_ratio': strategy_config.get('stop_loss_ratio', -0.02),
+                        'weights_config': strategy_config.get('weights_config', {}),
+                        'sub_weights_config': strategy_config.get('sub_weights_config', {}),
+                        'strategy_type': strategy_config.get('strategy_type', 'test')
+                    }
+                    
+                    # 显示配置信息
+                    print(f"初始资金: {strategy_params.get('initial_capital', 100000):,}元")
+                    print(f"佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}千分")
+                    print(f"止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
+                    print(f"止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
+                    print(f"回测天数: {strategy_params.get('backtest_days', 90)}天")
+                    print(f"策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
+                    print(f"回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
+                    
+                    # 显示权重配置信息
+                    weights_config = strategy_params.get('weights_config', {})
+                    sub_weights_config = strategy_params.get('sub_weights_config', {})
+                    if weights_config:
+                        print(f"权重配置: {weights_config}")
+                    if sub_weights_config:
+                        print(f"子权重配置: {sub_weights_config}")
+                    print("="*50)
+                    
+                    # 直接创建策略参数实例，不使用全局变量
+                    params = StrategyParams(**strategy_params)
+                    
+                    # 从配置中获取回测结束日期和天数
+                    end_date_str = backtest_config.get('end_date', '')
+                    backtest_days = backtest_config.get('backtest_days', 90)
             else:
                 # 非嵌套配置结构，直接使用
                 params = StrategyParams(**config)
                 
-                print("🎯 z哥选股策略回测系统 - 直接配置模式")
+                print("z哥选股策略回测系统 - 直接配置模式")
                 print("="*50)
-                print(f"💰 初始资金: {config.get('initial_capital', 100000):,}元")
-                print(f"📊 佣金比例: {config.get('commission_ratio', 0.0003)*10000}‱")
-                print(f"📈 止盈比例: {config.get('stop_profit_ratio', 0.03)*100:.2f}%")
-                print(f"📉 止损比例: {config.get('stop_loss_ratio', -0.02)*100:.2f}%")
-                print(f"📅 回测天数: {config.get('backtest_days', 90)}天")
-                print(f"🎯 策略ID: {config.get('strategy_id', 'zge_strategy')}")
-                print(f"📈 回测股票数量: {config.get('max_stocks_to_backtest', 1)}只")
+                print(f"初始资金: {config.get('initial_capital', 100000):,}元")
+                print(f"佣金比例: {config.get('commission_ratio', 0.0003)*10000}千分")
+                print(f"止盈比例: {config.get('stop_profit_ratio', 0.03)*100:.2f}%")
+                print(f"止损比例: {config.get('stop_loss_ratio', -0.02)*100:.2f}%")
+                print(f"回测天数: {config.get('backtest_days', 90)}天")
+                print(f"策略ID: {config.get('strategy_id', 'zge_strategy')}")
+                print(f"回测股票数量: {config.get('max_stocks_to_backtest', 1)}只")
                 
                 # 显示权重配置信息
                 weights_config = config.get('weights_config', {})
                 sub_weights_config = config.get('sub_weights_config', {})
                 if weights_config:
-                    print(f"⚖️ 权重配置: {weights_config}")
+                    print(f"权重配置: {weights_config}")
                 if sub_weights_config:
-                    print(f"🔄 子权重配置: {sub_weights_config}")
+                    print(f"子权重配置: {sub_weights_config}")
                 print("="*50)
                 
                 # 从配置中获取回测结束日期和天数
@@ -393,7 +501,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
             start_date = end_date - timedelta(days=backtest_days)
             
         except Exception as e:
-            print(f"❌ 设置策略参数失败: {e}")
+            print(f"错误: 设置策略参数失败: {e}")
             import traceback
             traceback.print_exc()
             return
@@ -415,16 +523,16 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
             # 直接创建默认参数，不使用全局变量
             params = StrategyParams()
             
-            print("🎯 z哥选股策略回测系统 - 参数化配置")
+            print("z哥选股策略回测系统 - 参数化配置")
             print("="*50)
-            print(f"💰 初始资金: {params.initial_capital:,}元")
-            print(f"📊 佣金比例: {params.commission_ratio*10000}‱")
-            print(f"📈 止盈比例: {params.stop_profit_ratio*100:.2f}%")
-            print(f"📉 止损比例: {params.stop_loss_ratio*100:.2f}%")
-            print(f"📅 回测天数: {params.backtest_days}天")
-            print(f"🎯 策略ID: {params.strategy_id}")
-            print(f"📊 股票池限制: {params.stock_pool_limit}只")
-            print(f"📈 回测股票数量: {params.max_stocks_to_backtest}只")
+            print(f"初始资金: {params.initial_capital:,}元")
+            print(f"佣金比例: {params.commission_ratio*10000}千分")
+            print(f"止盈比例: {params.stop_profit_ratio*100:.2f}%")
+            print(f"止损比例: {params.stop_loss_ratio*100:.2f}%")
+            print(f"回测天数: {params.backtest_days}天")
+            print(f"策略ID: {params.strategy_id}")
+            print(f"股票池限制: {params.stock_pool_limit}只")
+            print(f"回测股票数量: {params.max_stocks_to_backtest}只")
             print("="*50)
             
             # 计算回测期间
@@ -432,7 +540,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
             start_date = end_date - timedelta(days=params.backtest_days)
             
         except ImportError as e:
-            print(f"⚠️ 参数配置系统导入失败，使用默认参数: {e}")
+            print(f"参数配置系统导入失败，使用默认参数: {e}")
             # 使用默认参数作为后备
             try:
                 try:
@@ -444,7 +552,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                 end_date = datetime.now()
                 start_date = end_date - timedelta(days=params.backtest_days)
             except Exception as e2:
-                print(f"❌ 获取默认参数失败: {e2}")
+                print(f"获取默认参数失败: {e2}")
                 return
     
     # 使用token管理器获取token
@@ -461,9 +569,9 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
                 from token_manager import get_token
         actual_token = get_token()
-        print(f"✅ Token验证通过，长度: {len(actual_token)}位")
+        print(f"Token验证通过，长度: {len(actual_token)}位")
     except Exception as e:
-        print(f"❌ Token配置错误: {e}")
+        print(f"Token配置错误: {e}")
         print("请检查token_config.py文件中的TOKEN配置")
         return
     
@@ -541,7 +649,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
         # 保存配置到文件
         with open(fixed_config_path, 'w', encoding='utf-8') as f:
             json.dump(full_config, f, ensure_ascii=False, indent=2)
-        print(f"✅ 已更新固定配置文件: {fixed_config_path}")
+        print(f"已更新固定配置文件: {fixed_config_path}")
         
         # 每次回测前动态导入gm.api，确保使用全新的模块状态
         if 'gm' in sys.modules:
@@ -552,43 +660,20 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
         # 动态导入gm.api
         from gm.api import run, MODE_BACKTEST, ADJUST_PREV
         
-        if is_cycle_mode:
-            # 循环模式：保存原始命令行参数并清理，避免gm.api.run()重新解析时出错
-            original_argv = sys.argv.copy()
-            sys.argv = ['backtest_runner.py']  # 只保留文件名，不包含任何命令行参数
-            
-            try:
-                run(
-                    strategy_id=params.strategy_id,
-                    filename='main.py',  # 直接使用'main.py'，确保当前工作目录正确
-                    mode=MODE_BACKTEST,
-                    token=actual_token,
-                    backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),
-                    backtest_end_time=end_date.strftime('%Y-%m-%d 15:00:00'),
-                    backtest_adjust=ADJUST_PREV,
-                    backtest_initial_cash=params.initial_capital,
-                    backtest_commission_ratio=params.commission_ratio,
-                    backtest_slippage_ratio=0.0001,
-                    backtest_check_cache=0  # 禁用回测缓存，确保每次回测都重新计算
-                )
-            finally:
-                # 恢复原始命令行参数
-                sys.argv = original_argv
-        else:
-            # 单次回测模式：直接调用run()，不需要保存和恢复命令行参数
-            run(
-                strategy_id=params.strategy_id,
-                filename='main.py',
-                mode=MODE_BACKTEST,
-                token=actual_token,
-                backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),
-                backtest_end_time=end_date.strftime('%Y-%m-%d 15:00:00'),
-                backtest_adjust=ADJUST_PREV,
-                backtest_initial_cash=params.initial_capital,
-                backtest_commission_ratio=params.commission_ratio,
-                backtest_slippage_ratio=0.0001,
-                backtest_check_cache=0  # 禁用回测缓存，确保每次回测都重新计算
-            )
+        # 单次回测模式：直接调用run()
+        run(
+            strategy_id=params.strategy_id,
+            filename='main.py',
+            mode=MODE_BACKTEST,
+            token=actual_token,
+            backtest_start_time=start_date.strftime('%Y-%m-%d 09:30:00'),
+            backtest_end_time=end_date.strftime('%Y-%m-%d 15:00:00'),
+            backtest_adjust=ADJUST_PREV,
+            backtest_initial_cash=params.initial_capital,
+            backtest_commission_ratio=params.commission_ratio,
+            backtest_slippage_ratio=0.0001,
+            backtest_check_cache=0  # 禁用回测缓存，确保每次回测都重新计算
+        )
         
         # 回测完成后，读取报告文件
         report_data = None
@@ -597,17 +682,17 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
                 import json
                 with open(unique_report_file, 'r', encoding='utf-8') as f:
                     report_data = json.load(f)
-                print(f"✅ 成功生成回测报告: {unique_report_file}")
+                print(f"成功生成回测报告: {unique_report_file}")
             except Exception as e:
-                print(f"⚠️ 读取回测报告失败: {e}")
+                print(f"读取回测报告失败: {e}")
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"❌ 回测报告文件不存在: {unique_report_file}")
+            print(f"回测报告文件不存在: {unique_report_file}")
         
         return report_data
     except Exception as e:
-        print(f"❌ 回测执行失败: {e}")
+        print(f"回测执行失败: {e}")
         import traceback
         traceback.print_exc()
         return None

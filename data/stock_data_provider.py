@@ -161,9 +161,9 @@ class StockDataProvider:
                     # 显示通过筛选的股票信息（前10只）
                     if len(filtered_symbols) <= 10:
                         sec_name = basic_info.get('sec_name', symbol)
-                        print(f"✅ {symbol}: {sec_name}, PE={pe:.1f}, 流通市值={a_mv/1e8:.1f}亿")
-            
-            print(f"✅ 第一步完成：{len(filtered_symbols)}/{len(symbols)} 只股票通过")
+                        print(f"{symbol}: {sec_name}, PE={pe:.1f}, 流通市值={a_mv/1e8:.1f}亿")
+        
+            print(f"第一步完成：{len(filtered_symbols)}/{len(symbols)} 只股票通过")
             
             # 如果仍然没有股票通过，返回原始股票池（跳过第一步筛选）
             if not filtered_symbols:

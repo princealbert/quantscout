@@ -46,16 +46,16 @@ class TokenManager:
                     
                     if hasattr(token_config, 'TOKEN') and token_config.TOKEN:
                         self._token = token_config.TOKEN
-                        print(f"✅ Token配置已加载: {config_path}")
+                        print(f"Token配置已加载: {config_path}")
                         return
                         
                 except Exception as e:
-                    print(f"❌ 加载token配置失败: {config_path} - {e}")
+                    print(f"加载token配置失败: {config_path} - {e}")
                     continue
         
         # 如果没有找到有效token
         self._token = None
-        print("⚠️  未找到有效的token配置")
+        print("未找到有效的token配置")
     
     def get_token(self) -> str:
         """
@@ -84,7 +84,7 @@ class TokenManager:
         
         # 检查token格式（基本验证）
         if len(self._token) != 40:  # 假设token长度为40字符
-            print(f"⚠️  Token格式可能不正确，长度: {len(self._token)}")
+            print(f"Token格式可能不正确，长度: {len(self._token)}")
             return True  # 仍然返回True，因为可能其他格式也有效
         
         return True
@@ -115,7 +115,7 @@ class TokenManager:
             bool: 更新是否成功
         """
         if not new_token or len(new_token) < 10:
-            print("❌ Token长度过短，更新失败")
+            print("Token长度过短，更新失败")
             return False
         
         # 更新内存中的token
@@ -137,10 +137,10 @@ API Token配置
 # 获取方式：打开东财掘金终端 -> 系统设置 -> 密钥管理 -> 生成token
 TOKEN = "{new_token}"
 ''')
-                print(f"✅ Token已更新: {primary_config}")
+                print(f"Token已更新: {primary_config}")
                 return True
             except Exception as e:
-                print(f"❌ 更新token配置文件失败: {e}")
+                print(f"更新token配置文件失败: {e}")
         
         return False
 

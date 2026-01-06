@@ -52,8 +52,8 @@ class BruteForceOptimizer(BaseOptimizer):
         if test_mode:
             logger.info("[测试模式] 使用最小参数范围")
             param_space = {
-                'stop_profit_ratio': {'min': 0.02, 'max': 0.05, 'step': 0.01},
-                'stop_loss_ratio': {'min': -0.03, 'max': -0.01, 'step': 0.01},
+                'stop_profit_ratio': {'min': 2, 'max': 5, 'step': 1},
+                'stop_loss_ratio': {'min': -3, 'max': -1, 'step': 1},
                 'weight_step': 50,
                 'test_mode': True,
                 'end_date': end_date,
@@ -65,8 +65,8 @@ class BruteForceOptimizer(BaseOptimizer):
             logger.info("- 权重配置: 总和100，步长10%")
             
             param_space = {
-                'stop_profit_ratio': {'min': 0.03, 'max': 0.15, 'step': 0.02},
-                'stop_loss_ratio': {'min': -0.05, 'max': -0.01, 'step': 0.01},
+                'stop_profit_ratio': {'min': 3, 'max': 15, 'step': 2},
+                'stop_loss_ratio': {'min': -5, 'max': -1, 'step': 1},
                 'weight_step': 10,
                 'test_mode': False,
                 'end_date': end_date,
@@ -92,11 +92,11 @@ class BruteForceOptimizer(BaseOptimizer):
         # 生成参数范围
         param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days)
         
-        # 生成止盈止损比例列表
-        stop_profit_values = [round(param_space['stop_profit_ratio']['min'] + i * param_space['stop_profit_ratio']['step'], 3)
+        # 生成止盈止损比例列表（百分位格式，如 3 表示 3%）
+        stop_profit_values = [param_space['stop_profit_ratio']['min'] + i * param_space['stop_profit_ratio']['step']
                             for i in range(int((param_space['stop_profit_ratio']['max'] - param_space['stop_profit_ratio']['min']) / param_space['stop_profit_ratio']['step']) + 1)]
         
-        stop_loss_values = [round(param_space['stop_loss_ratio']['min'] + i * param_space['stop_loss_ratio']['step'], 3)
+        stop_loss_values = [param_space['stop_loss_ratio']['min'] + i * param_space['stop_loss_ratio']['step']
                           for i in range(int((param_space['stop_loss_ratio']['max'] - param_space['stop_loss_ratio']['min']) / param_space['stop_loss_ratio']['step']) + 1)]
         
         # 生成权重配置

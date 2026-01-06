@@ -138,135 +138,6 @@
     "created_at": "2025-12-31T16:13:17.749871",
     "is_default": false
   },
-  "7c52172b-9928-4c51-88c6-74d3046cfae8": {
-    "id": "7c52172b-9928-4c51-88c6-74d3046cfae8",
-    "name": "深V信号",
-    "description": "",
-    "weights": {
-      "kdj_j": 0,
-      "trend": 0,
-      "deepv": 100,
-      "volume": 0,
-      "fundamental": 0,
-      "position": 0,
-      "risk_reward": 0
-    },
-    "sub_weights": {
-      "kdj_j": {
-        "total_weight": 100,
-        "sub_weights": {
-          "j_0_20": 5,
-          "j_-10_0": 10,
-          "j_-20_-10": 20,
-          "j_-30_-20": 40,
-          "j_below_-30": 25
-        }
-      },
-      "trend": {
-        "total_weight": 100,
-        "sub_weights": {
-          "up_trend": 50,
-          "volume_price_rise": 20,
-          "volume_contraction": 30
-        }
-      },
-      "volume": {
-        "total_weight": 100,
-        "sub_weights": {
-          "big_volume": 40,
-          "volume_anomaly": 30,
-          "volume_breathing": 30
-        }
-      },
-      "fundamental": {
-        "total_weight": 100,
-        "sub_weights": {
-          "pe_positive": 10,
-          "pe_low": 20,
-          "market_cap": 50,
-          "volume_threshold": 20
-        }
-      },
-      "position": {
-        "total_weight": 100,
-        "sub_weights": {
-          "above_white": 40,
-          "between_lines": 60,
-          "below_yellow": 0
-        }
-      }
-    },
-    "created_at": "2026-01-01T03:37:28.656542",
-    "is_default": false
-  },
-  "ai_recommended": {
-    "id": "ai_recommended",
-    "name": "AI推荐",
-    "description": "进一步优化的超跌反弹策略，增加盈亏比和位置权重，重点关注碗里和白线上位置，旨在提高回测收益率",
-    "weights": {
-      "kdj_j": 8,
-      "trend": 25,
-      "deepv": 2,
-      "volume": 15,
-      "fundamental": 15,
-      "position": 15,
-      "risk_reward": 20
-    },
-    "sub_weights": {
-      "kdj_j": {
-        "total_weight": 100,
-        "sub_weights": {
-          "j_0_20": 0,
-          "j_-10_0": 5,
-          "j_-20_-10": 20,
-          "j_-30_-20": 35,
-          "j_below_-30": 40
-        }
-      },
-      "trend": {
-        "total_weight": 100,
-        "sub_weights": {
-          "up_trend": 45,
-          "volume_price_rise": 50,
-          "volume_contraction": 5
-        }
-      },
-      "volume": {
-        "total_weight": 100,
-        "sub_weights": {
-          "big_volume": 30,
-          "volume_anomaly": 20,
-          "volume_breathing": 50
-        }
-      },
-      "fundamental": {
-        "total_weight": 100,
-        "sub_weights": {
-          "pe_positive": 50,
-          "pe_low": 30,
-          "market_cap": 15,
-          "volume_threshold": 5
-        }
-      },
-      "position": {
-        "total_weight": 100,
-        "sub_weights": {
-          "above_white": 45,
-          "between_lines": 50,
-          "below_yellow": 5
-        }
-      }
-    },
-    "created_at": "2026-01-02T13:00:00.000000",
-    "is_default": false,
-    "backtest_params": {
-      "stop_profit_ratio": 0.06,
-      "stop_loss_ratio": -0.025,
-      "backtest_days": 90,
-      "initial_capital": 60000,
-      "commission_ratio": 0.0003
-    }
-  },
   "5aac9da1-33b3-46df-ba3a-8ece85a9291e": {
     "id": "5aac9da1-33b3-46df-ba3a-8ece85a9291e",
     "name": "20260102_最优组合",
@@ -423,6 +294,69 @@
       "stop_profit_ratio": 0.08900000000000001,
       "stop_loss_ratio": -0.049,
       "backtest_days": 15,
+      "initial_capital": 60000,
+      "commission_ratio": 0.0003
+    }
+  },
+  "b8823329-b67e-49ed-ad35-69916bb8e9bc": {
+    "id": "b8823329-b67e-49ed-ad35-69916bb8e9bc",
+    "name": "20260106_方案_87",
+    "description": "由参数优化器生成的方案，方案ID: 87，生成时间：2026-01-06T17:14:25.569010",
+    "weights": {
+      "kdj_j": 45,
+      "trend": 5,
+      "volume": 15,
+      "fundamental": 5,
+      "position": 5,
+      "risk_reward": 25,
+      "deepv": 0
+    },
+    "sub_weights": {
+      "kdj_j": {
+        "sub_weights": {
+          "j_0_20": 20,
+          "j_-10_0": 65,
+          "j_-20_-10": 5,
+          "j_-30_-20": 5,
+          "j_below_-30": 5
+        }
+      },
+      "position": {
+        "sub_weights": {
+          "above_white": 10,
+          "between_lines": 25,
+          "below_yellow": 65
+        }
+      },
+      "volume": {
+        "sub_weights": {
+          "big_volume": 35,
+          "volume_anomaly": 5,
+          "volume_breathing": 60
+        }
+      },
+      "fundamental": {
+        "sub_weights": {
+          "pe_positive": 35,
+          "pe_low": 45,
+          "market_cap": 10,
+          "volume_threshold": 10
+        }
+      },
+      "trend": {
+        "sub_weights": {
+          "up_trend": 5,
+          "volume_price_rise": 25,
+          "volume_contraction": 70
+        }
+      }
+    },
+    "created_at": "2026-01-06T17:14:25.569010",
+    "is_default": false,
+    "backtest_params": {
+      "stop_profit_ratio": 0.117,
+      "stop_loss_ratio": -0.013,
+      "backtest_days": 90,
       "initial_capital": 60000,
       "commission_ratio": 0.0003
     }

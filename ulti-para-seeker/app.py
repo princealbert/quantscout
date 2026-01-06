@@ -765,6 +765,16 @@ if st.button("查看回测结果") or show_results:
                 # 显示表格
                 st.dataframe(df)
                 
+                # 下载CSV功能
+                csv = df.to_csv(index=False, encoding='utf-8-sig')
+                st.download_button(
+                    label="📥 下载CSV",
+                    data=csv,
+                    file_name=f"backtest_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+                
                 # 显示图表
                 st.subheader("收益率分布")
                 if '总收益率(%)' in df.columns:
@@ -886,7 +896,7 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
     weight_columns = st.session_state['weight_columns']
     sub_weight_columns = st.session_state['sub_weight_columns']
     
-    def save_to_strategy_controller():
+    def save_to_strategy_controller(result_data=None, blueprint_id=None):
         # 导入logger
         from utils.logger import logger
         
@@ -929,67 +939,127 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
             config_id = str(uuid.uuid4())
             logger.info(f"生成配置ID: {config_id}")
             
-            # 构建权重配置（转换为整数）
-            weights = {}
-            logger.info("开始构建权重配置")
-            for col in weight_columns:
-                indicator_name = col.replace('权重_', '')
-                weight_value = int(best_result[col])
-                weights[indicator_name] = weight_value
-                logger.info(f"权重: {indicator_name} = {weight_value}")
-            
-            # 构建子权重配置
-            sub_weights = {}
-            logger.info("开始构建子权重配置")
-            for col in sub_weight_columns:
-                # 解析子权重字段名，格式为：子权重_指标_子指标
-                parts = col.split('_')
-                if len(parts) < 4:
-                    logger.warning(f"无效的子权重字段名: {col}")
-                    continue
+            if result_data is not None:
+                # 使用提供的结果数据（最优策略）
+                logger.info("使用最优策略结果数据")
                 
-                # 提取指标名和子指标名
-                indicator_name = parts[1]
-                sub_indicator_name = '_'.join(parts[2:])
-                sub_weight_value = int(best_result[col])
+                # 构建权重配置（转换为整数）
+                weights = {}
+                logger.info("开始构建权重配置")
+                for col in weight_columns:
+                    indicator_name = col.replace('权重_', '')
+                    weight_value = int(result_data[col])
+                    weights[indicator_name] = weight_value
+                    logger.info(f"权重: {indicator_name} = {weight_value}")
                 
-                # 确保指标的子权重结构存在
-                if indicator_name not in sub_weights:
-                    sub_weights[indicator_name] = {
-                        "total_weight": 100,
-                        "sub_weights": {}
+                # 构建子权重配置
+                sub_weights = {}
+                logger.info("开始构建子权重配置")
+                for col in sub_weight_columns:
+                    # 解析子权重字段名，格式为：子权重_指标_子指标
+                    parts = col.split('_')
+                    if len(parts) < 4:
+                        logger.warning(f"无效的子权重字段名: {col}")
+                        continue
+                    
+                    # 提取指标名和子指标名
+                    indicator_name = parts[1]
+                    sub_indicator_name = '_'.join(parts[2:])
+                    sub_weight_value = int(result_data[col])
+                    
+                    # 确保指标的子权重结构存在
+                    if indicator_name not in sub_weights:
+                        sub_weights[indicator_name] = {
+                            "total_weight": 100,
+                            "sub_weights": {}
+                        }
+                    
+                    # 添加子权重值（整数）
+                    sub_weights[indicator_name]["sub_weights"][sub_indicator_name] = sub_weight_value
+                    logger.info(f"子权重: {indicator_name}.{sub_indicator_name} = {sub_weight_value}")
+                
+                # 构建完整的配置对象
+                new_config = {
+                    "id": config_id,
+                    "name": f"{datetime.now().strftime('%Y%m%d')}_最优组合",
+                    "description": f"由参数优化器生成的最优组合，生成时间：{datetime.now().isoformat()}",
+                    "weights": weights,
+                    "sub_weights": sub_weights,
+                    "created_at": datetime.now().isoformat(),
+                    "is_default": False,
+                    "backtest_params": {
+                        "stop_profit_ratio": result_data['止盈比例(%)'] / 100,
+                        "stop_loss_ratio": -result_data['止损比例(%)'] / 100,
+                        "backtest_days": int(result_data['回测天数']),
+                        "initial_capital": 60000,
+                        "commission_ratio": 0.0003
                     }
-                
-                # 添加子权重值（整数）
-                sub_weights[indicator_name]["sub_weights"][sub_indicator_name] = sub_weight_value
-                logger.info(f"子权重: {indicator_name}.{sub_indicator_name} = {sub_weight_value}")
-            
-            # 4. 构建完整的配置对象
-            new_config = {
-                "id": config_id,
-                "name": f"{datetime.now().strftime('%Y%m%d')}_最优组合",
-                "description": f"由参数优化器生成的最优组合，生成时间：{datetime.now().isoformat()}",
-                "weights": weights,
-                "sub_weights": sub_weights,
-                "created_at": datetime.now().isoformat(),
-                "is_default": False,
-                "backtest_params": {
-                    "stop_profit_ratio": best_result['止盈比例(%)'] / 100,
-                    "stop_loss_ratio": -best_result['止损比例(%)'] / 100,
-                    "backtest_days": int(best_result['回测天数']),
-                    "initial_capital": 60000,
-                    "commission_ratio": 0.0003
                 }
-            }
+            elif blueprint_id is not None:
+                # 从蓝图文件中获取指定ID的配置
+                logger.info(f"从蓝图文件中获取配置，ID: {blueprint_id}")
+                
+                # 读取蓝图文件
+                blueprint_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parameter_blueprint.json")
+                if not os.path.exists(blueprint_path):
+                    logger.error(f"蓝图文件不存在: {blueprint_path}")
+                    raise FileNotFoundError(f"蓝图文件不存在: {blueprint_path}")
+                
+                with open(blueprint_path, 'r', encoding='utf-8') as f:
+                    blueprint = json.load(f)
+                
+                # 查找指定ID的组合
+                target_combination = None
+                for combo in blueprint.get('combinations', []):
+                    if combo.get('id') == blueprint_id:
+                        target_combination = combo
+                        break
+                
+                if not target_combination:
+                    logger.error(f"蓝图中未找到ID为 {blueprint_id} 的组合")
+                    raise ValueError(f"蓝图中未找到ID为 {blueprint_id} 的组合")
+                
+                # 提取参数
+                params = target_combination.get('params', {})
+                result = target_combination.get('result', {})
+                
+                # 构建权重配置
+                weights = params.get('weights_config', {})
+                logger.info(f"从蓝图中获取权重配置: {weights}")
+                
+                # 构建子权重配置
+                sub_weights = params.get('sub_weights_config', {})
+                logger.info(f"从蓝图中获取子权重配置: {sub_weights}")
+                
+                # 构建完整的配置对象
+                new_config = {
+                    "id": config_id,
+                    "name": f"{datetime.now().strftime('%Y%m%d')}_方案_{blueprint_id}",
+                    "description": f"由参数优化器生成的方案，方案ID: {blueprint_id}，生成时间：{datetime.now().isoformat()}",
+                    "weights": weights,
+                    "sub_weights": sub_weights,
+                    "created_at": datetime.now().isoformat(),
+                    "is_default": False,
+                    "backtest_params": {
+                        "stop_profit_ratio": params.get('stop_profit_ratio', 0.05),
+                        "stop_loss_ratio": params.get('stop_loss_ratio', -0.03),
+                        "backtest_days": int(params.get('backtest_days', 90)),
+                        "initial_capital": 60000,
+                        "commission_ratio": 0.0003
+                    }
+                }
+            else:
+                logger.error("未提供结果数据或蓝图ID")
+                raise ValueError("未提供结果数据或蓝图ID")
             
             logger.info(f"构建完成新配置: {new_config['name']}")
             logger.debug(f"新配置详情: {json.dumps(new_config, ensure_ascii=False, indent=2)}")
             
-            # 5. 添加新配置到现有配置中
+            # 4. 添加新配置到现有配置中
             existing_configs[config_id] = new_config
             logger.info(f"新配置已添加到现有配置中")
             
-            # 6. 保存更新后的配置文件
+            # 5. 保存更新后的配置文件
             logger.info(f"开始保存配置文件到: {save_path}")
             with open(save_path, 'w', encoding='utf-8') as f:
                 json.dump(existing_configs, f, ensure_ascii=False, indent=2)
@@ -1010,11 +1080,31 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
     st.markdown("---")
     st.subheader("策略控制器操作")
     
-    if st.button("发送到策略控制器", type="primary"):
+    # 发送最佳策略按钮
+    if st.button("发送最佳策略到控制器", type="primary"):
         with st.spinner("正在保存最优参数组合..."):
             try:
-                save_path = save_to_strategy_controller()
+                save_path = save_to_strategy_controller(result_data=best_result)
                 st.session_state['save_result'] = ("success", f"最优参数组合已保存到: {save_path}")
+                st.success(st.session_state['save_result'][1])
+            except Exception as e:
+                error_msg = f"保存失败: {e}"
+                st.session_state['save_result'] = ("error", error_msg)
+                st.error(error_msg)
+                st.exception(e)
+    
+    # 发送指定方案策略
+    st.markdown("---")
+    st.subheader("发送指定方案到控制器")
+    
+    # 方案号选择控件
+    blueprint_id = st.number_input("请输入方案号", min_value=1, step=1, value=1, help="方案号对应回测结果表格的序号，与蓝图中的ID对应")
+    
+    if st.button("发送指定方案到控制器"):
+        with st.spinner(f"正在保存方案 {blueprint_id} 到策略控制器..."):
+            try:
+                save_path = save_to_strategy_controller(blueprint_id=int(blueprint_id))
+                st.session_state['save_result'] = ("success", f"方案 {blueprint_id} 已保存到: {save_path}")
                 st.success(st.session_state['save_result'][1])
             except Exception as e:
                 error_msg = f"保存失败: {e}"

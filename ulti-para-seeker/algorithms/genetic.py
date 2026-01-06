@@ -64,8 +64,8 @@ class GeneticOptimizer(BaseOptimizer):
             print("[测试模式] 使用最小参数范围")
             # 测试模式下使用简化参数范围
             param_space = {
-                'stop_profit_ratio': {'min': 0.02, 'max': 0.05, 'step': 0.01},
-                'stop_loss_ratio': {'min': -0.03, 'max': -0.01, 'step': 0.01},
+                'stop_profit_ratio': {'min': 2, 'max': 5, 'step': 1},
+                'stop_loss_ratio': {'min': -3, 'max': -1, 'step': 1},
                 'weights_step': 50,
                 'test_mode': True,
                 'end_date': end_date,
@@ -77,8 +77,8 @@ class GeneticOptimizer(BaseOptimizer):
             print("- 权重配置: 总和100，步长10%")
             
             param_space = {
-                'stop_profit_ratio': {'min': 0.03, 'max': 0.15, 'step': 0.02},
-                'stop_loss_ratio': {'min': -0.05, 'max': -0.01, 'step': 0.01},
+                'stop_profit_ratio': {'min': 3, 'max': 15, 'step': 2},
+                'stop_loss_ratio': {'min': -5, 'max': -1, 'step': 1},
                 'weights_step': 10,
                 'test_mode': False,
                 'end_date': end_date,
@@ -142,18 +142,16 @@ class GeneticOptimizer(BaseOptimizer):
         while len(population) < self.population_size and attempts < max_attempts:
             attempts += 1
             
-            # 随机生成止盈止损比例
-            stop_profit = random.uniform(
+            # 随机生成止盈止损比例（百分位格式，如 3 表示 3%）
+            stop_profit = random.randint(
                 param_space['stop_profit_ratio']['min'],
                 param_space['stop_profit_ratio']['max']
             )
-            stop_profit = round(stop_profit, 3)  # 保留3位小数
             
-            stop_loss = random.uniform(
+            stop_loss = random.randint(
                 param_space['stop_loss_ratio']['min'],
                 param_space['stop_loss_ratio']['max']
             )
-            stop_loss = round(stop_loss, 3)  # 保留3位小数
             
             # 确保止盈大于止损
             if stop_profit <= stop_loss:
@@ -553,16 +551,14 @@ class GeneticOptimizer(BaseOptimizer):
                 mutation_type = random.choice(['stop_profit', 'stop_loss', 'weights', 'sub_weights'])
                 
                 if mutation_type == 'stop_profit':
-                    # 止盈比例变异
-                    mutated_params['stop_profit_ratio'] = max(0.03, min(0.15, 
-                        mutated_params['stop_profit_ratio'] + random.uniform(-0.02, 0.02)))
-                    mutated_params['stop_profit_ratio'] = round(mutated_params['stop_profit_ratio'], 3)
+                    # 止盈比例变异（百分位格式）
+                    mutated_params['stop_profit_ratio'] = max(3, min(15, 
+                        mutated_params['stop_profit_ratio'] + random.choice([-2, -1, 1, 2])))
                 
                 elif mutation_type == 'stop_loss':
-                    # 止损比例变异
-                    mutated_params['stop_loss_ratio'] = max(-0.05, min(-0.01, 
-                        mutated_params['stop_loss_ratio'] + random.uniform(-0.01, 0.01)))
-                    mutated_params['stop_loss_ratio'] = round(mutated_params['stop_loss_ratio'], 3)
+                    # 止损比例变异（百分位格式）
+                    mutated_params['stop_loss_ratio'] = max(-15, min(-1, 
+                        mutated_params['stop_loss_ratio'] + random.choice([-1, 1])))
                 
                 elif mutation_type == 'weights':
                     # 权重配置变异

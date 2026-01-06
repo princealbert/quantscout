@@ -49,9 +49,25 @@ class BacktestAdapter:
         Returns:
             Dict[str, Any]: 回测配置
         """
+        # 转换参数格式
+        converted_params = params.copy()
+        
+        # 转换止盈止损比例从百分位格式（如3表示3%）到千分位格式（如0.03）
+        if 'stop_profit_ratio' in converted_params:
+            profit = converted_params['stop_profit_ratio']
+            # 如果是百分位格式（大于1），转换为千分位格式
+            if isinstance(profit, (int, float)) and profit >= 1:
+                converted_params['stop_profit_ratio'] = profit / 100.0
+        
+        if 'stop_loss_ratio' in converted_params:
+            loss = converted_params['stop_loss_ratio']
+            # 如果是百分位格式（绝对值大于等于1），转换为千分位格式
+            if isinstance(loss, (int, float)) and abs(loss) >= 1:
+                converted_params['stop_loss_ratio'] = loss / 100.0
+        
         # 基础配置
         backtest_config = {
-            "strategy_params": params,
+            "strategy_params": converted_params,
             "generate_charts": False,
             "is_cycle_mode": True
         }

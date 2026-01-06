@@ -100,11 +100,21 @@ class BaseOptimizer(ABC):
             if stop_profit <= stop_loss:
                 return False
             
-            if not (0 < stop_profit <= 1):
-                return False
-            
-            if not (-1 <= stop_loss < 0):
-                return False
+            # 支持百分位格式（如3表示3%）和千分位格式（如0.03）
+            # 百分位格式：stop_profit 在 1-100 之间，stop_loss 在 -100 到 -1 之间
+            # 千分位格式：stop_profit 在 0.01-1 之间，stop_loss 在 -1 到 -0.01 之间
+            if stop_profit >= 1:
+                # 百分位格式
+                if not (1 <= stop_profit <= 100):
+                    return False
+                if not (-100 <= stop_loss <= -1):
+                    return False
+            else:
+                # 千分位格式
+                if not (0 < stop_profit <= 1):
+                    return False
+                if not (-1 <= stop_loss < 0):
+                    return False
             
             # 验证权重配置
             weights = params.get('weights_config', {})

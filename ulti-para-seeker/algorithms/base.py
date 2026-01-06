@@ -170,7 +170,12 @@ class BaseOptimizer(ABC):
                 weight = 5
             else:
                 # 生成随机权重，确保是step的倍数
-                weight = random.randrange(5, max_possible + 1, step)
+                # 确保max_possible + 1 >= 5 + step，否则调整步长为1
+                if max_possible + 1 < 5 + step:
+                    adjusted_step = 1
+                else:
+                    adjusted_step = step
+                weight = random.randrange(5, max_possible + 1, adjusted_step)
             weights.append(weight)
             remaining -= weight
         
@@ -243,24 +248,37 @@ class BaseOptimizer(ABC):
         """
         import random
         
-        # 随机生成止盈止损比例
-        stop_profit = random.uniform(
+        # 随机生成止盈止损比例（整数格式，百分位）
+        # 生成止盈选项列表，按照指定步长
+        stop_profit_options = list(range(
             param_space['stop_profit_ratio']['min'],
-            param_space['stop_profit_ratio']['max']
-        )
-        stop_profit = round(stop_profit, 3)  # 保留3位小数
+            param_space['stop_profit_ratio']['max'] + 1,
+            param_space['stop_profit_ratio']['step']
+        ))
+        stop_profit = random.choice(stop_profit_options)
         
-        stop_loss = random.uniform(
+        # 生成止损选项列表，按照指定步长
+        stop_loss_options = list(range(
             param_space['stop_loss_ratio']['min'],
-            param_space['stop_loss_ratio']['max']
-        )
-        stop_loss = round(stop_loss, 3)  # 保留3位小数
+            param_space['stop_loss_ratio']['max'] + 1,
+            param_space['stop_loss_ratio']['step']
+        ))
+        stop_loss = random.choice(stop_loss_options)
         
         # 确保止盈大于止损
         if stop_profit <= stop_loss:
-            # 调整止盈比例略大于止损比例
-            stop_profit = stop_loss + 0.01
-            stop_profit = round(stop_profit, 3)
+            # 重新选择止盈值，确保大于止损
+            valid_stop_profit = [p for p in stop_profit_options if p > stop_loss]
+            if valid_stop_profit:
+                stop_profit = random.choice(valid_stop_profit)
+            else:
+                # 如果没有有效止盈值，重新选择止损值
+                valid_stop_loss = [l for l in stop_loss_options if stop_profit > l]
+                if valid_stop_loss:
+                    stop_loss = random.choice(valid_stop_loss)
+                else:
+                    # 极端情况下，调整止损值
+                    stop_loss = stop_profit - param_space['stop_loss_ratio']['step']
         
         # 生成权重配置
         weights_config = self._generate_random_weights_config(param_space['weights_step'])

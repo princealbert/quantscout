@@ -10,16 +10,24 @@ from datetime import datetime, timedelta
 
 def validate_stop_profit_loss(stop_profit_ratio: float, stop_loss_ratio: float) -> bool:
     """
-    验证止盈止损比例的有效性
+    验证止盈止损比例的有效性，支持两种格式：
+    - 百分位格式：stop_profit 在 (1, 100] 之间，stop_loss 在 [-100, -1) 之间
+    - 千分位格式：stop_profit 在 (0, 1] 之间，stop_loss 在 [-1, 0) 之间
     
     Args:
-        stop_profit_ratio: 止盈比例 (0, 1]
-        stop_loss_ratio: 止损比例 [-1, 0)
+        stop_profit_ratio: 止盈比例
+        stop_loss_ratio: 止损比例
     
     Returns:
         bool: 参数是否有效
     """
-    return (0 < stop_profit_ratio <= 1) and (-1 <= stop_loss_ratio < 0) and (stop_profit_ratio > stop_loss_ratio)
+    # 检查是否为百分位格式
+    is_percent_format = (stop_profit_ratio > 1) and (stop_loss_ratio < -1)
+    # 检查是否为千分位格式
+    is_decimal_format = (0 < stop_profit_ratio <= 1) and (-1 <= stop_loss_ratio < 0)
+    
+    # 确保参数符合其中一种格式，并且止盈大于止损
+    return (is_percent_format or is_decimal_format) and (stop_profit_ratio > stop_loss_ratio)
 
 
 def validate_weights_config(weights_config: Dict[str, int]) -> bool:

@@ -268,8 +268,8 @@ if st.button("生成参数组合"):
                 stop_profit_min=stop_profit_min,
                 stop_profit_max=stop_profit_max,
                 stop_profit_step=stop_profit_step,
-                stop_loss_min=stop_loss_min,
-                stop_loss_max=stop_loss_max,
+                stop_loss_min=-stop_loss_max,  # 止损最小值是负数，且小于止损最大值
+                stop_loss_max=-stop_loss_min,  # 止损最大值是负数，且大于止损最小值
                 stop_loss_step=stop_loss_step,
                 weight_step=weight_step,
                 use_advanced_weights=use_advanced_weights,
@@ -457,13 +457,13 @@ show_results = False
 if st.button("开始优化"):
     try:
         # 加载蓝图
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        blueprint_path = os.path.join(script_dir, blueprint_file)
+        # 使用optimizer.current_dir确保与OptimizerManager使用相同的目录
+        blueprint_path = os.path.join(optimizer.current_dir, blueprint_file)
         
         if not os.path.exists(blueprint_path):
             st.error(f"蓝图文件不存在: {blueprint_path}")
             st.error(f"当前工作目录: {os.getcwd()}")
-            st.error(f"脚本目录: {script_dir}")
+            st.error(f"Optimizer目录: {optimizer.current_dir}")
             st.stop()
         
         blueprint = optimizer.load_blueprint(blueprint_file)
@@ -473,11 +473,14 @@ if st.button("开始优化"):
         progress_text = st.empty()
         progress_text.write("开始优化...")
         
+        # 判断蓝图是否是分拆的蓝图文件
+        is_split_blueprint = 'files' in blueprint
+        
         # 实际执行优化过程
         if is_split_blueprint:
             # 分拆的蓝图文件，遍历所有子文件
             for sub_file_info in blueprint['files']:
-                sub_file_path = os.path.join(current_dir, sub_file_info['file'])
+                sub_file_path = os.path.join(optimizer.current_dir, sub_file_info['file'])
                 if not os.path.exists(sub_file_path):
                     progress_text.warning(f"子文件不存在: {sub_file_info['file']}")
                     continue
@@ -590,7 +593,7 @@ if st.button("开始优化"):
             blueprints = optimizer.list_blueprints()
             
             for bp in blueprints:
-                bp_path = os.path.join(current_dir, bp['filename'])
+                bp_path = os.path.join(optimizer.current_dir, bp['filename'])
                 if os.path.exists(bp_path):
                     try:
                         blueprint = optimizer.load_blueprint(bp['filename'], load_all=True)
@@ -599,7 +602,7 @@ if st.button("开始优化"):
                         if blueprint.get('files'):
                             # 分拆的蓝图文件，遍历所有子文件
                             for sub_file_info in blueprint['files']:
-                                sub_file_path = os.path.join(current_dir, sub_file_info['file'])
+                                sub_file_path = os.path.join(optimizer.current_dir, sub_file_info['file'])
                                 if os.path.exists(sub_file_path):
                                     with open(sub_file_path, 'r', encoding='utf-8') as f:
                                         sub_blueprint = json.load(f)

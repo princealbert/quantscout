@@ -32,7 +32,11 @@ class BruteForceOptimizer(BaseOptimizer):
         self.current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     def define_parameter_space(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                             end_date: str = '2025-12-25', backtest_days: int = 90) -> Dict[str, Any]:
+                             end_date: str = '2025-12-25', backtest_days: int = 90, 
+                             stop_profit_min: int = None, stop_profit_max: int = None, 
+                             stop_profit_step: int = None, stop_loss_min: int = None, 
+                             stop_loss_max: int = None, stop_loss_step: int = None, 
+                             weight_step: int = None, initial_capital: int = 60000) -> Dict[str, Any]:
         """
         定义参数空间
 
@@ -41,33 +45,61 @@ class BruteForceOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             backtest_days: 回测天数
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
+            initial_capital: 初始资金
 
         Returns:
             Dict[str, Any]: 参数空间字典
         """
         logger.info("定义参数范围...")
         logger.info(f"- 回测天数: {'10天' if test_mode else f'{backtest_days}天'}，终点日期为{end_date}")
+        logger.info(f"- 初始资金: {initial_capital}元")
         
-        # 根据模式调整参数范围
+        # 如果用户提供了参数边界，使用用户提供的值，否则使用默认值
         if test_mode:
             logger.info("[测试模式] 使用最小参数范围")
             param_space = {
-                'stop_profit_ratio': {'min': 2, 'max': 5, 'step': 1},
-                'stop_loss_ratio': {'min': -3, 'max': -1, 'step': 1},
-                'weight_step': 50,
+                'stop_profit_ratio': {'min': stop_profit_min if stop_profit_min is not None else 2, 
+                                    'max': stop_profit_max if stop_profit_max is not None else 5, 
+                                    'step': stop_profit_step if stop_profit_step is not None else 1},
+                'stop_loss_ratio': {'min': stop_loss_min if stop_loss_min is not None else -3, 
+                                  'max': stop_loss_max if stop_loss_max is not None else -1, 
+                                  'step': stop_loss_step if stop_loss_step is not None else 1},
+                'weight_step': weight_step if weight_step is not None else 50,
                 'test_mode': True,
                 'end_date': end_date,
                 'backtest_days': backtest_days
             }
         else:
-            logger.info("- 止盈比例: 3%-15%，步长2%")
-            logger.info("- 止损比例: -5%--1%，步长1%")
-            logger.info("- 权重配置: 总和100，步长10%")
+            # 使用用户提供的参数边界或默认值
+            actual_stop_profit_min = stop_profit_min if stop_profit_min is not None else 3
+            actual_stop_profit_max = stop_profit_max if stop_profit_max is not None else 15
+            actual_stop_profit_step = stop_profit_step if stop_profit_step is not None else 2
+            
+            actual_stop_loss_min = stop_loss_min if stop_loss_min is not None else -5
+            actual_stop_loss_max = stop_loss_max if stop_loss_max is not None else -1
+            actual_stop_loss_step = stop_loss_step if stop_loss_step is not None else 1
+            
+            actual_weight_step = weight_step if weight_step is not None else 10
+            
+            logger.info(f"- 止盈比例: {actual_stop_profit_min}%-{actual_stop_profit_max}%，步长{actual_stop_profit_step}%")
+            logger.info(f"- 止损比例: {actual_stop_loss_min}%--{abs(actual_stop_loss_max)}%，步长{actual_stop_loss_step}%")
+            logger.info(f"- 权重配置: 总和100，步长{actual_weight_step}%")
             
             param_space = {
-                'stop_profit_ratio': {'min': 3, 'max': 15, 'step': 2},
-                'stop_loss_ratio': {'min': -5, 'max': -1, 'step': 1},
-                'weight_step': 10,
+                'stop_profit_ratio': {'min': actual_stop_profit_min, 
+                                    'max': actual_stop_profit_max, 
+                                    'step': actual_stop_profit_step},
+                'stop_loss_ratio': {'min': actual_stop_loss_min, 
+                                  'max': actual_stop_loss_max, 
+                                  'step': actual_stop_loss_step},
+                'weight_step': actual_weight_step,
                 'test_mode': False,
                 'end_date': end_date,
                 'backtest_days': backtest_days
@@ -76,7 +108,11 @@ class BruteForceOptimizer(BaseOptimizer):
         return param_space
     
     def generate_initial_population(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                  end_date: str = '2025-12-25', backtest_days: int = 90) -> List[Dict[str, Any]]:
+                                  end_date: str = '2025-12-25', backtest_days: int = 90, 
+                                  stop_profit_min: int = None, stop_profit_max: int = None, 
+                                  stop_profit_step: int = None, stop_loss_min: int = None, 
+                                  stop_loss_max: int = None, stop_loss_step: int = None, 
+                                  weight_step: int = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
         """
         生成参数组合
 
@@ -85,19 +121,36 @@ class BruteForceOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             backtest_days: 回测天数
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
+            initial_capital: 初始资金
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        # 生成参数范围
-        param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days)
+        # 生成参数范围，传递所有参数边界
+        param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days, 
+                                               stop_profit_min, stop_profit_max, stop_profit_step, 
+                                               stop_loss_min, stop_loss_max, stop_loss_step, 
+                                               weight_step, initial_capital)
         
         # 生成止盈止损比例列表（百分位格式，如 3 表示 3%）
         stop_profit_values = [param_space['stop_profit_ratio']['min'] + i * param_space['stop_profit_ratio']['step']
                             for i in range(int((param_space['stop_profit_ratio']['max'] - param_space['stop_profit_ratio']['min']) / param_space['stop_profit_ratio']['step']) + 1)]
         
-        stop_loss_values = [param_space['stop_loss_ratio']['min'] + i * param_space['stop_loss_ratio']['step']
-                          for i in range(int((param_space['stop_loss_ratio']['max'] - param_space['stop_loss_ratio']['min']) / param_space['stop_loss_ratio']['step']) + 1)]
+        # 确保止损比例的范围是正确的
+        stop_loss_min = param_space['stop_loss_ratio']['min']
+        stop_loss_max = param_space['stop_loss_ratio']['max']
+        stop_loss_step = param_space['stop_loss_ratio']['step']
+        
+        # 生成止损比例列表
+        stop_loss_values = [stop_loss_min + i * stop_loss_step
+                          for i in range(int((stop_loss_max - stop_loss_min) / stop_loss_step) + 1)]
         
         # 生成权重配置
         from utils.weight_utils import generate_weights_combinations, generate_sub_weights_combinations
@@ -190,20 +243,35 @@ class BruteForceOptimizer(BaseOptimizer):
         return results
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                      end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
-                                      focus_weight_factor: float = 1.5, backtest_days: int = 90) -> List[Dict[str, Any]]:
+                                      end_date: str = '2025-12-25', stop_profit_min: int = None, 
+                                      stop_profit_max: int = None, stop_profit_step: int = None, 
+                                      stop_loss_min: int = None, stop_loss_max: int = None, 
+                                      stop_loss_step: int = None, weight_step: int = None, 
+                                      focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, 
+                                      initial_capital: int = 60000, backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
-        兼容旧接口的参数组合生成方法
-        
+        生成参数组合
+
         Args:
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
             focus_indicators: 需要重点关注的指标列表
             focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
             backtest_days: 回测天数
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days)
+        return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days, 
+                                              stop_profit_min, stop_profit_max, stop_profit_step, 
+                                              stop_loss_min, stop_loss_max, stop_loss_step, 
+                                              weight_step, initial_capital)

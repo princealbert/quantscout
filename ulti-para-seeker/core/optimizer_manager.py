@@ -89,33 +89,23 @@ class OptimizerManager:
         
         optimizer = self.optimizers[algorithm]
         
-        # 根据不同算法调用相应的参数组合生成方法
-        if algorithm == "暴力搜索":
-            # 暴力搜索算法需要完整的参数
-            return optimizer.generate_parameter_combinations(
-                test_mode=test_mode,
-                max_sub_combinations=max_sub_combinations,
-                end_date=end_date,
-                focus_indicators=focus_indicators,
-                focus_weight_factor=focus_weight_factor,
-                backtest_days=backtest_days
-            )
-        elif algorithm == "遗传算法" or algorithm == "粒子群算法":
-            # 遗传算法和粒子群算法使用简化参数
-            return optimizer.generate_parameter_combinations(
-                test_mode=test_mode,
-                max_sub_combinations=max_sub_combinations,
-                end_date=end_date,
-                backtest_days=backtest_days
-            )
-        else:
-            # 默认使用暴力搜索算法
-            return self.optimizers["暴力搜索"].generate_parameter_combinations(
-                test_mode=test_mode,
-                max_sub_combinations=max_sub_combinations,
-                end_date=end_date,
-                backtest_days=backtest_days
-            )
+        # 将用户设置的参数传递给优化器
+        return optimizer.generate_parameter_combinations(
+            test_mode=test_mode,
+            max_sub_combinations=max_sub_combinations,
+            end_date=end_date,
+            stop_profit_min=stop_profit_min,
+            stop_profit_max=stop_profit_max,
+            stop_profit_step=stop_profit_step,
+            stop_loss_min=stop_loss_min,
+            stop_loss_max=stop_loss_max,
+            stop_loss_step=stop_loss_step,
+            weight_step=weight_step,
+            focus_indicators=focus_indicators,
+            focus_weight_factor=focus_weight_factor,
+            initial_capital=initial_capital,
+            backtest_days=backtest_days
+        )
     
     def run_optimization(self, test_mode: bool = False, max_sub_combinations: int = 10, 
                         end_date: str = '2025-12-25', algorithm: str = "暴力搜索", 

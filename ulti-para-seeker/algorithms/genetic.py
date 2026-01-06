@@ -44,7 +44,11 @@ class GeneticOptimizer(BaseOptimizer):
         self.min_improvement = 0.1  # 最小改进阈值（百分比）
     
     def define_parameter_space(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                             end_date: str = '2025-12-25', backtest_days: int = 90) -> Dict[str, Any]:
+                             end_date: str = '2025-12-25', backtest_days: int = 90, 
+                             stop_profit_min: int = None, stop_profit_max: int = None, 
+                             stop_profit_step: int = None, stop_loss_min: int = None, 
+                             stop_loss_max: int = None, stop_loss_step: int = None, 
+                             weight_step: int = None, initial_capital: int = 60000) -> Dict[str, Any]:
         """
         定义参数空间
         
@@ -53,33 +57,62 @@ class GeneticOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             backtest_days: 回测天数
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
+            initial_capital: 初始资金
         
         Returns:
             Dict[str, Any]: 参数空间字典
         """
         print("定义遗传算法参数边界...")
         print(f"- 回测天数: {backtest_days}天，终点日期为{end_date}")
+        print(f"- 初始资金: {initial_capital}元")
         
+        # 如果用户提供了参数边界，使用用户提供的值，否则使用默认值
         if test_mode:
             print("[测试模式] 使用最小参数范围")
             # 测试模式下使用简化参数范围
             param_space = {
-                'stop_profit_ratio': {'min': 2, 'max': 5, 'step': 1},
-                'stop_loss_ratio': {'min': -3, 'max': -1, 'step': 1},
-                'weights_step': 50,
+                'stop_profit_ratio': {'min': stop_profit_min if stop_profit_min is not None else 2, 
+                                    'max': stop_profit_max if stop_profit_max is not None else 5, 
+                                    'step': stop_profit_step if stop_profit_step is not None else 1},
+                'stop_loss_ratio': {'min': stop_loss_min if stop_loss_min is not None else -3, 
+                                  'max': stop_loss_max if stop_loss_max is not None else -1, 
+                                  'step': stop_loss_step if stop_loss_step is not None else 1},
+                'weights_step': weight_step if weight_step is not None else 50,
                 'test_mode': True,
                 'end_date': end_date,
                 'backtest_days': backtest_days
             }
         else:
-            print("- 止盈比例: 3%-15%，步长2%")
-            print("- 止损比例: -5%--1%，步长1%")
-            print("- 权重配置: 总和100，步长10%")
+            # 使用用户提供的参数边界或默认值
+            actual_stop_profit_min = stop_profit_min if stop_profit_min is not None else 3
+            actual_stop_profit_max = stop_profit_max if stop_profit_max is not None else 15
+            actual_stop_profit_step = stop_profit_step if stop_profit_step is not None else 2
+            
+            actual_stop_loss_min = stop_loss_min if stop_loss_min is not None else -5
+            actual_stop_loss_max = stop_loss_max if stop_loss_max is not None else -1
+            actual_stop_loss_step = stop_loss_step if stop_loss_step is not None else 1
+            
+            actual_weight_step = weight_step if weight_step is not None else 10
+            
+            print(f"- 止盈比例: {actual_stop_profit_min}%-{actual_stop_profit_max}%，步长{actual_stop_profit_step}%")
+            print(f"- 止损比例: {actual_stop_loss_min}%--{abs(actual_stop_loss_max)}%，步长{actual_stop_loss_step}%")
+            print(f"- 权重配置: 总和100，步长{actual_weight_step}%")
             
             param_space = {
-                'stop_profit_ratio': {'min': 3, 'max': 15, 'step': 2},
-                'stop_loss_ratio': {'min': -5, 'max': -1, 'step': 1},
-                'weights_step': 10,
+                'stop_profit_ratio': {'min': actual_stop_profit_min, 
+                                    'max': actual_stop_profit_max, 
+                                    'step': actual_stop_profit_step},
+                'stop_loss_ratio': {'min': actual_stop_loss_min, 
+                                  'max': actual_stop_loss_max, 
+                                  'step': actual_stop_loss_step},
+                'weights_step': actual_weight_step,
                 'test_mode': False,
                 'end_date': end_date,
                 'backtest_days': backtest_days
@@ -88,26 +121,45 @@ class GeneticOptimizer(BaseOptimizer):
         return param_space
     
     def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                      end_date: str = '2025-12-25', focus_indicators: List[str] = None, 
-                                      focus_weight_factor: float = 1.5, backtest_days: int = 90) -> List[Dict[str, Any]]:
+                                      end_date: str = '2025-12-25', stop_profit_min: int = None, 
+                                      stop_profit_max: int = None, stop_profit_step: int = None, 
+                                      stop_loss_min: int = None, stop_loss_max: int = None, 
+                                      stop_loss_step: int = None, weight_step: int = None, 
+                                      focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, 
+                                      initial_capital: int = 60000, backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
-        兼容旧接口的参数组合生成方法
+        生成参数组合
         
         Args:
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
             focus_indicators: 需要重点关注的指标列表
             focus_weight_factor: 重点指标的权重放大倍数
+            initial_capital: 初始资金
             backtest_days: 回测天数
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days)
+        return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days, 
+                                              stop_profit_min, stop_profit_max, stop_profit_step, 
+                                              stop_loss_min, stop_loss_max, stop_loss_step, 
+                                              weight_step, initial_capital)
     
     def generate_initial_population(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                  end_date: str = '2025-12-25', backtest_days: int = 90) -> List[Dict[str, Any]]:
+                                  end_date: str = '2025-12-25', backtest_days: int = 90, 
+                                  stop_profit_min: int = None, stop_profit_max: int = None, 
+                                  stop_profit_step: int = None, stop_loss_min: int = None, 
+                                  stop_loss_max: int = None, stop_loss_step: int = None, 
+                                  weight_step: int = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
         """
         生成初始种群
         
@@ -116,11 +168,22 @@ class GeneticOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             backtest_days: 回测天数
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
+            initial_capital: 初始资金
         
         Returns:
             List[Dict[str, Any]]: 初始种群（参数组合列表）
         """
-        param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days)
+        param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days, 
+                                               stop_profit_min, stop_profit_max, stop_profit_step, 
+                                               stop_loss_min, stop_loss_max, stop_loss_step, 
+                                               weight_step, initial_capital)
         
         print(f"开始生成遗传算法初始种群...")
         print(f"- 种群大小: {self.population_size}")
@@ -142,16 +205,41 @@ class GeneticOptimizer(BaseOptimizer):
         while len(population) < self.population_size and attempts < max_attempts:
             attempts += 1
             
-            # 随机生成止盈止损比例（百分位格式，如 3 表示 3%）
-            stop_profit = random.randint(
-                param_space['stop_profit_ratio']['min'],
-                param_space['stop_profit_ratio']['max']
-            )
+            # 随机生成止盈止损比例（百分位格式，如 3 表示 3%），按照指定步长
+            stop_profit_min = param_space['stop_profit_ratio']['min']
+            stop_profit_max = param_space['stop_profit_ratio']['max']
+            stop_profit_step = param_space['stop_profit_ratio']['step']
             
-            stop_loss = random.randint(
-                param_space['stop_loss_ratio']['min'],
-                param_space['stop_loss_ratio']['max']
-            )
+            # 生成止盈选项列表
+            stop_profit_options = list(range(
+                stop_profit_min,
+                stop_profit_max + 1,
+                stop_profit_step
+            ))
+            stop_profit = random.choice(stop_profit_options)
+            
+            # 处理止损比例，确保范围正确
+            stop_loss_min = param_space['stop_loss_ratio']['min']
+            stop_loss_max = param_space['stop_loss_ratio']['max']
+            stop_loss_step = param_space['stop_loss_ratio']['step']
+            
+            # 确保止损最小值小于最大值
+            if stop_loss_min > stop_loss_max:
+                stop_loss_min, stop_loss_max = stop_loss_max, stop_loss_min
+            
+            # 生成止损选项列表
+            stop_loss_options = list(range(
+                stop_loss_min,
+                stop_loss_max + 1,
+                stop_loss_step
+            ))
+            
+            # 确保生成了有效的止损选项
+            if not stop_loss_options:
+                # 如果没有生成有效的止损选项，使用默认值
+                stop_loss_options = [-3, -2, -1]
+            
+            stop_loss = random.choice(stop_loss_options)
             
             # 确保止盈大于止损
             if stop_profit <= stop_loss:
@@ -208,7 +296,11 @@ class GeneticOptimizer(BaseOptimizer):
         return population
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', initial_capital: int = 60000) -> List[Dict[str, Any]]:
+                end_date: str = '2025-12-25', stop_profit_min: int = None, 
+                stop_profit_max: int = None, stop_profit_step: int = None, 
+                stop_loss_min: int = None, stop_loss_max: int = None, 
+                stop_loss_step: int = None, weight_step: int = None, 
+                initial_capital: int = 60000, backtest_days: int = 90) -> List[Dict[str, Any]]:
         """
         执行遗传算法优化
         
@@ -216,7 +308,15 @@ class GeneticOptimizer(BaseOptimizer):
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
+            stop_profit_min: 止盈最小值（%）
+            stop_profit_max: 止盈最大值（%）
+            stop_profit_step: 止盈步长（%）
+            stop_loss_min: 止损最小值（%）
+            stop_loss_max: 止损最大值（%）
+            stop_loss_step: 止损步长（%）
+            weight_step: 权重步长（%）
             initial_capital: 初始资金
+            backtest_days: 回测天数
         
         Returns:
             List[Dict[str, Any]]: 优化结果列表
@@ -229,9 +329,12 @@ class GeneticOptimizer(BaseOptimizer):
         print(f"- 精英保留: {self.elitism}")
         print(f"- 早期停止: {self.early_stopping_generations} 代无改进")
         
-        # 初始化种群
+        # 初始化种群，传递所有参数边界
         population = self.generate_initial_population(
-            test_mode, max_sub_combinations, end_date, backtest_days=90
+            test_mode, max_sub_combinations, end_date, backtest_days, 
+            stop_profit_min, stop_profit_max, stop_profit_step, 
+            stop_loss_min, stop_loss_max, stop_loss_step, 
+            weight_step, initial_capital
         )
         
         # 为每个参数组合添加初始资金

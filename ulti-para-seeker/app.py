@@ -468,19 +468,10 @@ if st.button("开始优化"):
         
         blueprint = optimizer.load_blueprint(blueprint_file)
         
-        # 开始优化
-        st.info("开始参数优化...")
-        
-        # 确保blueprint是字典类型
-        if not isinstance(blueprint, dict):
-            st.error(f"蓝图数据格式错误，预期字典类型，实际得到: {type(blueprint)}")
-            raise TypeError(f"蓝图数据格式错误，预期字典类型，实际得到: {type(blueprint)}")
-        
-        # 检查是否为分拆的蓝图文件
-        is_split_blueprint = blueprint.get('files') is not None
-        
-        if is_split_blueprint:
-            st.info(f"这是一个分拆的蓝图文件，包含 {len(blueprint['files'])} 个子文件")
+        # 创建进度条占位符，实现不换行更新
+        progress_bar = st.progress(0)
+        progress_text = st.empty()
+        progress_text.write("开始优化...")
         
         # 实际执行优化过程
         if is_split_blueprint:
@@ -488,7 +479,7 @@ if st.button("开始优化"):
             for sub_file_info in blueprint['files']:
                 sub_file_path = os.path.join(current_dir, sub_file_info['file'])
                 if not os.path.exists(sub_file_path):
-                    st.warning(f"子文件不存在: {sub_file_info['file']}")
+                    progress_text.warning(f"子文件不存在: {sub_file_info['file']}")
                     continue
                 
                 # 加载子文件
@@ -509,7 +500,7 @@ if st.button("开始优化"):
                             # 保留完整的结果，包括原始参数
                             formatted_result = result
                         except Exception as e:
-                            st.error(f"回测失败: {e}")
+                            progress_text.error(f"回测失败: {e}")
                             # 生成失败结果，包含原始参数
                             formatted_result = {
                                 **combo['params'],
@@ -524,14 +515,14 @@ if st.button("开始优化"):
                         # 更新状态为已完成
                         optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
                         
-
+                        
                         
                         # 更新进度
                         completed = optimizer._count_completed_combinations(blueprint)
                         total = blueprint['total_combinations']
                         progress = completed / total
-                        st.progress(progress)
-                        st.write(f"已完成 {completed}/{total} 个组合...")
+                        progress_bar.progress(progress)
+                        progress_text.write(f"已完成 {completed}/{total} 个组合 ({progress:.1%})...")
                         
                         # 测试模式下仅处理一个组合
                         if is_test_mode:
@@ -556,7 +547,7 @@ if st.button("开始优化"):
                         # 保留完整的结果，包括原始参数
                         formatted_result = result
                     except Exception as e:
-                        st.error(f"回测失败: {e}")
+                        progress_text.error(f"回测失败: {e}")
                         # 生成失败结果，包含原始参数
                         formatted_result = {
                             **combo['params'],
@@ -572,19 +563,22 @@ if st.button("开始优化"):
                     optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
                     optimizer.save_blueprint(blueprint, blueprint_file)
                     
-
+                    
                     
                     # 更新进度
                     completed = sum(1 for c in blueprint['combinations'] if c['status'] == 'completed')
                     total = blueprint['total_combinations']
                     progress = completed / total
-                    st.progress(progress)
-                    st.write(f"已完成 {completed}/{total} 个组合...")
+                    progress_bar.progress(progress)
+                    progress_text.write(f"已完成 {completed}/{total} 个组合 ({progress:.1%})...")
                     
                     # 测试模式下仅处理一个组合
                     if is_test_mode:
                         break
         
+        # 优化完成，清空进度条
+        progress_bar.empty()
+        progress_text.empty()
         st.success("参数优化完成！")
         
         # 导出结果到Excel

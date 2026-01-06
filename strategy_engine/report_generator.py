@@ -95,14 +95,15 @@ class ReportGenerator:
         annual_return_pct = 0
         if len(portfolio_df) > 1 and initial_value > 0:
             try:
-                days = (portfolio_df['date'].iloc[-1] - portfolio_df['date'].iloc[0]).days
-                if days > 0 and final_value > 0:
-                    # 考虑回测天数影响，避免短期回测年化收益率过高
-                    # 回测天数少于10天，不计算年化收益率
-                    if days < 10:
+                # 使用交易天数而非日历天数，避免短期回测年化收益率过高
+                trading_days = len(portfolio_df) - 1
+                if trading_days > 0 and final_value > 0:
+                    # 回测交易日少于30天，不计算年化收益率
+                    if trading_days < 30:
                         annual_return_pct = 0
                     else:
-                        annual_return = (final_value / initial_value) ** (365 / days) - 1
+                        # 使用252个交易日作为年化基数
+                        annual_return = (final_value / initial_value) ** (252 / trading_days) - 1
                         annual_return_pct = annual_return * 100
             except (TypeError, IndexError):
                 annual_return_pct = 0

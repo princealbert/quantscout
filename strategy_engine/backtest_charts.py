@@ -57,11 +57,13 @@ class BacktestAnalyzer:
         
         # 年化收益率
         if len(self.portfolio_df) > 1:
-            days = (self.portfolio_df['date'].iloc[-1] - self.portfolio_df['date'].iloc[0]).days
-            if days > 0:
-                annual_return = (final_value / initial_value) ** (365 / days) - 1
+            # 使用交易天数而非日历天数
+            trading_days = len(self.portfolio_df) - 1
+            if trading_days > 0:
+                # 使用252个交易日作为年化基数
+                annual_return = (final_value / initial_value) ** (252 / trading_days) - 1
                 results['annual_return'] = annual_return * 100
-                results['trading_days'] = days
+                results['trading_days'] = trading_days
             else:
                 results['annual_return'] = 0
                 results['trading_days'] = 0

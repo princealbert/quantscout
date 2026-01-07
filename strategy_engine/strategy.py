@@ -16,7 +16,7 @@ class BacktestStrategy:
     def __init__(self, strategy_params=None):
         """
         初始化回测参数
-        
+
         Args:
             strategy_params: 策略参数配置对象
         """
@@ -25,20 +25,20 @@ class BacktestStrategy:
             from .config.strategy_params import StrategyParams
         except ImportError:
             from config.strategy_params import StrategyParams
-        
+
         # 使用传入参数或默认参数
         self.params = strategy_params if strategy_params else StrategyParams()
-        
+
         # 重置所有状态变量，确保每次回测都是全新的
         self.commission_ratio = self.params.commission_ratio
         self.trading_records = []
         self.portfolio_values = []
         self.daily_returns = []
-        
+
         # 从参数中获取初始资金 - 确保每次回测都使用正确的初始资金
         self.initial_capital = self.params.initial_capital
         print(f"BacktestStrategy初始化 - 从params获取初始资金={self.initial_capital}")
-        
+
         # 记录接收的参数
         print(f"策略初始化完成")
         print(f"止盈比例={self.params.stop_profit_ratio}")
@@ -46,10 +46,16 @@ class BacktestStrategy:
         print(f"权重配置={self.params.weights_config}")
         print(f"子权重配置={self.params.sub_weights_config}")
         print(f"股票池限制={self.params.stock_pool_limit}")
-        
+
         # 重置缓存机制 - 用于提高性能
         self._price_cache = {}
         self._last_cache_date = None
+
+        # 记录当日卖出信息
+        self._last_sell_info = None
+
+        # 订单状态跟踪 - 用于确认订单是否真正成交
+        self._pending_sell_orders = {}  # {order_id: {'symbol': xxx, 'amount': xxx, 'date': xxx}}
     
     def get_top_stock(self, context) -> Optional[Dict[str, str]]:
         """
@@ -164,59 +170,79 @@ class BacktestStrategy:
     def should_buy(self, context, symbol: str) -> bool:
         """
         判断是否应该买入
-        
+
         Args:
             context: 策略上下文
             symbol: 股票代码
-            
+
         Returns:
             bool: 是否买入
         """
         try:
             from gm.api import current
-            
+
             # 获取当前价格
             current_data = current(symbol)
             if not current_data:
                 print(f"should_buy - 获取价格失败，current_data={current_data}")
                 return False
-                
+
             # 安全获取价格数值
             price_data = current_data[0]['price']
             if hasattr(price_data, 'value'):
                 current_price = float(price_data.value)
             else:
                 current_price = float(price_data) if price_data else 0.0
-            
-            # 简单买入条件：有资金且价格合理
+
+            # 获取账户信息
             account = context.account()
-            
-            # 正确获取现金余额的方式
             cash = account.cash
-            
-            # 尝试安全获取现金数值 - 根据文档，cash是dict类型
-            if isinstance(cash, dict):
-                # 优先使用可用资金
-                cash_value = float(cash.get('available', 0.0))
-            elif hasattr(cash, 'available'):
-                cash_value = float(cash.available)
-            elif hasattr(cash, 'value'):
-                cash_value = float(cash.value)
-            elif hasattr(cash, 'amount'):
-                cash_value = float(cash.amount)
+
+            # 根据gm.api文档，cash是dict类型，包含：
+            # - nav: 总资金
+            # - available: 可用资金
+            # - market_value: 市值
+            # - balance: 资金余额
+            # - order_frozen: 委托冻结资金
+
+            # 关键修复：完全依赖当日卖出记录，不再信任gm.api的账户状态更新
+            current_date = context.now.strftime('%Y-%m-%d')
+
+            if (self._last_sell_info and
+                self._last_sell_info['date'] == current_date):
+
+                # 当日有卖出，完全使用卖出金额减去佣金作为可用资金
+                # 不再检查gm.api的market_value等字段，因为这些字段可能延迟更新
+                sell_amount = self._last_sell_info['amount']
+                cash_value = sell_amount * (1 - self.commission_ratio)
+
+                print(f"should_buy - 检测到当日卖出，使用估算资金={cash_value:.2f}元")
+                print(f"   卖出金额={sell_amount:.2f}元, 预计佣金={sell_amount*self.commission_ratio:.2f}元")
             else:
-                # 尝试直接转换，如果失败则使用安全默认值
-                cash_value = float(cash) if cash else 0.0
-            
+                # 正常情况：优先使用available字段获取可用资金
+                if isinstance(cash, dict):
+                    cash_value = float(cash.get('available', cash.get('balance', 0.0)))
+                elif hasattr(cash, 'available'):
+                    cash_value = float(cash.available)
+                elif hasattr(cash, 'nav'):
+                    cash_value = float(cash.nav)
+                elif hasattr(cash, 'value'):
+                    cash_value = float(cash.value)
+                elif hasattr(cash, 'amount'):
+                    cash_value = float(cash.amount)
+                else:
+                    # 尝试直接转换
+                    cash_value = float(cash) if cash else 0.0
+
             print(f"should_buy - 现金={cash_value:.2f}元, 股价={current_price:.2f}元, 需要资金={current_price*100:.2f}元")
-            
+
             if cash_value > current_price * 100:  # 至少能买100股
                 print(f"买入条件满足: 现金{cash_value:.2f}元, 股价{current_price:.2f}元")
                 return True
             else:
                 print(f"买入条件不满足: 现金{cash_value:.2f}元不足购买100股")
                 return False
-            
+
         except Exception as e:
             print(f"买入判断失败: {e}")
             return False
@@ -370,35 +396,95 @@ class BacktestStrategy:
             # 确保返回值是数值类型
             return float(self.initial_capital) if self.initial_capital else 0.0
     
+    def on_order_status(self, context, order):
+        """
+        订单状态变化回调 - 用于确认订单是否真正成交
+
+        Args:
+            context: 上下文
+            order: 订单对象
+        """
+        try:
+            order_id = order.order_id
+            symbol = order.symbol
+            status = order.status
+
+            print(f"on_order_status - 订单ID={order_id}, 股票={symbol}, 状态={status}")
+
+            # 如果是卖出订单且已成交,记录成交信息
+            if order_id in self._pending_sell_orders:
+                if status == 3 or status == 5:  # 3=全部成交, 5=部分成交后撤单
+                    pending_order = self._pending_sell_orders[order_id]
+
+                    # 记录卖出信息,供后续买入使用
+                    self._last_sell_info = {
+                        'symbol': pending_order['symbol'],
+                        'price': pending_order['price'],
+                        'quantity': pending_order['quantity'],
+                        'amount': pending_order['amount'],
+                        'date': pending_order['date']
+                    }
+
+                    print(f"on_order_status - 卖出订单成交,记录卖出信息: {self._last_sell_info}")
+
+                    # 从待处理订单中移除
+                    del self._pending_sell_orders[order_id]
+
+        except Exception as e:
+            print(f"on_order_status处理失败: {e}")
+
+    def on_execution_report(self, context, execrpt):
+        """
+        委托执行回报 - 更精确的订单成交通知
+
+        Args:
+            context: 上下文
+            execrpt: 执行回报对象
+        """
+        try:
+            print(f"on_execution_report - 股票={execrpt.symbol}, 成交价格={execrpt.price}, 成交数量={execrpt.volume}")
+        except Exception as e:
+            print(f"on_execution_report处理失败: {e}")
+
     def daily_strategy(self, context):
         """每日策略执行"""
         current_date = context.now.strftime('%Y-%m-%d')
         print(f"\n交易日: {current_date}")
         print(f"daily_strategy开始执行")
-        
+
+        # 调试：打印账户初始状态
+        account = context.account()
+        cash = account.cash
+        if isinstance(cash, dict):
+            print(f"账户初始状态:")
+            print(f"  nav(总资金): {cash.get('nav', 0):.2f}元")
+            print(f"  available(可用资金): {cash.get('available', 0):.2f}元")
+            print(f"  market_value(市值): {cash.get('market_value', 0):.2f}元")
+            print(f"  balance(资金余额): {cash.get('balance', 0):.2f}元")
+            print(f"  order_frozen(冻结资金): {cash.get('order_frozen', 0):.2f}元")
+
         has_position = False
         current_position = None
-        
-        account = context.account()
+
         positions = account.positions()
-        
+
         print(f"持仓检查 - 持仓数量={len(positions)}")
-        
+
         for position in positions:
             # 安全获取持仓量
             volume = position.volume
             volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
-            
+
             print(f"持仓检查 - 股票代码={position.symbol}, 持仓量={volume_value}")
-            
+
             if volume_value > 0:
                 has_position = True
                 current_position = position
                 print(f"发现持仓 - {position.symbol}, 持仓量={volume_value}")
                 break
-        
+
         print(f"持仓检查完成 - 结果={has_position}")
-        
+
         # 如果有持仓，检查是否应该卖出
         if has_position and current_position:
             symbol = current_position.symbol
@@ -406,105 +492,138 @@ class BacktestStrategy:
             vwap = current_position.vwap
             # 安全获取持仓均价
             buy_price = float(vwap.value) if hasattr(vwap, 'value') else float(vwap)  # 使用持仓均价作为买入价
-            
+
             if self.should_sell(context, symbol, buy_price):
-                self._execute_sell(context, symbol)
+                print(f"\n执行卖出操作前状态:")
+                self._debug_print_account_status(context)
+
+                sell_result = self._execute_sell(context, symbol)
                 has_position = False
-        
+
+                if sell_result:
+                    print(f"\n执行卖出操作后状态:")
+                    self._debug_print_account_status(context)
+
         # 如果没有持仓，尝试买入
         if not has_position:
             print(f"无持仓，开始选股流程")
             # 获取当日评分最高的股票
             top_stock = self.get_top_stock(context)
-            
+
             print(f"get_top_stock返回结果={top_stock}")
-            
+
             if top_stock:
                 print(f"选股成功，开始判断买入条件 - 股票代码={top_stock['symbol']}")
+                print(f"执行买入操作前状态:")
+                self._debug_print_account_status(context)
+
                 buy_decision = self.should_buy(context, top_stock['symbol'])
                 print(f"should_buy判断结果={buy_decision}")
-                
+
                 if buy_decision:
                     print(f"买入条件满足，执行买入操作")
                     buy_result = self._execute_buy(context, top_stock)
                     print(f"_execute_buy返回结果={buy_result}")
             else:
                 print(f"选股失败，没有符合条件的股票")
-        
+
         # 记录当日组合价值
         portfolio_value = self.calculate_portfolio_value(context)
-        
+
         # 确保portfolio_value是数值类型
         if isinstance(portfolio_value, dict):
             portfolio_value_num = portfolio_value.get('value', portfolio_value.get('total', 100000))
         else:
             portfolio_value_num = portfolio_value
-        
+
         self.portfolio_values.append({
             'date': context.now,
             'value': portfolio_value_num
         })
-        
+
         print(f"当日组合价值: {portfolio_value_num:,.2f}元")
+
+    def _debug_print_account_status(self, context):
+        """打印账户状态用于调试"""
+        account = context.account()
+        cash = account.cash
+        if isinstance(cash, dict):
+            print(f"  available(可用资金): {cash.get('available', 0):.2f}元")
+            print(f"  nav(总资金): {cash.get('nav', 0):.2f}元")
+            print(f"  market_value(市值): {cash.get('market_value', 0):.2f}元")
+            print(f"  balance(余额): {cash.get('balance', 0):.2f}元")
+            print(f"  order_frozen(冻结): {cash.get('order_frozen', 0):.2f}元")
     
     def _execute_buy(self, context, stock_info: Dict[str, str]) -> bool:
         """执行买入操作"""
         try:
             symbol = stock_info['symbol']
             sec_name = stock_info.get('sec_name', symbol)
-            
+
             print(f"_execute_buy - 开始执行买入操作，股票代码={symbol}, 名称={sec_name}")
-            
+
             # 获取当前价格
             from gm.api import current
             current_data = current(symbol)
             if not current_data:
                 print(f"_execute_buy - 获取价格失败")
                 return False
-                
+
             # 安全获取价格数值
             price_data = current_data[0]['price']
             if hasattr(price_data, 'value'):
                 current_price = float(price_data.value)
             else:
                 current_price = float(price_data) if price_data else 0.0
-            
-            # 计算可买入数量（全仓买入）
-            cash = context.account().cash
-            
-            # 安全获取现金数值 - 根据文档，cash是dict类型
-            if isinstance(cash, dict):
-                # 优先使用可用资金
-                cash_value = float(cash.get('available', 0.0))
-            elif hasattr(cash, 'available'):
-                cash_value = float(cash.available)
-            elif hasattr(cash, 'value'):
-                cash_value = float(cash.value)
-            elif hasattr(cash, 'amount'):
-                cash_value = float(cash.amount)
+
+            # 关键修复：完全依赖当日卖出记录，不信任gm.api的账户状态
+            current_date = context.now.strftime('%Y-%m-%d')
+            if (self._last_sell_info and
+                self._last_sell_info['date'] == current_date):
+
+                # 使用估算的卖出金额作为现金
+                sell_amount = self._last_sell_info['amount']
+                cash_value = sell_amount * (1 - self.commission_ratio)
+
+                print(f"_execute_buy - 检测到当日卖出，使用估算资金={cash_value:.2f}元")
+                print(f"   卖出金额={sell_amount:.2f}元, 预计佣金={sell_amount*self.commission_ratio:.2f}元")
             else:
-                # 尝试直接转换，如果失败则使用安全默认值
-                cash_value = float(cash) if cash else 0.0
-        
+                # 正常情况：从账户获取现金
+                cash = context.account().cash
+
+                # 安全获取现金数值 - 根据文档，cash是dict类型
+                if isinstance(cash, dict):
+                    # 优先使用可用资金
+                    cash_value = float(cash.get('available', 0.0))
+                elif hasattr(cash, 'available'):
+                    cash_value = float(cash.available)
+                elif hasattr(cash, 'value'):
+                    cash_value = float(cash.value)
+                elif hasattr(cash, 'amount'):
+                    cash_value = float(cash.amount)
+                else:
+                    # 尝试直接转换，如果失败则使用安全默认值
+                    cash_value = float(cash) if cash else 0.0
+
             # 计算可买入数量（全仓买入）
             commission = cash_value * self.commission_ratio
             available_cash = cash_value - commission
-            
+
             # 计算可买入股数（100股为单位）
             quantity = int(available_cash / current_price / 100) * 100
-            
+
             print(f"_execute_buy - 佣金={commission:.2f}元, 可用资金={available_cash:.2f}元, 可买数量={quantity}股")
-            
+
             if quantity <= 0:
                 print("资金不足，无法买入")
                 return False
-            
+
             # 执行买入
             from gm.api import order_volume, OrderSide_Buy, OrderType_Market, PositionEffect_Open
             print(f"_execute_buy - 执行订单: {symbol}, 数量={quantity}, 类型=买入")
-            order_volume(symbol=symbol, volume=quantity, side=OrderSide_Buy, 
+            order_volume(symbol=symbol, volume=quantity, side=OrderSide_Buy,
                         order_type=OrderType_Market, position_effect=PositionEffect_Open)
-            
+
             # 记录交易
             trade_record = {
                 'date': context.now,
@@ -516,10 +635,14 @@ class BacktestStrategy:
                 'amount': current_price * quantity
             }
             self.trading_records.append(trade_record)
-            
+
             print(f"买入成功: {symbol} ({sec_name}) {quantity}股, 价格{current_price:.2f}元")
+
+            # 清空卖出记录（防止重复使用）
+            self._last_sell_info = None
+
             return True
-            
+
         except Exception as e:
             print(f"买入失败: {e}")
             return False
@@ -535,41 +658,64 @@ class BacktestStrategy:
             if not positions:
                 print(f"没有{symbol}的持仓")
                 return False
-            
+
             # 获取第一个持仓（通常只有一个）
             position = positions[0]
-            
+
             # 安全获取持仓量
             volume = position.volume
             volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
-            
+
             print(f"_execute_sell - 持仓数量={volume_value}股")
             if volume_value <= 0:
                 print(f"没有{symbol}的持仓")
                 return False
-            
+
             # 获取当前价格
             current_data = current(symbol)
             if not current_data:
                 return False
-                
+
             # 安全获取价格数值
             price_data = current_data[0]['price']
             if hasattr(price_data, 'value'):
                 current_price = float(price_data.value)
             else:
                 current_price = float(price_data) if price_data else 0.0
-            
-            # 安全获取持仓量
-            volume = position.volume
-            volume_value = float(volume.value) if hasattr(volume, 'value') else float(volume)
-            
+
             # 执行卖出（清仓）- volume参数需要int类型
             # 只有在回测期间才执行卖出操作，避免回测结束后调用已停止的服务
             try:
                 print(f"_execute_sell - 执行订单: {symbol}, 数量={int(volume_value)}, 类型=卖出")
-                order_volume(symbol=symbol, volume=int(volume_value), side=OrderSide_Sell, 
+
+                # 记录待处理订单信息（在订单提交前记录）
+                current_date = context.now.strftime('%Y-%m-%d')
+                pending_order_id = f"{symbol}_{current_date}"  # 使用股票代码和日期作为临时ID
+
+                self._pending_sell_orders[pending_order_id] = {
+                    'symbol': symbol,
+                    'price': current_price,
+                    'quantity': volume_value,
+                    'amount': current_price * volume_value,
+                    'date': current_date
+                }
+
+                order_volume(symbol=symbol, volume=int(volume_value), side=OrderSide_Sell,
                             order_type=OrderType_Market, position_effect=PositionEffect_Close)
+
+                # 记录卖出信息（立即记录,不等待订单确认）
+                # 因为在backtest_match_mode=1下,订单理论上应该立即成交
+                self._last_sell_info = {
+                    'symbol': symbol,
+                    'price': current_price,
+                    'quantity': volume_value,
+                    'amount': current_price * volume_value,
+                    'date': current_date
+                }
+
+                print(f"_execute_sell - 已记录待处理订单: {pending_order_id}")
+                print(f"_execute_sell - 已记录卖出信息: {self._last_sell_info}")
+
             except Exception as order_error:
                 # 捕获回测服务调用错误
                 error_msg = str(order_error)
@@ -579,7 +725,7 @@ class BacktestStrategy:
                 else:
                     # 其他错误继续抛出
                     raise
-            
+
             # 尝试获取股票名称
             sec_name = symbol
             # 从最新的买入记录中查找该股票的名称
@@ -587,7 +733,7 @@ class BacktestStrategy:
                 if trade['symbol'] == symbol and trade['action'] == 'BUY':
                     sec_name = trade.get('sec_name', symbol)
                     break
-            
+
             # 记录交易
             trade_record = {
                 'date': context.now,
@@ -599,10 +745,11 @@ class BacktestStrategy:
                 'amount': current_price * volume_value
             }
             self.trading_records.append(trade_record)
-            
+
             print(f"卖出成功: {symbol} ({sec_name}) {volume_value}股, 价格{current_price:.2f}元")
+            print(f"   预计到账金额: {current_price * volume_value:.2f}元 (未扣除佣金)")
             return True
-            
+
         except Exception as e:
             print(f"卖出失败: {e}")
             return False

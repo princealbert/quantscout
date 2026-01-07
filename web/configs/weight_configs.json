@@ -205,5 +205,73 @@
       "initial_capital": 60000,
       "commission_ratio": 0.0003
     }
+  },
+  "d75fdc49-e640-43b5-a0de-48d030bcdf08": {
+    "id": "d75fdc49-e640-43b5-a0de-48d030bcdf08",
+    "name": "20260107_最优组合",
+    "description": "由参数优化器生成的最优组合，生成时间：2026-01-07T18:32:10.143010",
+    "weights": {
+      "kdj_j": 5,
+      "trend": 5,
+      "volume": 5,
+      "fundamental": 75,
+      "position": 5,
+      "risk_reward": 5,
+      "deepv": 0
+    },
+    "sub_weights": {
+      "kdj": {
+        "total_weight": 100,
+        "sub_weights": {
+          "j_j_0_20": 55,
+          "j_j_-10_0": 25,
+          "j_j_-20_-10": 10,
+          "j_j_-30_-20": 5,
+          "j_j_below_-30": 5
+        }
+      },
+      "position": {
+        "total_weight": 100,
+        "sub_weights": {
+          "above_white": 10,
+          "between_lines": 35,
+          "below_yellow": 55
+        }
+      },
+      "volume": {
+        "total_weight": 100,
+        "sub_weights": {
+          "big_volume": 5,
+          "volume_anomaly": 10,
+          "volume_breathing": 85
+        }
+      },
+      "fundamental": {
+        "total_weight": 100,
+        "sub_weights": {
+          "pe_positive": 60,
+          "pe_low": 10,
+          "market_cap": 5,
+          "volume_threshold": 25
+        }
+      },
+      "trend": {
+        "total_weight": 100,
+        "sub_weights": {
+          "up_trend": 85,
+          "volume_price_rise": 10,
+          "volume_contraction": 5
+        }
+      }
+    },
+    "created_at": "2026-01-07T18:32:10.143010",
+    "is_default": false,
+    "backtest_params": {
+      "stop_profit_ratio": 0.05,
+      "stop_loss_ratio": -0.03,
+      "backtest_days": 90,
+      "initial_capital": 60000,
+      "commission_ratio": 0.0003
+    }
   }
 }

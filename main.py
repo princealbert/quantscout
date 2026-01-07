@@ -57,6 +57,16 @@ def on_backtest_finished(context, indicator):
     context.runner.on_backtest_finished(context, indicator)
 
 
+def on_order_status(context, order):
+    """订单状态变化回调 - 使用解耦后的策略引擎"""
+    context.runner.on_order_status(context, order)
+
+
+def on_execution_report(context, execrpt):
+    """委托执行回报回调 - 使用解耦后的策略引擎"""
+    context.runner.on_execution_report(context, execrpt)
+
+
 # 快速测试函数
 def quick_test():
     """快速测试函数 - 用于验证模块功能"""

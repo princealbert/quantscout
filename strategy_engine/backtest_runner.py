@@ -68,11 +68,23 @@ class BacktestRunner:
         # 直接调用策略实例的daily_strategy方法
         context.strategy.daily_strategy(context)
     
+    def on_order_status(self, context, order):
+        """订单状态变化回调 - 委托给策略实例"""
+        # 委托给策略实例的on_order_status方法
+        if hasattr(context, 'strategy'):
+            context.strategy.on_order_status(context, order)
+
+    def on_execution_report(self, context, execrpt):
+        """委托执行回报回调 - 委托给策略实例"""
+        # 委托给策略实例的on_execution_report方法
+        if hasattr(context, 'strategy'):
+            context.strategy.on_execution_report(context, execrpt)
+
     def on_backtest_finished(self, context, indicator):
         """回测结束回调"""
         # 回测结束时不执行强制平仓操作，因为回测服务已停止接受新订单
         # 回测引擎会自动处理所有未平仓头寸
-        
+
         # 生成基础报告
         try:
             # 导入必要的模块
@@ -672,7 +684,8 @@ with open(result_path, 'w', encoding='utf-8') as f:
             backtest_initial_cash=params.initial_capital,
             backtest_commission_ratio=params.commission_ratio,
             backtest_slippage_ratio=0.0001,
-            backtest_check_cache=0  # 禁用回测缓存，确保每次回测都重新计算
+            backtest_check_cache=0,  # 禁用回测缓存，确保每次回测都重新计算
+            backtest_match_mode=1  # 关键修复：使用实时撮合模式（1），订单在当前bar收盘价立即成交，避免同日买卖的资金延迟问题
         )
         
         # 回测完成后，读取报告文件

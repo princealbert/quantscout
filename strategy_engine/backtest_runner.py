@@ -356,7 +356,11 @@ with open(result_path, 'w', encoding='utf-8') as f:
                         end_date = datetime.now()
                     
                     # 计算回测开始日期
+                    # 注意:backtest_days表示从开始日期到结束日期的总天数
+                    # 所以start_date = end_date - timedelta(days=backtest_days)
+                    # 例如: 2025-09-30往前90天应该是2025-07-02(包含7月2日)
                     start_date = end_date - timedelta(days=backtest_days)
+                    print(f"回测期间: {start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}, 共{backtest_days}天")
                     
                     # 导入参数配置系统
                     try:
@@ -510,7 +514,11 @@ with open(result_path, 'w', encoding='utf-8') as f:
                 end_date = datetime.now()
             
             # 计算回测开始日期
+            # 注意:backtest_days表示从开始日期到结束日期的总天数
+            # 所以start_date = end_date - timedelta(days=backtest_days)
+            # 例如: 2025-09-30往前90天应该是2025-07-02(包含7月2日)
             start_date = end_date - timedelta(days=backtest_days)
+            print(f"回测期间: {start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}, 共{backtest_days}天")
             
         except Exception as e:
             print(f"错误: 设置策略参数失败: {e}")
@@ -548,8 +556,12 @@ with open(result_path, 'w', encoding='utf-8') as f:
             print("="*50)
             
             # 计算回测期间
+            # 注意:backtest_days表示从开始日期到结束日期的总天数
+            # 所以start_date = end_date - timedelta(days=backtest_days)
+            # 例如: 2025-09-30往前90天应该是2025-07-02(包含7月2日)
             end_date = datetime.now()
             start_date = end_date - timedelta(days=params.backtest_days)
+            print(f"回测期间: {start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}, 共{params.backtest_days}天")
             
         except ImportError as e:
             print(f"参数配置系统导入失败，使用默认参数: {e}")
@@ -561,8 +573,13 @@ with open(result_path, 'w', encoding='utf-8') as f:
                     from config.strategy_params import StrategyParams
                 params = StrategyParams()
                 
+                # 计算回测开始日期
+                # 注意:backtest_days表示从开始日期到结束日期的总天数
+                # 所以start_date = end_date - timedelta(days=backtest_days)
+                # 例如: 2025-09-30往前90天应该是2025-07-02(包含7月2日)
                 end_date = datetime.now()
                 start_date = end_date - timedelta(days=params.backtest_days)
+                print(f"回测期间: {start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}, 共{params.backtest_days}天")
             except Exception as e2:
                 print(f"获取默认参数失败: {e2}")
                 return

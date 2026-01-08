@@ -375,20 +375,7 @@ class BacktestStrategy:
             else:
                 # 确保初始资金是数值类型
                 self.initial_capital = float(self.initial_capital) if self.initial_capital else 0.0
-    
-            # 关键修复：检查当前组合价值是否超过初始资金的合理范围
-            # 如果组合价值远大于初始资金，说明可能是从上一次回测继承了状态
-            # 这种情况通常发生在连续回测时，gm.api可能没有完全重置账户状态
-            if portfolio_value > self.initial_capital * 1.2:
-                print(f"检测到组合价值异常 ({portfolio_value:.2f}元 > 初始资金的1.2倍)")
-                print(f"   初始资金: {self.initial_capital:.2f}元, 现金: {cash_value:.2f}元, 持仓市值: {positions_value:.2f}元")
-                print(f"   这可能是连续回测时账户状态未完全重置导致的")
-                
-                # 核心修复：直接返回初始资金，忽略当前账户状态
-                # 这样可以确保每次回测的组合价值都是基于初始资金计算的，避免状态继承
-                print(f"   已强制重置组合价值为初始资金: {self.initial_capital:.2f}元")
-                return self.initial_capital
-            
+
             return portfolio_value
             
         except Exception as e:

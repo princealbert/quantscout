@@ -396,7 +396,7 @@ with tab3:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.warning("⚠️ 删除操作不可恢复，请谨慎操作！")
+        st.warning("⚠️ 删除和重置操作不可恢复，请谨慎操作！")
         
         if st.button("清空所有蓝图文件", type="primary"):
             if st.session_state.get('confirm_clear', False):
@@ -409,30 +409,80 @@ with tab3:
                 st.error("请再次点击确认删除所有蓝图文件！")
     
     with col2:
-        st.subheader("删除特定蓝图文件")
+        st.subheader("重置蓝图状态")
         
+        # 选择要重置的蓝图文件
         blueprints = optimizer.list_blueprints()
         if blueprints:
-            blueprint_to_delete = st.selectbox(
-                "选择要删除的蓝图文件",
+            blueprint_to_reset = st.selectbox(
+                "选择要重置的蓝图文件",
                 options=[bp['filename'] for bp in blueprints],
                 format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)"
             )
             
-            if st.button("删除选中的蓝图文件"):
-                if st.session_state.get('confirm_delete', False):
-                    success = optimizer.delete_blueprint(blueprint_to_delete)
-                    if success:
-                        st.success(f"已删除蓝图文件: {blueprint_to_delete}")
-                        st.session_state['confirm_delete'] = False
+            # 显示当前状态统计
+            try:
+                # 构建完整的蓝图文件路径
+                blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_reset)
+                blueprint = optimizer.blueprint_manager.load_blueprint(blueprint_path)
+                status_counts = {}
+                for combo in blueprint['combinations']:
+                    status = combo['status']
+                    status_counts[status] = status_counts.get(status, 0) + 1
+
+                st.write("当前状态统计:")
+                for status, count in status_counts.items():
+                    st.write(f"  {status}: {count}个")
+            except Exception as e:
+                st.error(f"读取蓝图状态失败: {e}")
+            
+            st.info("重置会将所有组合状态恢复为pending,清除回测结果,便于重新测试同一批组合")
+
+            if st.button("重置选中的蓝图", type="secondary"):
+                if st.session_state.get('confirm_reset', False):
+                    try:
+                        # 构建完整的蓝图文件路径
+                        blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_reset)
+                        # 调用BlueprintManager的重置并保存功能
+                        optimizer.blueprint_manager.reset_and_save_blueprint(None, blueprint_path)
+                        st.success(f"已重置蓝图文件: {blueprint_to_reset}")
+                        st.info("所有组合状态已恢复为pending,回测结果已清除")
+                        st.session_state['confirm_reset'] = False
                         st.rerun()
-                    else:
-                        st.error(f"删除蓝图文件失败: {blueprint_to_delete}")
+                    except Exception as e:
+                        st.error(f"重置蓝图失败: {e}")
                 else:
-                    st.session_state['confirm_delete'] = True
-                    st.error(f"请再次点击确认删除 {blueprint_to_delete}！")
+                    st.session_state['confirm_reset'] = True
+                    st.error(f"请再次点击确认重置 {blueprint_to_reset}！")
         else:
-            st.info("暂无蓝图文件可删除")
+            st.info("暂无蓝图文件可重置")
+    
+    # 删除特定蓝图文件功能(移到下方)
+    st.subheader("删除特定蓝图文件")
+    
+    blueprints = optimizer.list_blueprints()
+    if blueprints:
+        blueprint_to_delete = st.selectbox(
+            "选择要删除的蓝图文件",
+            options=[bp['filename'] for bp in blueprints],
+            format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)",
+            key="delete_blueprint_select"
+        )
+        
+        if st.button("删除选中的蓝图文件", key="delete_blueprint_btn"):
+            if st.session_state.get('confirm_delete', False):
+                success = optimizer.delete_blueprint(blueprint_to_delete)
+                if success:
+                    st.success(f"已删除蓝图文件: {blueprint_to_delete}")
+                    st.session_state['confirm_delete'] = False
+                    st.rerun()
+                else:
+                    st.error(f"删除蓝图文件失败: {blueprint_to_delete}")
+            else:
+                st.session_state['confirm_delete'] = True
+                st.error(f"请再次点击确认删除 {blueprint_to_delete}！")
+    else:
+        st.info("暂无蓝图文件可删除")
 
 # 运行优化
 st.header("运行优化")

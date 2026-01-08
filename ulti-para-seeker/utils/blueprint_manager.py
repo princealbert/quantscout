@@ -329,29 +329,47 @@ class BlueprintManager:
     def reset_blueprint(self, blueprint: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         重置蓝图，将所有组合状态设为pending
-        
+
         Args:
             blueprint: 蓝图数据结构（可选，默认使用当前蓝图）
-        
+
         Returns:
             Dict[str, Any]: 重置后的蓝图数据
         """
         if not blueprint:
             blueprint = self.blueprint
-        
+
         if not blueprint:
             raise ValueError("蓝图数据为空")
-        
+
         for combo in blueprint['combinations']:
             combo['status'] = 'pending'
             combo['result'] = None
             combo['started_at'] = None
             combo['completed_at'] = None
-        
+
         # 更新统计信息
         self._update_blueprint_stats(blueprint)
-        
+
         return blueprint
+
+    def reset_and_save_blueprint(self, blueprint: Optional[Dict[str, Any]] = None,
+                                blueprint_file: Optional[str] = None) -> str:
+        """
+        重置蓝图并保存到文件
+
+        Args:
+            blueprint: 蓝图数据结构（可选，默认使用当前蓝图）
+            blueprint_file: 保存路径（可选，默认使用当前文件路径）
+
+        Returns:
+            str: 保存后的蓝图文件路径
+        """
+        # 重置蓝图
+        reset_blueprint = self.reset_blueprint(blueprint)
+
+        # 保存到文件
+        return self.save_blueprint(reset_blueprint, blueprint_file)
     
     def _update_blueprint_stats(self, blueprint: Optional[Dict[str, Any]] = None):
         """

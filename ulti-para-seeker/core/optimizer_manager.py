@@ -42,7 +42,12 @@ class OptimizerManager:
         self.end_time = None
         self.result_processor = ResultProcessor()
         self.current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
+
+        # 初始化蓝图管理器,使用正确的路径
+        from utils.blueprint_manager import BlueprintManager
+        blueprint_file = os.path.join(self.current_dir, "parameter_blueprint.json")
+        self.blueprint_manager = BlueprintManager(blueprint_file)
+
         # 初始化优化器实例
         self.optimizers = {
             "暴力搜索": BruteForceOptimizer(),

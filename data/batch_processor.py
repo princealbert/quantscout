@@ -27,6 +27,8 @@ from data.stock_data_provider import StockDataProvider
 from indicators.kdj_calculator import KDJCalculator
 from indicators.trend_indicators import TrendIndicators
 from indicators.deepv_calculator import DeepVCalculator
+from indicators.s1_filter import S1Filter
+from indicators.speculation_filter import SpeculationFilter
 from scoring.comprehensive_scorer import ComprehensiveScorer
 from cache import stock_cache
 from cache.preload_manager import preload_manager
@@ -102,6 +104,8 @@ class BatchProcessor:
         self.kdj_calculator = KDJCalculator()
         self.trend_indicators = TrendIndicators()
         self.deepv_calculator = DeepVCalculator()
+        self.s1_filter = S1Filter()  # S1筛选器
+        self.speculation_filter = SpeculationFilter()  # 投机炒作筛选器
         self.comprehensive_scorer = ComprehensiveScorer(custom_weights, sub_weights_config)
     
     def _update_progress(self, message: str, end: str = "\r"):
@@ -225,7 +229,7 @@ class BatchProcessor:
             return None
     
     def _process_kdj_only(self, symbol: str, trade_date: str, basic_info: Dict[str, Any] = None, batch_prefix: str = "") -> Dict[str, Any]:
-        """仅处理KDJ指标，避免不必要的复杂计算"""
+        """仅处理KDJ指标、S1筛选和投机筛选，避免不必要的复杂计算"""
         try:
             # 如果未提供基础信息，则获取
             if basic_info is None:
@@ -256,6 +260,20 @@ class BatchProcessor:
             if j_value >= 20:  # J值必须小于20
                 return None
             
+            # S1筛选：排除前期高点出现放量绿柱的股票
+            s1_passed, s1_result = self.s1_filter.filter_stock(df)
+            if not s1_passed:
+                # S1未通过，记录日志（可选）并返回None
+                logger.debug(f"{batch_prefix}{symbol} S1筛选未通过: {s1_result.get('s1_reason', '未知原因')}")
+                return None
+            
+            # 投机炒作筛选：排除一字涨停板游资炒作的股票（不使用波动率条件，避免误杀主升浪）
+            speculation_passed, speculation_result = self.speculation_filter.filter_stock(df)
+            if not speculation_passed:
+                # 投机炒作未通过，记录日志并返回None
+                logger.debug(f"{batch_prefix}{symbol} 投机炒作筛选未通过: {speculation_result.get('reason', '未知原因')}")
+                return None
+            
             # 返回基础数据，供后续趋势筛选使用
             return {
                 'symbol': symbol,
@@ -265,6 +283,8 @@ class BatchProcessor:
                 'kdj_j': j_value,
                 'pe': pe,
                 'a_mv': a_mv,
+                's1_result': s1_result,  # 保留S1筛选结果
+                'speculation_result': speculation_result,  # 保留投机筛选结果
                 'df': df  # 保留数据框
             }
             

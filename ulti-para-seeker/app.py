@@ -1032,19 +1032,50 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
                     logger.info(f"子权重: {indicator_name}.{sub_indicator_name} = {sub_weight_value}")
                 
                 # 构建完整的配置对象
+                # 提取回测结果指标（注意：DataFrame中的列名格式）
+                backtest_result_str = (
+                    f"收益率:{result_data.get('总收益率(%)', 0):.2f}% | "
+                    f"年化:{result_data.get('年化收益率(%)', 0):.2f}% | "
+                    f"夏普:{result_data.get('夏普比率', 0):.2f} | "
+                    f"最大回撤:{result_data.get('最大回撤(%)', 0):.2f}% | "
+                    f"胜率:{result_data.get('胜率(%)', 0):.2f}% | "
+                    f"交易次数:{int(result_data.get('交易次数', 0))}"
+                )
+
+                # 从result_data中获取起始资金，如果没有则使用默认值60000
+                initial_capital = result_data.get('initial_capital', 60000)
+
+                # 获取回测终止日期
+                end_date = result_data.get('回测终止日期', datetime.now().strftime('%Y-%m-%d'))
+
+                # 获取序号
+                serial_number = int(result_data.get('序号', 0))
+
+                # 构建详细描述
+                description_parts = [
+                    f"序号:{serial_number}",
+                    f"由参数优化器生成的最优组合",
+                    f"回测天数:{int(result_data.get('回测天数', 90))}天",
+                    f"终点日期:{end_date}",
+                    f"止盈:{result_data.get('止盈比例(%)', 0):.1f}% | 止损:{result_data.get('止损比例(%)', 0):.1f}%",
+                    f"起始资金:{int(initial_capital)}元",
+                    f"回测结果:{backtest_result_str}",
+                    f"生成时间:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                ]
+
                 new_config = {
                     "id": config_id,
-                    "name": f"{datetime.now().strftime('%Y%m%d')}_最优组合",
-                    "description": f"由参数优化器生成的最优组合，生成时间：{datetime.now().isoformat()}",
+                    "name": f"序号{serial_number}_最优组合_{datetime.now().strftime('%Y%m%d')}",
+                    "description": " | ".join(description_parts),
                     "weights": weights,
                     "sub_weights": sub_weights,
                     "created_at": datetime.now().isoformat(),
                     "is_default": False,
                     "backtest_params": {
-                        "stop_profit_ratio": result_data['止盈比例(%)'] / 100,
-                        "stop_loss_ratio": -result_data['止损比例(%)'] / 100,
-                        "backtest_days": int(result_data['回测天数']),
-                        "initial_capital": 60000,
+                        "stop_profit_ratio": result_data.get('止盈比例(%)', 0) / 100,
+                        "stop_loss_ratio": -result_data.get('止损比例(%)', 0) / 100,
+                        "backtest_days": int(result_data.get('回测天数', 90)),
+                        "initial_capital": int(initial_capital),
                         "commission_ratio": 0.0003
                     }
                 }
@@ -1085,10 +1116,39 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
                 logger.info(f"从蓝图中获取子权重配置: {sub_weights}")
                 
                 # 构建完整的配置对象
+                # 提取回测结果指标
+                result = target_combination.get('result', {})
+                backtest_result_str = (
+                    f"收益率:{result.get('总收益率(%)', 0):.2f}% | "
+                    f"年化:{result.get('年化收益率(%)', 0):.2f}% | "
+                    f"夏普:{result.get('夏普比率', 0):.2f} | "
+                    f"最大回撤:{result.get('最大回撤(%)', 0):.2f}% | "
+                    f"胜率:{result.get('胜率(%)', 0):.2f}% | "
+                    f"交易次数:{int(result.get('交易次数', 0))}"
+                )
+
+                # 从params中获取起始资金，如果没有则使用默认值60000
+                initial_capital = params.get('initial_capital', 60000)
+
+                # 获取回测终止日期
+                end_date = params.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+
+                # 构建详细描述
+                description_parts = [
+                    f"序号:{blueprint_id}",
+                    f"由参数优化器生成的方案",
+                    f"回测天数:{int(params.get('backtest_days', 90))}天",
+                    f"终点日期:{end_date}",
+                    f"止盈:{params.get('stop_profit_ratio', 0.05)*100:.1f}% | 止损:{params.get('stop_loss_ratio', -0.03)*100:.1f}%",
+                    f"起始资金:{int(initial_capital)}元",
+                    f"回测结果:{backtest_result_str}",
+                    f"生成时间:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                ]
+
                 new_config = {
                     "id": config_id,
-                    "name": f"{datetime.now().strftime('%Y%m%d')}_方案_{blueprint_id}",
-                    "description": f"由参数优化器生成的方案，方案ID: {blueprint_id}，生成时间：{datetime.now().isoformat()}",
+                    "name": f"序号{blueprint_id}_方案_{datetime.now().strftime('%Y%m%d')}",
+                    "description": " | ".join(description_parts),
                     "weights": weights,
                     "sub_weights": sub_weights,
                     "created_at": datetime.now().isoformat(),
@@ -1097,7 +1157,7 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
                         "stop_profit_ratio": params.get('stop_profit_ratio', 0.05),
                         "stop_loss_ratio": params.get('stop_loss_ratio', -0.03),
                         "backtest_days": int(params.get('backtest_days', 90)),
-                        "initial_capital": 60000,
+                        "initial_capital": int(initial_capital),
                         "commission_ratio": 0.0003
                     }
                 }

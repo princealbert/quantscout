@@ -18,11 +18,16 @@ class BlueprintManager:
     def __init__(self, blueprint_file: str = "parameter_blueprint.json"):
         """
         初始化蓝图管理器
-        
+
         Args:
-            blueprint_file: 蓝图文件路径
+            blueprint_file: 蓝图文件路径（可以是绝对路径或相对路径）
         """
-        self.blueprint_file = blueprint_file
+        # 如果传入的是相对路径，将其转换为绝对路径
+        # 使用当前工作目录作为基准
+        if not os.path.isabs(blueprint_file):
+            self.blueprint_file = os.path.join(os.getcwd(), blueprint_file)
+        else:
+            self.blueprint_file = blueprint_file
         self.blueprint = None
     
     def generate_blueprint(self, param_combinations: List[Dict[str, Any]], 
@@ -126,60 +131,84 @@ class BlueprintManager:
     def load_blueprint(self, blueprint_file: Optional[str] = None) -> Dict[str, Any]:
         """
         加载参数组合蓝图
-        
+
         Args:
             blueprint_file: 蓝图文件路径（可选，默认使用初始化时的文件）
-        
+
         Returns:
             Dict[str, Any]: 蓝图数据结构
-            
+
         Raises:
             FileNotFoundError: 蓝图文件不存在
         """
         if blueprint_file:
-            self.blueprint_file = blueprint_file
-        
+            # 如果传入的是相对路径，将其转换为绝对路径
+            if not os.path.isabs(blueprint_file):
+                self.blueprint_file = os.path.join(os.getcwd(), blueprint_file)
+            else:
+                self.blueprint_file = blueprint_file
+
         if not os.path.exists(self.blueprint_file):
             raise FileNotFoundError(f"蓝图文件不存在: {self.blueprint_file}")
-        
+
         with open(self.blueprint_file, 'r', encoding='utf-8') as f:
             self.blueprint = json.load(f)
-        
+
         return self.blueprint
     
-    def save_blueprint(self, blueprint: Optional[Dict[str, Any]] = None, 
+    def save_blueprint(self, blueprint: Optional[Dict[str, Any]] = None,
                       blueprint_file: Optional[str] = None) -> str:
         """
         保存蓝图文件
-        
+
         Args:
             blueprint: 蓝图数据结构（可选，默认使用当前蓝图）
             blueprint_file: 保存路径（可选，默认使用当前文件路径）
-        
+
         Returns:
             str: 保存后的蓝图文件路径
         """
         if blueprint:
             self.blueprint = blueprint
-        
+
         if blueprint_file:
-            self.blueprint_file = blueprint_file
-        
+            # 如果传入的是相对路径，将其转换为绝对路径
+            if not os.path.isabs(blueprint_file):
+                self.blueprint_file = os.path.join(os.getcwd(), blueprint_file)
+            else:
+                self.blueprint_file = blueprint_file
+
         if not self.blueprint:
             raise ValueError("蓝图数据为空，无法保存")
-        
+
         # 更新最后修改时间
         self.blueprint['last_modified'] = datetime.now().isoformat()
-        
+
         # 更新统计信息
         self._update_blueprint_stats()
-        
+
         # 确保目录存在
         os.makedirs(os.path.dirname(os.path.abspath(self.blueprint_file)), exist_ok=True)
-        
-        with open(self.blueprint_file, 'w', encoding='utf-8') as f:
-            json.dump(self.blueprint, f, ensure_ascii=False, indent=2)
-        
+
+        # 使用原子写入：先写临时文件，再重命名
+        # 这样可以防止写入过程中断电/中断导致文件损坏
+        temp_file = self.blueprint_file + '.tmp'
+        try:
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                json.dump(self.blueprint, f, ensure_ascii=False, indent=2)
+
+            # 在 Windows 上需要先删除目标文件（如果存在）
+            if os.path.exists(self.blueprint_file):
+                os.remove(self.blueprint_file)
+
+            # 重命名临时文件为目标文件（原子操作）
+            os.rename(temp_file, self.blueprint_file)
+        except Exception:
+            # 如果出错，清理临时文件
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            raise
+
         return self.blueprint_file
     
     def get_next_combination(self, blueprint: Optional[Dict[str, Any]] = None) -> Tuple[Optional[int], Optional[Dict[str, Any]]]:
@@ -408,18 +437,18 @@ class BlueprintManager:
     def list_blueprints(self, directory: str = None) -> List[Dict[str, Any]]:
         """
         列出所有蓝图文件
-        
+
         Args:
-            directory: 蓝图文件所在目录，默认为当前目录
-            
+            directory: 蓝图文件所在目录，默认为当前工作目录
+
         Returns:
             List[Dict[str, Any]]: 蓝图文件列表，每个文件包含filename、size_kb、total_combinations、algorithm等信息
         """
         blueprints = []
-        
-        # 使用指定目录或当前目录
-        search_dir = directory or os.path.dirname(os.path.abspath(__file__))
-        
+
+        # 使用指定目录或当前工作目录
+        search_dir = directory or os.getcwd()
+
         # 遍历目录下的蓝图文件
         for filename in os.listdir(search_dir):
             if filename.startswith('parameter_blueprint') and filename.endswith('.json'):
@@ -428,17 +457,17 @@ class BlueprintManager:
                     # 获取文件大小
                     size = os.path.getsize(file_path)
                     size_kb = round(size / 1024, 2)
-                    
+
                     # 读取文件内容，获取蓝图信息
                     with open(file_path, 'r', encoding='utf-8') as f:
                         blueprint_data = json.load(f)
-                    
+
                     # 提取必要信息
                     total_combinations = blueprint_data.get('total_combinations', 0)
                     algorithm = blueprint_data.get('algorithm', '未知')
                     version = blueprint_data.get('version', '1.0')
                     generated_at = blueprint_data.get('generated_at', '')
-                    
+
                     blueprints.append({
                         'filename': filename,
                         'size_kb': size_kb,
@@ -453,27 +482,27 @@ class BlueprintManager:
                     })
                 except Exception as e:
                     print(f"读取蓝图文件失败: {filename}, 错误: {e}")
-        
+
         # 按生成时间降序排序
         blueprints.sort(key=lambda x: x.get('generated_at', ''), reverse=True)
-        
+
         return blueprints
     
     def clear_blueprints(self, directory: str = None) -> int:
         """
         清除所有蓝图文件
-        
+
         Args:
-            directory: 蓝图文件所在目录，默认为当前目录
-            
+            directory: 蓝图文件所在目录，默认为当前工作目录
+
         Returns:
             int: 删除的文件数量
         """
         deleted_count = 0
-        
-        # 使用指定目录或当前目录
-        search_dir = directory or os.path.dirname(os.path.abspath(__file__))
-        
+
+        # 使用指定目录或当前工作目录
+        search_dir = directory or os.getcwd()
+
         # 遍历目录下的蓝图文件
         for filename in os.listdir(search_dir):
             if filename.startswith('parameter_blueprint') and filename.endswith('.json'):
@@ -484,17 +513,17 @@ class BlueprintManager:
                     print(f"已删除蓝图文件: {filename}")
                 except Exception as e:
                     print(f"删除蓝图文件失败: {filename}, 错误: {e}")
-        
+
         return deleted_count
         
     def delete_blueprint(self, filename: str, directory: str = None) -> bool:
         """
         删除特定的蓝图文件
-        
+
         Args:
             filename: 要删除的蓝图文件名
-            directory: 蓝图文件所在目录，默认为当前目录
-            
+            directory: 蓝图文件所在目录，默认为当前工作目录
+
         Returns:
             bool: 删除是否成功
         """
@@ -502,9 +531,9 @@ class BlueprintManager:
         if not (filename.startswith('parameter_blueprint') and filename.endswith('.json')):
             print(f"无效的蓝图文件名: {filename}")
             return False
-        
-        # 使用指定目录或当前目录
-        search_dir = directory or os.path.dirname(os.path.abspath(__file__))
+
+        # 使用指定目录或当前工作目录
+        search_dir = directory or os.getcwd()
         file_path = os.path.join(search_dir, filename)
         
         try:

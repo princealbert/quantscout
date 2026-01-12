@@ -41,9 +41,18 @@ class OptimizerManager:
         self.start_time = None
         self.end_time = None
         self.result_processor = ResultProcessor()
-        self.current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-        # 初始化蓝图管理器,使用正确的路径
+        # 使用当前工作目录 + ulti-para-seeker 来确定蓝图文件所在目录
+        # 这样无论从哪里运行，都能正确找到蓝图文件
+        cwd = os.getcwd()
+        # 检查当前工作目录是否已经是 ulti-para-seeker 目录
+        if cwd.endswith('ulti-para-seeker'):
+            self.current_dir = cwd
+        else:
+            # 如果在项目根目录，拼接 ulti-para-seeker
+            self.current_dir = os.path.join(cwd, 'ulti-para-seeker')
+
+        # 初始化蓝图管理器,使用相对路径
         from utils.blueprint_manager import BlueprintManager
         blueprint_file = os.path.join(self.current_dir, "parameter_blueprint.json")
         self.blueprint_manager = BlueprintManager(blueprint_file)
@@ -859,16 +868,32 @@ class OptimizerManager:
         """
         # 更新最后修改时间
         blueprint['last_modified'] = datetime.now().isoformat()
-        
+
         # 更新统计信息
         self._update_blueprint_stats(blueprint)
-        
+
         # 确保目录存在
         os.makedirs(os.path.dirname(os.path.abspath(blueprint_file)), exist_ok=True)
-        
-        with open(blueprint_file, 'w', encoding='utf-8') as f:
-            json.dump(blueprint, f, ensure_ascii=False, indent=2)
-        
+
+        # 使用原子写入：先写临时文件，再重命名
+        # 这样可以防止写入过程中断电/中断导致文件损坏
+        temp_file = blueprint_file + '.tmp'
+        try:
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                json.dump(blueprint, f, ensure_ascii=False, indent=2)
+
+            # 在 Windows 上需要先删除目标文件（如果存在）
+            if os.path.exists(blueprint_file):
+                os.remove(blueprint_file)
+
+            # 重命名临时文件为目标文件（原子操作）
+            os.rename(temp_file, blueprint_file)
+        except Exception:
+            # 如果出错，清理临时文件
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            raise
+
         return blueprint_file
     
     def save_blueprint(self, blueprint: Dict[str, Any], blueprint_file: str = "parameter_blueprint.json") -> str:

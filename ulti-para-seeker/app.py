@@ -31,6 +31,12 @@ import streamlit as st
 # 导入参数优化器
 from core import OptimizerManager
 
+# 导入Token配置
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+from ui.token_config import display_token_config
+
 
 
 
@@ -49,6 +55,12 @@ optimizer = OptimizerManager()
 
 # 侧边栏：算法选择和参数设置
 st.sidebar.header("算法配置")
+
+# Token配置（放在最前面）
+display_token_config()
+
+st.sidebar.markdown("---")
+st.sidebar.header("参数设置")
 
 # 算法选择
 algorithm = st.sidebar.selectbox(

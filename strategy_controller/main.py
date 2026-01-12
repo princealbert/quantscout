@@ -16,6 +16,7 @@ from strategy_controller.ui.weight_config import display_weight_configuration, g
 from strategy_controller.ui.config_manager import display_config_manager
 from strategy_controller.ui.backtest_component import display_backtest_button
 from strategy_controller.ui.optimization_component import display_configuration_panel
+from strategy_controller.ui.token_component import display_token_config
 from strategy_controller.presentation.data_table import display_stock_results
 from strategy_controller.business.strategy_executor import run_strategy
 from strategy_controller.business.report_generator import save_report
@@ -51,7 +52,10 @@ def main():
     with st.sidebar:
         st.title("🎛️ 控制面板")
         
-        # 配置管理（放在最前面，因为会影响后续的权重配置）
+        # Token配置（放在最前面，因为会影响所有功能）
+        display_token_config()
+        
+        # 配置管理
         st.markdown("---")
         current_weights = get_weights_from_session()
         current_sub_weights = get_sub_weights_from_session()

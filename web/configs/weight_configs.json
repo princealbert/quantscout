@@ -598,5 +598,73 @@
       "initial_capital": 50000,
       "commission_ratio": 0.0003
     }
+  },
+  "29f67dda-b741-449f-88ed-8efcd0434869": {
+    "id": "29f67dda-b741-449f-88ed-8efcd0434869",
+    "name": "序号306_最优组合_20260111",
+    "description": "序号:306 | 由参数优化器生成的最优组合 | 回测天数:90天 | 终点日期:2025-02-28 | 止盈:13.0% | 止损:4.0% | 起始资金:60000元 | 回测结果:收益率:39.70% | 年化:338.40% | 夏普:7.89 | 最大回撤:-10.73% | 胜率:75.00% | 交易次数:9 | 生成时间:2026-01-11 18:04:23",
+    "weights": {
+      "kdj_j": 5,
+      "trend": 45,
+      "volume": 5,
+      "fundamental": 5,
+      "position": 5,
+      "risk_reward": 35,
+      "deepv": 0
+    },
+    "sub_weights": {
+      "kdj": {
+        "total_weight": 100,
+        "sub_weights": {
+          "j_j_0_20": 55,
+          "j_j_-10_0": 30,
+          "j_j_-20_-10": 5,
+          "j_j_-30_-20": 5,
+          "j_j_below_-30": 5
+        }
+      },
+      "position": {
+        "total_weight": 100,
+        "sub_weights": {
+          "above_white": 10,
+          "between_lines": 25,
+          "below_yellow": 65
+        }
+      },
+      "volume": {
+        "total_weight": 100,
+        "sub_weights": {
+          "big_volume": 5,
+          "volume_anomaly": 65,
+          "volume_breathing": 30
+        }
+      },
+      "fundamental": {
+        "total_weight": 100,
+        "sub_weights": {
+          "pe_positive": 5,
+          "pe_low": 25,
+          "market_cap": 25,
+          "volume_threshold": 45
+        }
+      },
+      "trend": {
+        "total_weight": 100,
+        "sub_weights": {
+          "up_trend": 5,
+          "volume_price_rise": 45,
+          "volume_contraction": 50
+        }
+      }
+    },
+    "created_at": "2026-01-11T18:04:23.834019",
+    "is_default": false,
+    "backtest_params": {
+      "stop_profit_ratio": 0.13,
+      "stop_loss_ratio": -0.04,
+      "backtest_days": 90,
+      "initial_capital": 60000,
+      "commission_ratio": 0.0003
+    }
   }
 }

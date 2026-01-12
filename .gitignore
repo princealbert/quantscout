@@ -11,7 +11,6 @@ __pycache__/
 *.xlsx
 
 # Cache directories
-cache/
 backtest_output/
 stock_data_cache.db
 
@@ -40,7 +39,15 @@ Thumbs.db
 
 # Token files
 token_config.py
+config/token_config.json
 ulti-para-seeker/yield_distribution.html
 stock_data_cache.db-shm
 stock_data_cache.db-wal
 ulti-para-seeker/yield_distribution.html
+
+# Deprecated files
+*.deprecated
+
+# Parameter blueprints (optional, uncomment if you want to exclude them)
+# parameter_blueprint*.json
+# parameter mark*.json

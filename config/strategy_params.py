@@ -163,7 +163,8 @@ def save_params_to_file(params=None, file_path=None) -> str:
                 'weights_config': flat_params.get('weights_config'),
                 'sub_weights_config': flat_params.get('sub_weights_config'),
                 'strategy_type': flat_params.get('strategy_type')
-            }
+            },
+            'selected_stocks': flat_params.get('fallback_stocks')
         }
         
         with open(file_path, 'w', encoding='utf-8') as f:

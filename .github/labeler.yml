@@ -1,0 +1,14 @@
+# Configuration for pull request labeler
+labels:
+  bug:
+    - fix/*
+    - bugfix/*
+  enhancement:
+    - feat/*
+    - feature/*
+  documentation:
+    - docs/*
+    - *.md
+  UI:
+    - strategy_controller/ui/*
+    - ulti-para-seeker/ui/*

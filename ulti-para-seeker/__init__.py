@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 """
-参数优化器模块 - 提供参数优化相关的功能
-"""
+参数优化器模�?- 提供参数优化相关的功�?"""
 
 # 从backtest模块导入
 from .backtest import (
@@ -16,7 +15,7 @@ from .backtest import (
 
 # 从backtest.config导入配置管理功能
 from .backtest.config import get_current_config, update_backtest_config, validate_current_config
-from .token_manager import TokenManager, get_token_manager, get_token, validate_token, update_token, get_token_info
+import sys`nimport os`nproject_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))`nif project_root not in sys.path:`n    sys.path.insert(0, project_root)`nfrom config.token_manager import TokenManager, get_token_manager, get_token, validate_token, update_token, get_token_info
 
 __all__ = [
     # 回测策略和执行器

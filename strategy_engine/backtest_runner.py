@@ -255,19 +255,66 @@ with open(result_path, 'w', encoding='utf-8') as f:
                 f.write(python_script)
                 temp_script_path = f.name
             
-            # 执行子进程
+            # 执行子进程，显示运行进度和实时日志
             print(f"启动回测子进程...")
-            result = subprocess.run(
+            
+            import threading
+            import time
+            import sys
+            
+            # 实时读取输出的线程函数
+            def read_output(stream, stream_name):
+                """实时读取并打印子进程输出"""
+                for line in stream:
+                    if line.strip():
+                        print(f"[{stream_name}] {line.strip()}")
+                    sys.stdout.flush()
+            
+            # 进度显示线程函数
+            def show_progress(process, start_time):
+                """显示子进程运行进度，每秒更新一次"""
+                while process.poll() is None:
+                    elapsed_time = int(time.time() - start_time)
+                    print(f"   子进程运行中... 已运行 {elapsed_time} 秒", end='\r')
+                    sys.stdout.flush()
+                    time.sleep(1)
+                # 清除进度显示
+                print("   子进程运行完成!                              ")
+            
+            # 启动子进程（兼容Python 3.6及以下版本）
+            start_time = time.time()
+            process = subprocess.Popen(
                 [sys.executable, temp_script_path],
-                capture_output=True,
-                text=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,  # 替代text=True，兼容旧版本
+                bufsize=0,  # 禁用输出缓冲，实现实时输出
+                close_fds=True
             )
             
-            # 打印子进程的输出
-            if result.stdout:
-                print(f"子进程输出:\n{result.stdout}")
-            if result.stderr:
-                print(f"子进程错误:\n{result.stderr}")
+            # 启动输出读取线程
+            stdout_thread = threading.Thread(target=read_output, args=(process.stdout, "STDOUT"))
+            stderr_thread = threading.Thread(target=read_output, args=(process.stderr, "STDERR"))
+            stdout_thread.daemon = True
+            stderr_thread.daemon = True
+            stdout_thread.start()
+            stderr_thread.start()
+            
+            # 启动进度显示线程
+            progress_thread = threading.Thread(target=show_progress, args=(process, start_time))
+            progress_thread.daemon = True  # 设置为守护线程，主进程结束时自动退出
+            progress_thread.start()
+            
+            # 等待子进程完成
+            process.wait()
+            
+            # 等待输出线程完成
+            stdout_thread.join(timeout=1)
+            stderr_thread.join(timeout=1)
+            
+            # 关闭流
+            process.stdout.close()
+            process.stderr.close()
             
             # 读取回测结果
             result_path = temp_config_path + '.result'
@@ -586,22 +633,19 @@ with open(result_path, 'w', encoding='utf-8') as f:
     
     # 使用token管理器获取token
     try:
-        try:
-            from .token_manager import get_token
-        except ImportError:
-            try:
-                from token_manager import get_token
-            except ImportError:
-                # 尝试使用sys.path导入
-                import sys
-                import os
-                sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-                from token_manager import get_token
+        # 从当前包导入get_token（strategy_engine.__init__已经正确配置了导入）
+        from . import get_token
         actual_token = get_token()
+        
+        if not actual_token:
+            print("❌ Token配置错误: Token为空或未配置")
+            print("请检查config/token_manager.py中的TOKEN配置")
+            return
+        
         print(f"Token验证通过，长度: {len(actual_token)}位")
     except Exception as e:
-        print(f"Token配置错误: {e}")
-        print("请检查token_config.py文件中的TOKEN配置")
+        print(f"❌ Token配置错误: {e}")
+        print("请检查config/token_manager.py中的TOKEN配置")
         return
     
     # 简化回测流程，保留必要的报告文件处理

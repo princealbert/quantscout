@@ -9,7 +9,14 @@ from .strategy import BacktestStrategy
 from .backtest_runner import BacktestRunner, run_backtest
 from .report_generator import ReportGenerator, generate_backtest_summary
 from .config_manager import ConfigManager, get_current_config, update_backtest_config, validate_current_config
-from .token_manager import TokenManager, get_token_manager, get_token, validate_token, update_token, get_token_info
+
+# 从新的Token管理模块导入(位于config目录)
+import sys
+import os
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+from config.token_manager import TokenManager, get_token_manager, get_token, validate_token, update_token, get_token_info
 
 __all__ = [
     'BacktestStrategy',

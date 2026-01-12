@@ -42,9 +42,19 @@ class StockDataProvider:
     def __init__(self):
         self.conditions = weight_config.SCREENING_CONDITIONS
         
-        # 设置API token（使用与原始zge策略相同的token）
-        set_token('90315e24ddb341a5e338b55dc9ff3dd806e3bf4f')
-        print("[INFO] API token已设置")
+        # 从token管理器获取并设置API token
+        try:
+            from config.token_manager import get_token
+            token = get_token()
+            if token:
+                set_token(token)
+                print(f"[INFO] API token已设置，长度: {len(token)}位")
+            else:
+                print("[WARNING] API token未配置，使用默认值")
+                # 这里可以添加默认token或者抛出异常
+        except Exception as e:
+            print(f"[ERROR] 设置API token失败: {e}")
+            # 这里可以添加默认token或者抛出异常
     
     def get_latest_trading_date(self) -> str:
         """获取最新的交易日 - 直接返回当前日期"""

@@ -5,12 +5,20 @@ import os
 import sys
 from .data_cache import StockDataCache
 
-# 获取项目根目录 - 强制使用固定路径，确保所有应用使用相同的数据库位置
-# 固定项目根目录：c:\Users\Administrator\.emgm3\projects\1593121d-dda9-11f0-8409-e89c2599a417
-FIXED_PROJECT_ROOT = "c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-11f0-8409-e89c2599a417"
+# 动态获取项目根目录
+def get_project_root():
+    """获取项目根目录"""
+    cwd = os.getcwd()
+    if cwd.endswith('ulti-para-seeker'):
+        return os.path.dirname(cwd)
+    elif cwd.endswith('cache'):
+        # 从cache目录运行时，返回项目根目录
+        return os.path.dirname(cwd)
+    else:
+        return cwd
 
-# 创建全局缓存实例 - 使用固定项目根目录下的数据库，启用回测数据永久化存储
-db_path = os.path.join(FIXED_PROJECT_ROOT, "stock_data_cache.db")
+# 创建全局缓存实例 - 使用动态项目根目录下的数据库，启用回测数据永久化存储
+db_path = os.path.join(get_project_root(), "stock_data_cache.db")
 # 配置：缓存过期天数为7天，回测数据永久化存储
 stock_cache = StockDataCache(
     db_path=db_path,

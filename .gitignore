@@ -51,3 +51,4 @@ ulti-para-seeker/yield_distribution.html
 # Parameter blueprints (optional, uncomment if you want to exclude them)
 # parameter_blueprint*.json
 # parameter mark*.json
+test_write.txt

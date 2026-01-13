@@ -964,22 +964,29 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
     def save_to_strategy_controller(result_data=None, blueprint_id=None):
         # 导入logger
         from utils.logger import logger
-        
+
         logger.info("开始执行保存到策略控制器功能")
-        
+
         try:
+            # 获取项目根目录
+            cwd = os.getcwd()
+            if cwd.endswith('ulti-para-seeker'):
+                project_root = os.path.dirname(cwd)
+            else:
+                project_root = cwd
+
             # 1. 直接测试文件写入权限
-            test_path = "c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-11f0-8409-e89c2599a417\\test_write.txt"
+            test_path = os.path.join(project_root, "test_write.txt")
             logger.info(f"测试写入路径: {test_path}")
-            
+
             with open(test_path, 'w', encoding='utf-8') as f:
                 f.write("测试写入成功")
             logger.info("测试文件写入成功")
-            
+
             # 2. 读取现有配置文件
             file_name = "weight_configs.json"
-            save_path = os.path.join("c:\\Users\\Administrator\\.emgm3\\projects\\1593121d-dda9-11f0-8409-e89c2599a417\\web\\configs", file_name)
-            
+            save_path = os.path.join(project_root, "web", "configs", file_name)
+
             logger.info(f"实际保存路径: {save_path}")
             
             # 确保目录存在

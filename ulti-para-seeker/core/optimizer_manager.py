@@ -64,14 +64,14 @@ class OptimizerManager:
             "粒子群算法": ParticleSwarmOptimizer()
         }
     
-    def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                      end_date: str = '2025-12-25', algorithm: str = "暴力搜索", 
-                                      stop_profit_min: int = None, stop_profit_max: int = None, 
-                                      stop_profit_step: int = None, stop_loss_min: int = None, 
-                                      stop_loss_max: int = None, stop_loss_step: int = None, 
+    def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10,
+                                      end_date: str = '2025-12-25', algorithm: str = "暴力搜索",
+                                      stop_profit_min: int = None, stop_profit_max: int = None,
+                                      stop_profit_step: int = None, stop_loss_min: int = None,
+                                      stop_loss_max: int = None, stop_loss_step: int = None,
                                       weight_step: int = None, use_advanced_weights: bool = True,
                                       focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000,
-                                      backtest_days: int = 90) -> List[Dict[str, Any]]:
+                                      backtest_days: int = 90, existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         根据选择的算法生成参数组合
 
@@ -92,7 +92,8 @@ class OptimizerManager:
             focus_weight_factor: 重点指标权重因子
             initial_capital: 初始资金
             backtest_days: 回测天数
-
+            existing_blueprint: 现有蓝图数据（用于提取优势组合）
+        
         Returns:
             List[Dict[str, Any]]: 所有可能的参数组合列表
         """
@@ -118,7 +119,8 @@ class OptimizerManager:
             focus_indicators=focus_indicators,
             focus_weight_factor=focus_weight_factor,
             initial_capital=initial_capital,
-            backtest_days=backtest_days
+            backtest_days=backtest_days,
+            existing_blueprint=existing_blueprint  # 传递现有蓝图
         )
     
     def run_optimization(self, test_mode: bool = False, max_sub_combinations: int = 10, 
@@ -129,7 +131,8 @@ class OptimizerManager:
                         stop_loss_max: int = None, stop_loss_step: int = None, 
                         weight_step: int = None, use_advanced_weights: bool = True,
                         focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000, 
-                        use_parallel: bool = False) -> List[Dict[str, Any]]:
+                        use_parallel: bool = False, auto_clean_blueprint: bool = True,
+                        blueprint_max_total: int = 1000, blueprint_max_elite: int = 500) -> List[Dict[str, Any]]:
         """
         执行参数优化
 
@@ -152,6 +155,9 @@ class OptimizerManager:
             focus_weight_factor: 重点指标权重因子
             initial_capital: 初始资金
             use_parallel: 是否使用并行模式，默认False（串行执行）
+            auto_clean_blueprint: 是否自动清理蓝图文件
+            blueprint_max_total: 蓝图保留的最大总组合数
+            blueprint_max_elite: 保留的最优组合数
 
         Returns:
             List[Dict[str, Any]]: 回测结果列表
@@ -216,15 +222,26 @@ class OptimizerManager:
                     logger.info(f"使用串行模式执行回测")
                     results = self.run_serial_optimization(param_combinations, optimizer=optimizer)
             else:
+                # 加载现有蓝图
+                existing_blueprint = None
+                if os.path.exists(os.path.join(self.current_dir, "parameter_blueprint.json")):
+                    existing_blueprint = self._load_blueprint(os.path.join(self.current_dir, "parameter_blueprint.json"))
+
                 # 遗传算法和粒子群算法自身包含参数生成和优化逻辑
                 # 这里需要确保optimize方法能处理initial_capital参数
                 results = optimizer.optimize(
                     test_mode=test_mode,
                     max_sub_combinations=max_sub_combinations,
                     end_date=end_date,
-                    initial_capital=initial_capital
+                    initial_capital=initial_capital,
+                    backtest_days=90,  # 默认使用90天回测
+                    existing_blueprint=existing_blueprint  # 传递现有蓝图
                 )
-        
+
+        # 优化完成后,自动清理蓝图文件
+        if auto_clean_blueprint and blueprint_file:
+            self._auto_clean_blueprint(blueprint_file, blueprint_max_total, blueprint_max_elite)
+
         return results
     
     def generate_blueprint(self, test_mode: bool = False, max_sub_combinations: int = 10, 
@@ -294,7 +311,8 @@ class OptimizerManager:
             use_advanced_weights=use_advanced_weights,
             focus_indicators=focus_indicators,
             focus_weight_factor=focus_weight_factor,
-            backtest_days=backtest_days
+            backtest_days=backtest_days,
+            existing_blueprint=existing_blueprint  # 传递现有蓝图
         )
         
         # 为每个参数组合添加初始资金
@@ -1155,3 +1173,85 @@ class OptimizerManager:
         """
         from utils.weight_utils import generate_sub_weights_combinations
         return generate_sub_weights_combinations(test_mode, max_combinations, use_advanced_mode)
+
+    def _auto_clean_blueprint(self, blueprint_file: str,
+                              max_total: int = 1000,
+                              max_elite: int = 500):
+        """
+        自动清理蓝图文件,保持文件大小在合理范围
+
+        Args:
+            blueprint_file: 蓝图文件路径
+            max_total: 蓝图保留的最大总组合数
+            max_elite: 保留的最优组合数
+        """
+        try:
+            # 加载蓝图
+            blueprint = self._load_blueprint(blueprint_file)
+            total = len(blueprint.get('combinations', []))
+
+            # 如果未超过阈值,不处理
+            if total <= max_total:
+                return
+
+            logger.info(f"\n=== 自动清理蓝图 ===")
+            logger.info(f"当前组合数: {total}, 阈值: {max_total}")
+
+            # 创建清理器并执行清理
+            from utils.blueprint_cleaner import BlueprintCleaner
+            cleaner = BlueprintCleaner(max_total=max_total, max_elite=max_elite, keep_failed=False)
+
+            cleaned_blueprint, archive_data = cleaner.clean_blueprint(
+                blueprint,
+                blueprint_file=blueprint_file,
+                auto_archive=True
+            )
+
+            # 保存清理后的蓝图
+            self._save_blueprint(cleaned_blueprint, blueprint_file)
+
+            logger.success(f"蓝图清理完成,保留 {len(cleaned_blueprint['combinations'])} 个组合")
+
+        except Exception as e:
+            logger.error(f"清理蓝图失败: {e}")
+
+    def get_blueprint_cleanup_status(self, blueprint_file: str = "parameter_blueprint.json",
+                                     max_total: int = 1000,
+                                     max_elite: int = 500) -> Dict[str, Any]:
+        """
+        获取蓝图清理状态和建议
+
+        Args:
+            blueprint_file: 蓝图文件路径
+            max_total: 蓝图保留的最大总组合数
+            max_elite: 保留的最优组合数
+
+        Returns:
+            Dict[str, Any]: 清理状态和建议
+        """
+        try:
+            blueprint = self._load_blueprint(os.path.join(self.current_dir, blueprint_file))
+
+            from utils.blueprint_cleaner import BlueprintCleaner
+            cleaner = BlueprintCleaner(max_total=max_total, max_elite=max_elite, keep_failed=False)
+
+            recommendations = cleaner.get_cleanup_recommendations(blueprint)
+
+            # 获取归档列表
+            archives = cleaner.list_archives(self.current_dir)
+
+            return {
+                "blueprint_file": blueprint_file,
+                "current_size": len(blueprint.get('combinations', [])),
+                "threshold": max_total,
+                "needs_cleanup": recommendations.get('needs_cleanup', False),
+                "recommendations": recommendations,
+                "archives_count": len(archives),
+                "archives": archives[:10]  # 只返回最近10个归档
+            }
+
+        except Exception as e:
+            logger.error(f"获取蓝图清理状态失败: {e}")
+            return {
+                "error": str(e)
+            }

@@ -138,74 +138,6 @@
     "created_at": "2025-12-31T16:13:17.749871",
     "is_default": false
   },
-  "f8f0cc4c-b4b5-40fd-8425-41714fc4575b": {
-    "id": "f8f0cc4c-b4b5-40fd-8425-41714fc4575b",
-    "name": "20260108_最优组合",
-    "description": "由参数优化器生成的最优组合，生成时间：2026-01-08T15:45:12.812902",
-    "weights": {
-      "kdj_j": 35,
-      "trend": 5,
-      "volume": 25,
-      "fundamental": 5,
-      "position": 5,
-      "risk_reward": 25,
-      "deepv": 0
-    },
-    "sub_weights": {
-      "kdj": {
-        "total_weight": 100,
-        "sub_weights": {
-          "j_j_0_20": 45,
-          "j_j_-10_0": 5,
-          "j_j_-20_-10": 40,
-          "j_j_-30_-20": 5,
-          "j_j_below_-30": 5
-        }
-      },
-      "position": {
-        "total_weight": 100,
-        "sub_weights": {
-          "above_white": 60,
-          "between_lines": 20,
-          "below_yellow": 20
-        }
-      },
-      "volume": {
-        "total_weight": 100,
-        "sub_weights": {
-          "big_volume": 10,
-          "volume_anomaly": 15,
-          "volume_breathing": 75
-        }
-      },
-      "fundamental": {
-        "total_weight": 100,
-        "sub_weights": {
-          "pe_positive": 10,
-          "pe_low": 80,
-          "market_cap": 5,
-          "volume_threshold": 5
-        }
-      },
-      "trend": {
-        "total_weight": 100,
-        "sub_weights": {
-          "up_trend": 20,
-          "volume_price_rise": 35,
-          "volume_contraction": 45
-        }
-      }
-    },
-    "created_at": "2026-01-08T15:45:12.812902",
-    "is_default": false,
-    "backtest_params": {
-      "stop_profit_ratio": 0.09,
-      "stop_loss_ratio": -0.03,
-      "backtest_days": 90,
-      "initial_capital": 60000,
-      "commission_ratio": 0.0003
-    }
-  },
   "d38fab22-ce14-4c13-ba0f-e637a649f6b1": {
     "id": "d38fab22-ce14-4c13-ba0f-e637a649f6b1",
     "name": "20260108_最优组合 序号0",
@@ -269,69 +201,6 @@
     "backtest_params": {
       "stop_profit_ratio": 0.07,
       "stop_loss_ratio": -0.02,
-      "backtest_days": 90,
-      "initial_capital": 60000,
-      "commission_ratio": 0.0003
-    }
-  },
-  "abc6dd70-eb30-4d27-a615-7e7417c101f6": {
-    "id": "abc6dd70-eb30-4d27-a615-7e7417c101f6",
-    "name": "20260109_方案_13",
-    "description": "由参数优化器生成的方案，方案ID: 13，生成时间：2026-01-09T06:45:25.187872",
-    "weights": {
-      "kdj_j": 5,
-      "trend": 65,
-      "volume": 15,
-      "fundamental": 5,
-      "position": 5,
-      "risk_reward": 5,
-      "deepv": 0
-    },
-    "sub_weights": {
-      "kdj_j": {
-        "sub_weights": {
-          "j_0_20": 25,
-          "j_-10_0": 35,
-          "j_-20_-10": 20,
-          "j_-30_-20": 15,
-          "j_below_-30": 5
-        }
-      },
-      "position": {
-        "sub_weights": {
-          "above_white": 5,
-          "between_lines": 20,
-          "below_yellow": 75
-        }
-      },
-      "volume": {
-        "sub_weights": {
-          "big_volume": 30,
-          "volume_anomaly": 20,
-          "volume_breathing": 50
-        }
-      },
-      "fundamental": {
-        "sub_weights": {
-          "pe_positive": 30,
-          "pe_low": 35,
-          "market_cap": 15,
-          "volume_threshold": 20
-        }
-      },
-      "trend": {
-        "sub_weights": {
-          "up_trend": 65,
-          "volume_price_rise": 30,
-          "volume_contraction": 5
-        }
-      }
-    },
-    "created_at": "2026-01-09T06:45:25.187872",
-    "is_default": false,
-    "backtest_params": {
-      "stop_profit_ratio": 7,
-      "stop_loss_ratio": -3,
       "backtest_days": 90,
       "initial_capital": 60000,
       "commission_ratio": 0.0003
@@ -405,69 +274,6 @@
       "commission_ratio": 0.0003
     }
   },
-  "79e78ca9-0141-4a5d-a15c-ecb7686c25c2": {
-    "id": "79e78ca9-0141-4a5d-a15c-ecb7686c25c2",
-    "name": "20260109_方案_184",
-    "description": "由参数优化器生成的方案，方案ID: 184，生成时间：2026-01-09T17:37:45.887264",
-    "weights": {
-      "kdj_j": 5,
-      "trend": 5,
-      "volume": 5,
-      "fundamental": 25,
-      "position": 55,
-      "risk_reward": 5,
-      "deepv": 0
-    },
-    "sub_weights": {
-      "kdj_j": {
-        "sub_weights": {
-          "j_0_20": 25,
-          "j_-10_0": 25,
-          "j_-20_-10": 5,
-          "j_-30_-20": 5,
-          "j_below_-30": 40
-        }
-      },
-      "position": {
-        "sub_weights": {
-          "above_white": 5,
-          "between_lines": 65,
-          "below_yellow": 30
-        }
-      },
-      "volume": {
-        "sub_weights": {
-          "big_volume": 5,
-          "volume_anomaly": 40,
-          "volume_breathing": 55
-        }
-      },
-      "fundamental": {
-        "sub_weights": {
-          "pe_positive": 85,
-          "pe_low": 5,
-          "market_cap": 5,
-          "volume_threshold": 5
-        }
-      },
-      "trend": {
-        "sub_weights": {
-          "up_trend": 10,
-          "volume_price_rise": 75,
-          "volume_contraction": 15
-        }
-      }
-    },
-    "created_at": "2026-01-09T17:37:45.887776",
-    "is_default": false,
-    "backtest_params": {
-      "stop_profit_ratio": 3,
-      "stop_loss_ratio": -2,
-      "backtest_days": 90,
-      "initial_capital": 60000,
-      "commission_ratio": 0.0003
-    }
-  },
   "893f5362-734d-4076-9f5d-4c55713f9680": {
     "id": "893f5362-734d-4076-9f5d-4c55713f9680",
     "name": "ID:893f5362_最优组合_20260110",
@@ -536,157 +342,89 @@
       "commission_ratio": 0.0003
     }
   },
-  "f85dab25-1b64-4602-baf7-38680430ec14": {
-    "id": "f85dab25-1b64-4602-baf7-38680430ec14",
-    "name": "序号73_方案_20260111",
-    "description": "序号:73 | 由参数优化器生成的方案 | 回测天数:90天 | 终点日期:2025-02-28 | 止盈:1100.0% | 止损:-300.0% | 起始资金:50000元 | 回测结果:收益率:0.00% | 年化:0.00% | 夏普:0.00 | 最大回撤:0.00% | 胜率:0.00% | 交易次数:0 | 生成时间:2026-01-11 13:45:25",
+  "dd5e7e10-ab18-4cd6-aa89-41024a158360": {
+    "id": "dd5e7e10-ab18-4cd6-aa89-41024a158360",
+    "name": "序号613_方案_20260115",
+    "description": "序号:613 | 由参数优化器生成的方案 | 回测天数:90天 | 终点日期:2026-01-12 | 止盈:17.0% | 止损:-2.0% | 起始资金:60000元 | 回测结果:收益率:5979.55% | 年化:57203.38% | 夏普:14.31 | 最大回撤:-620.97% | 胜率:100.00% | 交易次数:5 | 生成时间:2026-01-15 21:19:09",
     "weights": {
       "kdj_j": 5,
       "trend": 5,
-      "volume": 25,
+      "volume": 55,
       "fundamental": 5,
       "position": 5,
-      "risk_reward": 55,
+      "risk_reward": 25,
       "deepv": 0
     },
     "sub_weights": {
       "kdj_j": {
         "sub_weights": {
-          "j_0_20": 25,
-          "j_-10_0": 15,
-          "j_-20_-10": 40,
+          "j_0_20": 75,
+          "j_-10_0": 10,
+          "j_-20_-10": 5,
           "j_-30_-20": 5,
-          "j_below_-30": 15
+          "j_below_-30": 5
         }
       },
       "position": {
         "sub_weights": {
-          "above_white": 5,
-          "between_lines": 15,
-          "below_yellow": 80
+          "above_white": 10,
+          "between_lines": 45,
+          "below_yellow": 45
         }
       },
       "volume": {
         "sub_weights": {
-          "big_volume": 20,
-          "volume_anomaly": 45,
-          "volume_breathing": 35
+          "big_volume": 34,
+          "volume_anomaly": 33,
+          "volume_breathing": 33
         }
       },
       "fundamental": {
         "sub_weights": {
           "pe_positive": 10,
-          "pe_low": 55,
-          "market_cap": 5,
-          "volume_threshold": 30
+          "pe_low": 20,
+          "market_cap": 15,
+          "volume_threshold": 55
         }
       },
       "trend": {
         "sub_weights": {
           "up_trend": 5,
-          "volume_price_rise": 80,
-          "volume_contraction": 15
+          "volume_price_rise": 35,
+          "volume_contraction": 60
         }
       }
     },
-    "created_at": "2026-01-11T13:45:25.532653",
+    "created_at": "2026-01-15T21:19:09.031957",
     "is_default": false,
     "backtest_params": {
-      "stop_profit_ratio": 11,
-      "stop_loss_ratio": -3,
-      "backtest_days": 90,
-      "initial_capital": 50000,
-      "commission_ratio": 0.0003
-    }
-  },
-  "29f67dda-b741-449f-88ed-8efcd0434869": {
-    "id": "29f67dda-b741-449f-88ed-8efcd0434869",
-    "name": "序号306_最优组合_20260111",
-    "description": "序号:306 | 由参数优化器生成的最优组合 | 回测天数:90天 | 终点日期:2025-02-28 | 止盈:13.0% | 止损:4.0% | 起始资金:60000元 | 回测结果:收益率:39.70% | 年化:338.40% | 夏普:7.89 | 最大回撤:-10.73% | 胜率:75.00% | 交易次数:9 | 生成时间:2026-01-11 18:04:23",
-    "weights": {
-      "kdj_j": 5,
-      "trend": 45,
-      "volume": 5,
-      "fundamental": 5,
-      "position": 5,
-      "risk_reward": 35,
-      "deepv": 0
-    },
-    "sub_weights": {
-      "kdj": {
-        "total_weight": 100,
-        "sub_weights": {
-          "j_j_0_20": 55,
-          "j_j_-10_0": 30,
-          "j_j_-20_-10": 5,
-          "j_j_-30_-20": 5,
-          "j_j_below_-30": 5
-        }
-      },
-      "position": {
-        "total_weight": 100,
-        "sub_weights": {
-          "above_white": 10,
-          "between_lines": 25,
-          "below_yellow": 65
-        }
-      },
-      "volume": {
-        "total_weight": 100,
-        "sub_weights": {
-          "big_volume": 5,
-          "volume_anomaly": 65,
-          "volume_breathing": 30
-        }
-      },
-      "fundamental": {
-        "total_weight": 100,
-        "sub_weights": {
-          "pe_positive": 5,
-          "pe_low": 25,
-          "market_cap": 25,
-          "volume_threshold": 45
-        }
-      },
-      "trend": {
-        "total_weight": 100,
-        "sub_weights": {
-          "up_trend": 5,
-          "volume_price_rise": 45,
-          "volume_contraction": 50
-        }
-      }
-    },
-    "created_at": "2026-01-11T18:04:23.834019",
-    "is_default": false,
-    "backtest_params": {
-      "stop_profit_ratio": 0.13,
-      "stop_loss_ratio": -0.04,
+      "stop_profit_ratio": 0.17,
+      "stop_loss_ratio": -0.02,
       "backtest_days": 90,
       "initial_capital": 60000,
       "commission_ratio": 0.0003
     }
   },
-  "4789b53a-242e-4836-b266-72d5f5fb9b42": {
-    "id": "4789b53a-242e-4836-b266-72d5f5fb9b42",
-    "name": "序号448_最优组合_20260113",
-    "description": "序号:448 | 由参数优化器生成的最优组合 | 回测天数:90天 | 终点日期:2026-01-12 | 止盈:15.0% | 止损:2.0% | 起始资金:60000元 | 回测结果:收益率:63.31% | 年化:634.08% | 夏普:17.80 | 最大回撤:-5.42% | 胜率:75.00% | 交易次数:9 | 生成时间:2026-01-13 21:54:08",
+  "6cf00266-640f-46e4-89d7-abbe978cb428": {
+    "id": "6cf00266-640f-46e4-89d7-abbe978cb428",
+    "name": "序号1091_最优组合_20260117",
+    "description": "序号:1091 | 由参数优化器生成的最优组合 | 回测天数:90天 | 终点日期:2026-01-16 | 止盈:17.0% | 止损:9.0% | 起始资金:60000元 | 回测结果:收益率:78.65% | 年化:957.46% | 夏普:17.39 | 最大回撤:-6.86% | 胜率:100.00% | 交易次数:5 | 生成时间:2026-01-17 10:45:27",
     "weights": {
       "kdj_j": 5,
-      "trend": 35,
-      "volume": 25,
-      "fundamental": 5,
-      "position": 25,
-      "risk_reward": 5,
+      "trend": 15,
+      "volume": 5,
+      "fundamental": 15,
+      "position": 5,
+      "risk_reward": 55,
       "deepv": 0
     },
     "sub_weights": {
       "kdj": {
         "total_weight": 100,
         "sub_weights": {
-          "j_j_0_20": 50,
-          "j_j_-10_0": 25,
-          "j_j_-20_-10": 15,
+          "j_j_0_20": 15,
+          "j_j_-10_0": 45,
+          "j_j_-20_-10": 30,
           "j_j_-30_-20": 5,
           "j_j_below_-30": 5
         }
@@ -694,42 +432,42 @@
       "position": {
         "total_weight": 100,
         "sub_weights": {
-          "above_white": 10,
-          "between_lines": 40,
-          "below_yellow": 50
+          "above_white": 30,
+          "between_lines": 10,
+          "below_yellow": 60
         }
       },
       "volume": {
         "total_weight": 100,
         "sub_weights": {
           "big_volume": 5,
-          "volume_anomaly": 80,
-          "volume_breathing": 15
+          "volume_anomaly": 30,
+          "volume_breathing": 65
         }
       },
       "fundamental": {
         "total_weight": 100,
         "sub_weights": {
-          "pe_positive": 45,
-          "pe_low": 45,
+          "pe_positive": 10,
+          "pe_low": 75,
           "market_cap": 5,
-          "volume_threshold": 5
+          "volume_threshold": 10
         }
       },
       "trend": {
         "total_weight": 100,
         "sub_weights": {
-          "up_trend": 10,
-          "volume_price_rise": 25,
-          "volume_contraction": 65
+          "up_trend": 5,
+          "volume_price_rise": 40,
+          "volume_contraction": 55
         }
       }
     },
-    "created_at": "2026-01-13T21:54:08.523094",
+    "created_at": "2026-01-17T10:45:27.248745",
     "is_default": false,
     "backtest_params": {
-      "stop_profit_ratio": 0.15,
-      "stop_loss_ratio": -0.02,
+      "stop_profit_ratio": 0.17,
+      "stop_loss_ratio": -0.09,
       "backtest_days": 90,
       "initial_capital": 60000,
       "commission_ratio": 0.0003

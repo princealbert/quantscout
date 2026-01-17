@@ -11,8 +11,24 @@ from datetime import datetime
 # 导入配置管理器
 from strategy_controller.utils.config_manager import ConfigManager
 
-# 创建配置管理器实例
-config_manager = ConfigManager()
+# 延迟初始化配置管理器实例（在第一次使用时才创建）
+_config_manager_instance = None
+
+def get_config_manager():
+    """获取配置管理器实例（延迟初始化）"""
+    global _config_manager_instance
+    if _config_manager_instance is None:
+        _config_manager_instance = ConfigManager()
+    return _config_manager_instance
+
+# 为了兼容性，创建一个代理属性
+class ConfigManagerProxy:
+    """配置管理器代理 - 延迟初始化"""
+
+    def __getattr__(self, name):
+        return getattr(get_config_manager(), name)
+
+config_manager = ConfigManagerProxy()
 
 
 def display_config_manager(current_weights: Dict[str, int], current_sub_weights: Dict[str, Any] = None):
@@ -34,24 +50,25 @@ def display_config_manager(current_weights: Dict[str, int], current_sub_weights:
 
 def _display_config_selection():
     """显示配置选择区域"""
-    
+
     # 检测是否刚刚删除配置，需要刷新页面
     if st.session_state.get('config_just_deleted', False):
         print("🔄 [CONFIG_SELECTION] 检测到配置刚删除，刷新页面")
         st.session_state.config_just_deleted = False
         st.rerun()
-    
+        return  # 刷新后立即返回，避免重复代码执行
+
     # 获取所有配置
     configs = config_manager.get_all_configs()
     print(f"🔍 [CONFIG_SELECTION] 当前配置数量: {len(configs)}")
     print(f"🔍 [CONFIG_SELECTION] 当前配置ID列表: {[config['config_id'] for config in configs]}")
-    
+
     # 初始化session state中的配置管理状态
     if 'selected_config_id' not in st.session_state:
         st.session_state.selected_config_id = 'default'
     if 'config_loaded' not in st.session_state:
         st.session_state.config_loaded = False
-    
+
     # 配置选择下拉框
     config_options = {}
     for config in configs:
@@ -59,19 +76,12 @@ def _display_config_selection():
         if config.get('is_default'):
             display_name += " (默认)"
         config_options[config['config_id']] = display_name
-    
+
     # 按创建时间排序配置
     sorted_configs = sorted(configs, key=lambda x: x.get('created_at', ''), reverse=True)
     sorted_config_ids = [config['config_id'] for config in sorted_configs]
     sorted_config_names = [config_options[config_id] for config_id in sorted_config_ids]
-    
-    # 如果检测到刚删除配置，需要刷新页面
-    if st.session_state.get('config_just_deleted', False):
-        print("🔄 [CONFIG_SELECTION] 检测到配置刚删除，准备刷新页面")
-        # 清除删除标记，在下一次渲染时刷新
-        st.session_state.config_just_deleted = False
-        st.rerun()
-    
+
     # 配置选择器
     selected_config_name = st.selectbox(
         "选择配置",

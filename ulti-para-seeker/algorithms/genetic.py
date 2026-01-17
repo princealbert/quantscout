@@ -120,13 +120,14 @@ class GeneticOptimizer(BaseOptimizer):
         
         return param_space
     
-    def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                      end_date: str = '2025-12-25', stop_profit_min: int = None, 
-                                      stop_profit_max: int = None, stop_profit_step: int = None, 
-                                      stop_loss_min: int = None, stop_loss_max: int = None, 
-                                      stop_loss_step: int = None, weight_step: int = None, 
-                                      focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, 
-                                      initial_capital: int = 60000, backtest_days: int = 90) -> List[Dict[str, Any]]:
+    def generate_parameter_combinations(self, test_mode: bool = False, max_sub_combinations: int = 10,
+                                      end_date: str = '2025-12-25', stop_profit_min: int = None,
+                                      stop_profit_max: int = None, stop_profit_step: int = None,
+                                      stop_loss_min: int = None, stop_loss_max: int = None,
+                                      stop_loss_step: int = None, weight_step: int = None,
+                                      focus_indicators: List[str] = None, focus_weight_factor: float = 1.5,
+                                      initial_capital: int = 60000, backtest_days: int = 90,
+                                      existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         生成参数组合
         
@@ -149,20 +150,21 @@ class GeneticOptimizer(BaseOptimizer):
         Returns:
             List[Dict[str, Any]]: 参数组合列表
         """
-        return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days, 
-                                              stop_profit_min, stop_profit_max, stop_profit_step, 
-                                              stop_loss_min, stop_loss_max, stop_loss_step, 
-                                              weight_step, initial_capital)
+        return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days,
+                                              stop_profit_min, stop_profit_max, stop_profit_step,
+                                              stop_loss_min, stop_loss_max, stop_loss_step,
+                                              weight_step, initial_capital, existing_blueprint)
     
-    def generate_initial_population(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                                  end_date: str = '2025-12-25', backtest_days: int = 90, 
-                                  stop_profit_min: int = None, stop_profit_max: int = None, 
-                                  stop_profit_step: int = None, stop_loss_min: int = None, 
-                                  stop_loss_max: int = None, stop_loss_step: int = None, 
-                                  weight_step: int = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
+    def generate_initial_population(self, test_mode: bool = False, max_sub_combinations: int = 10,
+                                  end_date: str = '2025-12-25', backtest_days: int = 90,
+                                  stop_profit_min: int = None, stop_profit_max: int = None,
+                                  stop_profit_step: int = None, stop_loss_min: int = None,
+                                  stop_loss_max: int = None, stop_loss_step: int = None,
+                                  weight_step: int = None, initial_capital: int = 60000,
+                                  existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         生成初始种群
-        
+
         Args:
             test_mode: 是否为测试模式
             max_sub_combinations: 最大子权重组合数
@@ -176,84 +178,205 @@ class GeneticOptimizer(BaseOptimizer):
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
             initial_capital: 初始资金
-        
+            existing_blueprint: 现有蓝图，用于提取优势组合
+
         Returns:
             List[Dict[str, Any]]: 初始种群（参数组合列表）
         """
-        param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days, 
-                                               stop_profit_min, stop_profit_max, stop_profit_step, 
-                                               stop_loss_min, stop_loss_max, stop_loss_step, 
+        param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days,
+                                               stop_profit_min, stop_profit_max, stop_profit_step,
+                                               stop_loss_min, stop_loss_max, stop_loss_step,
                                                weight_step, initial_capital)
-        
+
         print(f"开始生成遗传算法初始种群...")
         print(f"- 种群大小: {self.population_size}")
-        
-        # 生成初始种群
-        population = []
-        
+
+        # 从现有蓝图中提取优势组合
+        elite_combinations = []
+        if existing_blueprint:
+            print(f"\n{'='*60}")
+            print(f"📊 处理现有蓝图数据")
+            print(f"{'='*60}")
+            print(f"- 蓝图总组合数: {len(existing_blueprint.get('combinations', []))}")
+
+            # 统计各状态组合数
+            completed_count = sum(1 for c in existing_blueprint.get('combinations', []) if c.get('status') == 'completed')
+            failed_count = sum(1 for c in existing_blueprint.get('combinations', []) if c.get('status') == 'failed')
+            pending_count = sum(1 for c in existing_blueprint.get('combinations', []) if c.get('status') == 'pending')
+            running_count = sum(1 for c in existing_blueprint.get('combinations', []) if c.get('status') == 'running')
+
+            print(f"  ├─ 已完成: {completed_count}")
+            print(f"  ├─ 失败: {failed_count}")
+            print(f"  ├─ 待处理: {pending_count}")
+            print(f"  └─ 运行中: {running_count}")
+
+            print(f"\n开始提取优势组合...")
+            elite_combinations = self._extract_elite_combinations(existing_blueprint, param_space)
+
+            if elite_combinations:
+                print(f"\n✅ 成功提取了 {len(elite_combinations)} 个优势组合")
+                # 显示前3个优势组合的信息
+                for i, elite in enumerate(elite_combinations[:3], 1):
+                    print(f"  [{i}] 止盈:{elite.get('stop_profit_ratio')}%, 止损:{elite.get('stop_loss_ratio')}%")
+                if len(elite_combinations) > 3:
+                    print(f"  ... 还有 {len(elite_combinations) - 3} 个优势组合")
+            else:
+                print(f"\n⚠️  警告: 未提取到符合条件的优势组合")
+                print(f"  - 可能原因:")
+                print(f"    1. 蓝图中没有已完成的组合")
+                print(f"    2. 已完成组合的收益率超出有效范围 (-50% ~ 150%)")
+                print(f"    3. 组合参数不在当前参数空间范围内")
+
+            print(f"{'='*60}\n")
+        else:
+            print(f"\n💡 提示: 未检测到现有蓝图文件，将使用纯随机生成的初始种群\n")
+
+        # 计算种群中优势和随机部分的比例
+        # 精英占30%，随机占70%
+        elite_count = min(len(elite_combinations), int(self.population_size * 0.3))
+        random_count = self.population_size - elite_count
+
+        population = elite_combinations[:elite_count]
+
+
+        if elite_count > 0:
+            print(f"种群构成: 优势组合 {elite_count} 个 + 基于精英生成的 {random_count} 个")
+        else:
+            print(f"种群构成: 全部 {self.population_size} 个为随机生成组合")
+
         # 生成子权重配置
         from utils.weight_utils import generate_sub_weights_combinations
         sub_weights_configs = generate_sub_weights_combinations(
             test_mode, max_combinations=max_sub_combinations, use_advanced_mode=True
         )
-        
+
         # 确保生成足够多的不重复组合
         generated_combs = set()
         attempts = 0
         max_attempts = self.population_size * 5  # 最多尝试5倍于种群数量的次数
-        
+
         while len(population) < self.population_size and attempts < max_attempts:
             attempts += 1
-            
-            # 随机生成止盈止损比例（百分位格式，如 3 表示 3%），按照指定步长
-            stop_profit_min = param_space['stop_profit_ratio']['min']
-            stop_profit_max = param_space['stop_profit_ratio']['max']
-            stop_profit_step = param_space['stop_profit_ratio']['step']
-            
-            # 生成止盈选项列表
-            stop_profit_options = list(range(
-                stop_profit_min,
-                stop_profit_max + 1,
-                stop_profit_step
-            ))
-            stop_profit = random.choice(stop_profit_options)
-            
-            # 处理止损比例，确保范围正确
-            stop_loss_min = param_space['stop_loss_ratio']['min']
-            stop_loss_max = param_space['stop_loss_ratio']['max']
-            stop_loss_step = param_space['stop_loss_ratio']['step']
-            
-            # 确保止损最小值小于最大值
-            if stop_loss_min > stop_loss_max:
-                stop_loss_min, stop_loss_max = stop_loss_max, stop_loss_min
-            
-            # 生成止损选项列表
-            stop_loss_options = list(range(
-                stop_loss_min,
-                stop_loss_max + 1,
-                stop_loss_step
-            ))
-            
-            # 确保生成了有效的止损选项
-            if not stop_loss_options:
-                # 如果没有生成有效的止损选项，使用默认值
-                stop_loss_options = [-3, -2, -1]
-            
-            stop_loss = random.choice(stop_loss_options)
-            
+
+            # 如果有优势组合，基于精英进行交叉变异；否则随机生成
+            if elite_combinations and random.random() < 0.7:  # 70%的概率基于精英组合
+                # 从精英组合中随机选择两个进行交叉
+                parent1 = random.choice(elite_combinations)
+                parent2 = random.choice(elite_combinations)
+
+                # 交叉操作
+                if random.random() < 0.5:
+                    # 止盈交叉，止损交叉
+                    stop_profit = parent1['stop_profit_ratio']
+                    stop_loss = parent2['stop_loss_ratio']
+                else:
+                    # 止损交叉，止盈交叉
+                    stop_profit = parent2['stop_profit_ratio']
+                    stop_loss = parent1['stop_loss_ratio']
+
+                # 变异操作
+                if random.random() < self.mutation_rate:
+                    # 止盈变异
+                    param_space_min = param_space['stop_profit_ratio']['min']
+                    param_space_max = param_space['stop_profit_ratio']['max']
+                    param_space_step = param_space['stop_profit_ratio']['step']
+
+                    # 在原有基础上进行小幅调整
+                    mutation_direction = random.choice([-1, 1])
+                    mutation_amount = mutation_direction * param_space_step * random.randint(1, 2)
+                    stop_profit = max(param_space_min, min(param_space_max, stop_profit + mutation_amount))
+
+                    # 确保值在步长网格上
+                    offset = stop_profit % param_space_step
+                    if offset != 0:
+                        stop_profit = stop_profit - offset
+
+                if random.random() < self.mutation_rate:
+                    # 止损变异
+                    param_space_min = param_space['stop_loss_ratio']['min']
+                    param_space_max = param_space['stop_loss_ratio']['max']
+                    param_space_step = param_space['stop_loss_ratio']['step']
+
+                    # 在原有基础上进行小幅调整
+                    mutation_direction = random.choice([-1, 1])
+                    mutation_amount = mutation_direction * param_space_step * random.randint(1, 2)
+                    stop_loss = max(param_space_min, min(param_space_max, stop_loss + mutation_amount))
+
+                    # 确保值在步长网格上
+                    offset = abs(stop_loss) % param_space_step
+                    if offset != 0:
+                        stop_loss = stop_loss - offset if stop_loss > 0 else stop_loss + offset
+
+                # 权重配置：交叉操作 - 真正的交叉，不是简单继承
+                parent1_weights = parent1.get('weights_config', {})
+                parent2_weights = parent2.get('weights_config', {})
+
+                # 合并两个父代的权重配置
+                weights_config = {}
+                for key in parent1_weights:
+                    if key in parent2_weights:
+                        # 均值交叉: 两个父代的权重平均值
+                        weights_config[key] = (parent1_weights[key] + parent2_weights[key]) // 2
+                    else:
+                        weights_config[key] = parent1_weights[key]
+                # 补充parent2独有的权重
+                for key in parent2_weights:
+                    if key not in weights_config:
+                        weights_config[key] = parent2_weights[key]
+
+                # 权重变异 - 提高变异概率
+                if random.random() < self.mutation_rate * 2:  # 从0.5倍提高到2倍
+                    weights_config = self._mutate_weights(weights_config, param_space['weights_step'])
+            else:
+                # 完全随机生成
+                stop_profit_min = param_space['stop_profit_ratio']['min']
+                stop_profit_max = param_space['stop_profit_ratio']['max']
+                stop_profit_step = param_space['stop_profit_ratio']['step']
+
+                # 生成止盈选项列表
+                stop_profit_options = list(range(
+                    stop_profit_min,
+                    stop_profit_max + 1,
+                    stop_profit_step
+                ))
+                stop_profit = random.choice(stop_profit_options)
+
+                # 处理止损比例，确保范围正确
+                stop_loss_min = param_space['stop_loss_ratio']['min']
+                stop_loss_max = param_space['stop_loss_ratio']['max']
+                stop_loss_step = param_space['stop_loss_ratio']['step']
+
+                # 确保止损最小值小于最大值
+                if stop_loss_min > stop_loss_max:
+                    stop_loss_min, stop_loss_max = stop_loss_max, stop_loss_min
+
+                # 生成止损选项列表
+                stop_loss_options = list(range(
+                    stop_loss_min,
+                    stop_loss_max + 1,
+                    stop_loss_step
+                ))
+
+                # 确保生成了有效的止损选项
+                if not stop_loss_options:
+                    # 如果没有生成有效的止损选项，使用默认值
+                    stop_loss_options = [-3, -2, -1]
+
+                stop_loss = random.choice(stop_loss_options)
+
+                # 生成权重配置
+                weights_config = self._generate_random_weights_config(param_space['weights_step'])
+
             # 确保止盈大于止损
             if stop_profit <= stop_loss:
                 continue
-            
-            # 生成权重配置
-            weights_config = self._generate_random_weights_config(param_space['weights_step'])
-            
+
             # 随机选择一个子权重配置
             if sub_weights_configs:
                 sub_weights = random.choice(sub_weights_configs)
             else:
                 sub_weights = self._generate_default_sub_weights()
-            
+
             # 创建参数组合
             param_comb = {
                 'backtest_days': backtest_days,
@@ -263,26 +386,37 @@ class GeneticOptimizer(BaseOptimizer):
                 'weights_config': weights_config,
                 'sub_weights_config': sub_weights
             }
-            
+
             # 生成组合哈希，用于去重
             from utils.parameter_utils import generate_param_hash
             comb_hash = generate_param_hash(param_comb)
-            
+
             # 确保组合不重复
             if comb_hash not in generated_combs:
                 # 验证参数组合
                 if validate_parameter_combination(param_comb):
                     population.append(param_comb)
                     generated_combs.add(comb_hash)
-                    
+
+                    # 只在成功添加到population时打印日志
+                    if elite_combinations and random.random() < 0.7:
+                        # 显示完整的交叉变异信息，包括权重摘要
+                        weights_summary = {}
+                        if weights_config:
+                            # 显示前3个最重要的权重
+                            sorted_weights = sorted(weights_config.items(), key=lambda x: x[1], reverse=True)[:3]
+                            weights_summary = {k: v for k, v in sorted_weights}
+                        print(f"  基于精英交叉变异: 止盈={stop_profit}%, 止损={stop_loss}%, 权重={weights_summary}")
+
                     if len(population) >= self.population_size:
                         break
+
         
         # 如果生成的有效组合不足，补充不同的配置
         while len(population) < self.population_size:
             # 使用基类的通用方法生成随机参数组合
             param_comb = self._generate_random_params(param_space, backtest_days, end_date)
-            
+
             # 验证参数组合
             if validate_parameter_combination(param_comb):
                 # 检查是否重复
@@ -291,16 +425,117 @@ class GeneticOptimizer(BaseOptimizer):
                 if comb_hash not in generated_combs:
                     population.append(param_comb)
                     generated_combs.add(comb_hash)
-        
-        print(f"已生成 {len(population)} 个初始参数组合")
+
+        print(f"已生成 {len(population)} 个初始参数组合（包含 {elite_count} 个优势组合）")
         return population
-    
-    def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', stop_profit_min: int = None, 
-                stop_profit_max: int = None, stop_profit_step: int = None, 
-                stop_loss_min: int = None, stop_loss_max: int = None, 
-                stop_loss_step: int = None, weight_step: int = None, 
-                initial_capital: int = 60000, backtest_days: int = 90) -> List[Dict[str, Any]]:
+
+    def _extract_elite_combinations(self, blueprint: Dict[str, Any],
+                                    param_space: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        从蓝图中提取优势组合(优化版 - 大数据量高效处理)
+
+        Args:
+            blueprint: 蓝图数据
+            param_space: 参数空间边界
+
+        Returns:
+            List[Dict[str, Any]]: 优势组合列表
+        """
+        from utils.multi_objective_scorer import get_scorer
+
+        scorer = get_scorer()
+
+        # 获取所有已完成的组合
+        completed_combinations = []
+        total_combinations = len(blueprint.get('combinations', []))
+
+        # 如果组合数很大(>2000),只处理前50%,提高效率
+        scan_limit = min(total_combinations, 2000) if total_combinations > 2000 else total_combinations
+
+        for i, combo in enumerate(blueprint.get('combinations', [])):
+            if i >= scan_limit:
+                break
+
+            if combo.get('status') == 'completed' and combo.get('result'):
+                # 快速过滤: 检查收益率是否在合理范围
+                result = combo['result']
+                total_return = result.get('total_return', 0)
+                # 使用更严格的过滤,减少后续计算量
+                if -50 <= total_return <= 150:  # 更严格的合理收益率范围
+                    completed_combinations.append(combo)
+
+        if not completed_combinations:
+            return []
+
+        # 使用多目标评价函数对组合进行排序
+        ranked_combinations = scorer.rank_combinations(completed_combinations)
+
+        # 获取前20%的精英组合,最多50个,避免过多
+        elite_count = min(50, max(5, int(len(ranked_combinations) * 0.2)))
+        elite_combinations = ranked_combinations[:elite_count]
+
+        # 输出参数空间范围
+        print(f"- 参数空间范围:")
+        print(f"  止盈: {param_space['stop_profit_ratio']['min']}% ~ {param_space['stop_profit_ratio']['max']}%")
+        print(f"  止损: {param_space['stop_loss_ratio']['min']}% ~ {param_space['stop_loss_ratio']['max']}%")
+
+        # 转换为参数格式（提取params部分）
+        converted_elite = []
+        out_of_range_count = 0
+        for combo in elite_combinations:
+            params = combo.get('params', {}).copy()
+            # 确保参数在当前参数空间边界内
+            if self._is_within_param_space(params, param_space):
+                converted_elite.append(params)
+            else:
+                out_of_range_count += 1
+                if out_of_range_count <= 3:  # 只显示前3个超出范围的
+                    print(f"  超出范围组合: 止盈={params.get('stop_profit_ratio')}%, 止损={params.get('stop_loss_ratio')}%")
+
+        print(f"- 扫描了 {scan_limit}/{total_combinations} 个组合")
+        print(f"- 筛选出 {len(completed_combinations)} 个有效组合")
+        print(f"- 评估出 {len(elite_combinations)} 个优势组合")
+        if out_of_range_count > 0:
+            print(f"- 其中 {out_of_range_count} 个超出参数空间范围被过滤")
+        print(f"- 最终保留 {len(converted_elite)} 个精英组合")
+
+        return converted_elite
+
+    def _is_within_param_space(self, params: Dict[str, Any], param_space: Dict[str, Any]) -> bool:
+        """
+        检查参数是否在指定空间内
+
+        Args:
+            params: 参数字典
+            param_space: 参数空间边界
+
+        Returns:
+            bool: 是否在空间内
+        """
+        stop_profit = params.get('stop_profit_ratio', 0)
+        stop_loss = params.get('stop_loss_ratio', 0)
+
+        # 检查止盈
+        sp_min = param_space['stop_profit_ratio']['min']
+        sp_max = param_space['stop_profit_ratio']['max']
+        if not (sp_min <= stop_profit <= sp_max):
+            return False
+
+        # 检查止损
+        sl_min = param_space['stop_loss_ratio']['min']
+        sl_max = param_space['stop_loss_ratio']['max']
+        if not (sl_min <= stop_loss <= sl_max):
+            return False
+
+        return True
+
+    def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10,
+                end_date: str = '2025-12-25', stop_profit_min: int = None,
+                stop_profit_max: int = None, stop_profit_step: int = None,
+                stop_loss_min: int = None, stop_loss_max: int = None,
+                stop_loss_step: int = None, weight_step: int = None,
+                initial_capital: int = 60000, backtest_days: int = 90,
+                existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         执行遗传算法优化
         
@@ -331,10 +566,10 @@ class GeneticOptimizer(BaseOptimizer):
         
         # 初始化种群，传递所有参数边界
         population = self.generate_initial_population(
-            test_mode, max_sub_combinations, end_date, backtest_days, 
-            stop_profit_min, stop_profit_max, stop_profit_step, 
-            stop_loss_min, stop_loss_max, stop_loss_step, 
-            weight_step, initial_capital
+            test_mode, max_sub_combinations, end_date, backtest_days,
+            stop_profit_min, stop_profit_max, stop_profit_step,
+            stop_loss_min, stop_loss_max, stop_loss_step,
+            weight_step, initial_capital, existing_blueprint
         )
         
         # 为每个参数组合添加初始资金
@@ -633,6 +868,42 @@ class GeneticOptimizer(BaseOptimizer):
                 weights['deepv'] = max(0, min(100, weights.get('deepv', 0) + diff))
         
         return weights
+
+    def _mutate_weights(self, weights: Dict[str, int], weight_step: int = 10) -> Dict[str, int]:
+        """
+        权重配置变异操作
+
+        Args:
+            weights: 权重配置字典
+            weight_step: 权重步长
+
+        Returns:
+            Dict[str, int]: 变异后的权重配置
+        """
+        mutated_weights = weights.copy()
+
+        # 获取可变异的指标
+        indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
+        indicators_in_weights = [ind for ind in indicators if ind in mutated_weights]
+
+        if not indicators_in_weights:
+            return mutated_weights
+
+        # 随机选择1-2个指标进行变异
+        num_mutations = random.randint(1, min(2, len(indicators_in_weights)))
+        indicators_to_mutate = random.sample(indicators_in_weights, num_mutations)
+
+        for ind in indicators_to_mutate:
+            current_weight = mutated_weights[ind]
+            mutation_direction = random.choice([-1, 1])
+            mutation_amount = mutation_direction * weight_step * random.randint(1, 2)
+            new_weight = max(5, min(95, current_weight + mutation_amount))
+            mutated_weights[ind] = new_weight
+
+        # 调整权重总和为100
+        mutated_weights = self._adjust_weights_total(mutated_weights)
+
+        return mutated_weights
     
     def _mutation(self, population: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

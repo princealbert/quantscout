@@ -495,6 +495,107 @@ with tab3:
                 st.error(f"请再次点击确认删除 {blueprint_to_delete}！")
     else:
         st.info("暂无蓝图文件可删除")
+    
+    # 清理蓝图功能
+    st.subheader("清理蓝图")
+    
+    blueprints = optimizer.list_blueprints()
+    if blueprints:
+        st.info("清理蓝图可以删除低质量的组合，保留最优组合，减小文件大小")
+        
+        # 选择要清理的蓝图文件
+        blueprint_to_clean = st.selectbox(
+            "选择要清理的蓝图文件",
+            options=[bp['filename'] for bp in blueprints],
+            format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)",
+            key="clean_blueprint_select"
+        )
+        
+        # 显示当前蓝图信息
+        try:
+            blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_clean)
+            with open(blueprint_path, 'r', encoding='utf-8') as f:
+                blueprint_data = json.load(f)
+            
+            total_count = len(blueprint_data.get('combinations', []))
+            completed_count = sum(1 for c in blueprint_data.get('combinations', []) if c.get('status') == 'completed')
+            failed_count = sum(1 for c in blueprint_data.get('combinations', []) if c.get('status') == 'failed')
+            
+            st.write(f"当前蓝图状态:")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("总组合数", total_count)
+            col2.metric("已完成", completed_count)
+            col3.metric("失败", failed_count)
+            
+            # 清理参数设置
+            col1, col2 = st.columns(2)
+            with col1:
+                max_total = st.number_input(
+                    "保留的最大总组合数",
+                    value=1000,
+                    min_value=100,
+                    max_value=5000,
+                    step=100,
+                    help="蓝图保留的最大组合总数"
+                )
+            with col2:
+                max_elite = st.number_input(
+                    "保留的最优组合数",
+                    value=500,
+                    min_value=50,
+                    max_value=2000,
+                    step=50,
+                    help="保留的高质量组合数量"
+                )
+            
+            keep_failed = st.checkbox("保留失败的组合", value=False, help="是否保留状态为failed的组合")
+            
+            if st.button("清理选中的蓝图", type="primary"):
+                if st.session_state.get('confirm_clean', False):
+                    try:
+                        from utils.blueprint_cleaner import BlueprintCleaner
+                        
+                        with st.spinner("正在清理蓝图..."):
+                            cleaner = BlueprintCleaner(
+                                max_total=max_total,
+                                max_elite=max_elite,
+                                keep_failed=keep_failed
+                            )
+                            
+                            cleaned_blueprint, archive_data = cleaner.clean_blueprint(
+                                blueprint_data,
+                                blueprint_file=blueprint_path,
+                                auto_archive=True
+                            )
+                            
+                            # 保存清理后的蓝图
+                            with open(blueprint_path, 'w', encoding='utf-8') as f:
+                                json.dump(cleaned_blueprint, f, ensure_ascii=False, indent=2)
+                            
+                            # 显示清理结果
+                            st.success(f"蓝图清理完成！")
+                            st.write(f"- 清理前: {total_count} 个组合")
+                            st.write(f"- 清理后: {len(cleaned_blueprint.get('combinations', []))} 个组合")
+                            st.write(f"- 减少组合: {total_count - len(cleaned_blueprint.get('combinations', []))} 个")
+                            
+                            if archive_data.get('archived_count', 0) > 0:
+                                archive_file = archive_data.get('archive_file', '未知')
+                                st.info(f"已归档 {archive_data['archived_count']} 个组合到: {archive_file}")
+                            
+                            st.session_state['confirm_clean'] = False
+                            st.rerun()
+                    
+                    except Exception as e:
+                        st.error(f"清理蓝图失败: {e}")
+                        import traceback
+                        st.error(traceback.format_exc())
+                else:
+                    st.session_state['confirm_clean'] = True
+                    st.error(f"请再次点击确认清理 {blueprint_to_clean}！")
+        except Exception as e:
+            st.error(f"读取蓝图信息失败: {e}")
+    else:
+        st.info("暂无蓝图文件可清理")
 
 # 运行优化
 st.header("运行优化")
@@ -646,6 +747,45 @@ if st.button("开始优化"):
         progress_text.empty()
         st.success("参数优化完成！")
         
+        # 自动清理蓝图文件
+        try:
+            from utils.blueprint_cleaner import BlueprintCleaner
+            blueprint_path = os.path.join(optimizer.current_dir, blueprint_file)
+            
+            # 加载蓝图检查大小
+            with open(blueprint_path, 'r', encoding='utf-8') as f:
+                blueprint_data = json.load(f)
+            
+            total_combinations = len(blueprint_data.get('combinations', []))
+            max_total = 1000  # 默认阈值
+            
+            if total_combinations > max_total:
+                st.info(f"检测到蓝图包含 {total_combinations} 个组合，超过阈值 {max_total}，开始自动清理...")
+                
+                cleaner = BlueprintCleaner(max_total=max_total, max_elite=500, keep_failed=False)
+                cleaned_blueprint, archive_data = cleaner.clean_blueprint(
+                    blueprint_data,
+                    blueprint_file=blueprint_path,
+                    auto_archive=True
+                )
+                
+                # 保存清理后的蓝图
+                with open(blueprint_path, 'w', encoding='utf-8') as f:
+                    json.dump(cleaned_blueprint, f, ensure_ascii=False, indent=2)
+                
+                # 显示清理结果
+                st.success("蓝图清理完成！")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("清理前", total_combinations)
+                col2.metric("清理后", len(cleaned_blueprint.get('combinations', [])))
+                col3.metric("减少", total_combinations - len(cleaned_blueprint.get('combinations', [])))
+                
+                if archive_data.get('archived_count', 0) > 0:
+                    st.info(f"已归档 {archive_data['archived_count']} 个组合到: {archive_data.get('archive_file', '未知')}")
+        except Exception as e:
+            st.warning(f"自动清理蓝图失败: {e}")
+            st.info("您可以稍后在'蓝图管理'标签页中手动清理")
+        
         # 导出结果到Excel
         if 'all_completed_results' in locals() and all_completed_results:
             # 从所有蓝图文件中收集已完成的结果
@@ -733,12 +873,18 @@ if st.button("查看回测结果") or show_results:
                                     sub_blueprint = json.load(f)
                                 for combo in sub_blueprint['combinations']:
                                     if combo['status'] == 'completed' and combo['result']:
-                                        all_completed_results.append(combo['result'])
+                                        # 将蓝图ID合并到result中，保留对应关系
+                                        result_with_id = combo['result'].copy()
+                                        result_with_id['blueprint_id'] = combo['id']
+                                        all_completed_results.append(result_with_id)
                     else:
                         # 完整的蓝图文件，直接遍历组合
                         for combo in blueprint['combinations']:
                             if combo['status'] == 'completed' and combo['result']:
-                                all_completed_results.append(combo['result'])
+                                # 将蓝图ID合并到result中，保留对应关系
+                                result_with_id = combo['result'].copy()
+                                result_with_id['blueprint_id'] = combo['id']
+                                all_completed_results.append(result_with_id)
                 except Exception as e:
                     st.warning(f"读取蓝图文件 {bp['filename']} 失败: {e}")
         
@@ -746,7 +892,8 @@ if st.button("查看回测结果") or show_results:
             # 将结果转换为DataFrame
             df_list = []
             seen_results = set()
-            
+            seen_results_ids = {}  # 记录每个参数组合对应的蓝图ID
+
             for i, result in enumerate(all_completed_results):
                 # 创建用于去重的唯一标识符
                 key_params = (
@@ -762,16 +909,24 @@ if st.button("查看回测结果") or show_results:
                         if isinstance(sub_config, dict) and 'sub_weights' in sub_config and isinstance(sub_config['sub_weights'], dict)
                     )
                 )
-                
+
+                blueprint_id = result.get('blueprint_id', 0)
+
                 if key_params in seen_results:
+                    # 如果参数已存在，记录被忽略的ID（用于调试）
+                    logger.warning(f"忽略重复的参数组合，ID: {blueprint_id} (参数已存在)")
                     continue
+
                 seen_results.add(key_params)
-                
+                # 记录这个参数组合对应的蓝图ID
+                seen_results_ids[key_params] = blueprint_id
+
                 # 跳过无效结果，只跳过那些明显错误的结果（远低于-100%）
                 if result.get('total_return', 0.0) < -101:
                     continue
-                
+
                 row = {
+                    '序号': blueprint_id,  # 使用蓝图ID作为序号
                     '回测天数': result.get('backtest_days', 90),
                     '回测起始日期': result.get('start_date', ''),
                     '回测终止日期': result.get('end_date', ''),
@@ -801,7 +956,7 @@ if st.button("查看回测结果") or show_results:
             
             # 创建DataFrame
             df = pd.DataFrame(df_list)
-            
+
             if not df.empty:
                 # 确保所有数值列都有正确的格式
                 if '序号' in df.columns:
@@ -820,13 +975,10 @@ if st.button("查看回测结果") or show_results:
                     df['胜率(%)'] = df['胜率(%)'].round(2)
                 else:
                     df['胜率(%)'] = 0.0
-                
-                # 添加序号列
-                df['序号'] = range(1, len(df) + 1)
-                
-                # 按总收益率降序排序
-                df = df.sort_values(by='总收益率(%)', ascending=False)
-                
+
+                # 不再重新添加序号列，因为已经在构建时设置了蓝图ID作为序号
+                # 不再按收益率排序，避免打乱序号与蓝图ID的对应关系
+
                 # 显示表格
                 st.dataframe(df)
                 
@@ -891,6 +1043,9 @@ if st.button("查看回测结果") or show_results:
                 
                 # 创建一个醒目的卡片布局展示最优结果
                 with st.container(border=True):
+                    # 显示序号（蓝图ID）
+                    st.markdown(f"**序号（蓝图ID）**: {int(best_result.get('序号', 0))}")
+
                     # 使用列布局展示关键参数
                     st.markdown("### 参数配置")
                     col1, col2, col3 = st.columns(3)
@@ -1135,15 +1290,25 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
                 logger.info(f"从蓝图中获取子权重配置: {sub_weights}")
                 
                 # 构建完整的配置对象
-                # 提取回测结果指标
+                # 提取回测结果指标（注意：result中的字段名是英文键名，不是中文）
                 result = target_combination.get('result', {})
+
+                # 从result中提取回测指标（使用实际的键名）
+                # 注意：蓝图中的total_return、annual_return、max_drawdown已经是百分比值（如59.79代表59.79%）
+                total_return = result.get('total_return', 0)
+                annual_return = result.get('annual_return', 0)
+                max_drawdown = result.get('max_drawdown', 0)
+                sharpe_ratio = result.get('sharpe_ratio', 0)
+                win_rate = result.get('win_rate', 0)
+                trades_count = result.get('trades_count', 0)
+
                 backtest_result_str = (
-                    f"收益率:{result.get('总收益率(%)', 0):.2f}% | "
-                    f"年化:{result.get('年化收益率(%)', 0):.2f}% | "
-                    f"夏普:{result.get('夏普比率', 0):.2f} | "
-                    f"最大回撤:{result.get('最大回撤(%)', 0):.2f}% | "
-                    f"胜率:{result.get('胜率(%)', 0):.2f}% | "
-                    f"交易次数:{int(result.get('交易次数', 0))}"
+                    f"收益率:{total_return:.2f}% | "
+                    f"年化:{annual_return:.2f}% | "
+                    f"夏普:{sharpe_ratio:.2f} | "
+                    f"最大回撤:{max_drawdown:.2f}% | "
+                    f"胜率:{win_rate:.2f}% | "
+                    f"交易次数:{int(trades_count)}"
                 )
 
                 # 从params中获取起始资金，如果没有则使用默认值60000
@@ -1153,12 +1318,16 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
                 end_date = params.get('end_date', datetime.now().strftime('%Y-%m-%d'))
 
                 # 构建详细描述
+                # 注意：params中的stop_profit_ratio和stop_loss_ratio已经是百分比整数（如17, -3）
+                stop_profit = params.get('stop_profit_ratio', 5)
+                stop_loss = params.get('stop_loss_ratio', -3)
+
                 description_parts = [
                     f"序号:{blueprint_id}",
                     f"由参数优化器生成的方案",
                     f"回测天数:{int(params.get('backtest_days', 90))}天",
                     f"终点日期:{end_date}",
-                    f"止盈:{params.get('stop_profit_ratio', 0.05)*100:.1f}% | 止损:{params.get('stop_loss_ratio', -0.03)*100:.1f}%",
+                    f"止盈:{stop_profit:.1f}% | 止损:{stop_loss:.1f}%",
                     f"起始资金:{int(initial_capital)}元",
                     f"回测结果:{backtest_result_str}",
                     f"生成时间:{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -1173,8 +1342,8 @@ if st.session_state['show_results'] and st.session_state['best_result'] is not N
                     "created_at": datetime.now().isoformat(),
                     "is_default": False,
                     "backtest_params": {
-                        "stop_profit_ratio": params.get('stop_profit_ratio', 0.05),
-                        "stop_loss_ratio": params.get('stop_loss_ratio', -0.03),
+                        "stop_profit_ratio": stop_profit / 100,  # 转换为小数（17% -> 0.17）
+                        "stop_loss_ratio": stop_loss / 100,        # 转换为小数（-3% -> -0.03）
                         "backtest_days": int(params.get('backtest_days', 90)),
                         "initial_capital": int(initial_capital),
                         "commission_ratio": 0.0003

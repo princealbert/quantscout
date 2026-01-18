@@ -662,7 +662,16 @@ if st.button("开始优化"):
                         try:
                             # 调用实际的回测方法
                             result = optimizer.run_backtest(combo['params'])
-                            
+
+                            # 检查返回值是否有效
+                            if result is None:
+                                raise Exception("回测返回空结果，可能子进程异常退出")
+
+                            # 检查是否是错误结果
+                            if isinstance(result, dict) and result.get('success') is False:
+                                error_msg = result.get('error', '未知错误')
+                                raise Exception(f"子进程回测失败: {error_msg}")
+
                             # 保留完整的结果，包括原始参数
                             formatted_result = result
                         except Exception as e:
@@ -677,7 +686,7 @@ if st.button("开始优化"):
                                 'win_rate': 0.0,
                                 'trades_count': 0
                             }
-                        
+
                         # 更新状态为已完成
                         optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
                         
@@ -709,7 +718,16 @@ if st.button("开始优化"):
                     try:
                         # 调用实际的回测方法
                         result = optimizer.run_backtest(combo['params'])
-                        
+
+                        # 检查返回值是否有效
+                        if result is None:
+                            raise Exception("回测返回空结果，可能子进程异常退出")
+
+                        # 检查是否是错误结果
+                        if isinstance(result, dict) and result.get('success') is False:
+                            error_msg = result.get('error', '未知错误')
+                            raise Exception(f"子进程回测失败: {error_msg}")
+
                         # 保留完整的结果，包括原始参数
                         formatted_result = result
                     except Exception as e:
@@ -724,7 +742,7 @@ if st.button("开始优化"):
                             'win_rate': 0.0,
                             'trades_count': 0
                         }
-                    
+
                     # 更新状态为已完成
                     optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
                     optimizer.save_blueprint(blueprint, blueprint_file)

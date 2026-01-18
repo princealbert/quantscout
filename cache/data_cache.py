@@ -23,9 +23,10 @@ class StockDataCache:
         self._lock = threading.RLock()  # 使用可重入锁
         self.cache_expiry_days = cache_expiry_days  # 缓存过期天数
         self.permanent_storage_for_backtest = permanent_storage_for_backtest  # 回测数据是否永久化存储
+
         self._init_database()
         self._create_config_table()  # 创建配置表
-        
+
         # 创建连接池
         self._conn_pool = []
         self._max_connections = 20  # 增加连接池大小以处理更多并发请求
@@ -34,13 +35,77 @@ class StockDataCache:
         for _ in range(self._max_connections):
             conn = sqlite3.connect(self.db_path, check_same_thread=False)
             conn.execute('PRAGMA journal_mode=WAL')  # 启用WAL模式
-            conn.execute('PRAGMA busy_timeout = 3000')  # 设置3秒超时，避免立即锁定
+            conn.execute('PRAGMA busy_timeout = 10000')  # 设置10秒超时，避免立即锁定
+            conn.execute('PRAGMA synchronous = NORMAL')  # 平衡性能和安全
             self._conn_pool.append(conn)
         print(f"[OK] 数据库连接池初始化完成，连接数: {self._max_connections}", flush=True)
-        
-        # 创建异步写入线程池
-        self._write_pool = concurrent.futures.ThreadPoolExecutor(max_workers=5, thread_name_prefix="CacheWriter")
+
+        # 创建异步写入线程池 - 减少并发写线程数以降低锁争用
+        self._write_pool = concurrent.futures.ThreadPoolExecutor(max_workers=3, thread_name_prefix="CacheWriter")
         print("[OK] 异步缓存写入线程池初始化完成", flush=True)
+
+        # 检查并清理过大的WAL文件（在连接池初始化之后）
+        self._cleanup_large_wal()
+
+    def _cleanup_large_wal(self):
+        """检查并清理过大的WAL文件"""
+        import os
+        import time
+
+        wal_path = f"{self.db_path}-wal"
+        if not os.path.exists(wal_path):
+            return
+
+        wal_size_mb = os.path.getsize(wal_path) / (1024 * 1024)
+
+        # WAL文件超过100MB则清理
+        if wal_size_mb > 100:
+            print(f"[警告] 检测到过大的WAL文件 ({wal_size_mb:.1f}MB)，正在清理...", flush=True)
+            try:
+                # 先关闭所有连接池中的连接，避免锁争用
+                with self._pool_lock:
+                    for conn in self._conn_pool:
+                        try:
+                            conn.close()
+                        except:
+                            pass
+                    self._conn_pool.clear()
+
+                # 等待一下让所有连接完全关闭
+                time.sleep(0.5)
+
+                # 创建新连接进行清理
+                conn = sqlite3.connect(self.db_path, timeout=30)
+                conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+                conn.execute('PRAGMA optimize')
+                conn.commit()
+                conn.close()
+
+                new_size_mb = os.path.getsize(wal_path) / (1024 * 1024) if os.path.exists(wal_path) else 0
+                reduced_mb = wal_size_mb - new_size_mb
+                print(f"[OK] WAL文件清理完成，减少 {reduced_mb:.1f}MB", flush=True)
+
+                # 重新初始化连接池
+                for _ in range(self._max_connections):
+                    conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                    conn.execute('PRAGMA journal_mode=WAL')  # 启用WAL模式
+                    conn.execute('PRAGMA busy_timeout = 10000')  # 设置10秒超时，避免立即锁定
+                    conn.execute('PRAGMA synchronous = NORMAL')  # 平衡性能和安全
+                    self._conn_pool.append(conn)
+
+            except Exception as e:
+                print(f"[警告] WAL文件清理失败: {e}", flush=True)
+                # 即使失败也要重新初始化连接池
+                if not self._conn_pool:
+                    for _ in range(self._max_connections):
+                        try:
+                            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                            conn.execute('PRAGMA journal_mode=WAL')
+                            conn.execute('PRAGMA busy_timeout = 10000')
+                            conn.execute('PRAGMA synchronous = NORMAL')
+                            self._conn_pool.append(conn)
+                        except:
+                            pass
     
     def _get_connection(self):
         """从连接池获取一个连接"""
@@ -179,23 +244,33 @@ class StockDataCache:
     
     def _cache_kline_data_sync(self, symbol: str, trade_date: str, days: int, data_json: str, cache_key: str, is_permanent: int) -> bool:
         """同步缓存K线数据 - 内部使用"""
-        try:
-            conn = self._get_connection()
+        import time
+        max_retries = 3
+        retry_delay = 0.1
+
+        for attempt in range(max_retries):
             try:
-                conn.execute('''
-                    INSERT OR REPLACE INTO kline_data 
-                    (cache_key, symbol, trade_date, days, data_json, created_time, last_accessed, is_permanent)
-                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
-                ''', (cache_key, symbol, trade_date, days, data_json, is_permanent))
-                
-                conn.commit()
-            finally:
-                self._return_connection(conn)
-            return True
-        except Exception as e:
-            # 注释掉数据库锁定日志，避免日志过多
-            # print(f"同步缓存K线数据失败: {e}", flush=True)
-            return False
+                conn = self._get_connection()
+                try:
+                    conn.execute('''INSERT OR REPLACE INTO kline_data
+                        (cache_key, symbol, trade_date, days, data_json, created_time, last_accessed, is_permanent)
+                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+                    ''', (cache_key, symbol, trade_date, days, data_json, is_permanent))
+
+                    conn.commit()
+                finally:
+                    self._return_connection(conn)
+                return True
+            except sqlite3.OperationalError as e:
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))  # 指数退避
+                    continue
+                # 数据库锁定错误静默处理，不打印日志
+                return False
+            except Exception as e:
+                print(f"同步缓存K线数据失败: {e}", flush=True)
+                return False
+        return False
     
     def get_cached_kline_data(self, symbol: str, trade_date: str, days: int) -> pd.DataFrame:
         """获取缓存的K线数据 - 简化命中逻辑"""
@@ -308,22 +383,38 @@ class StockDataCache:
     
     def _cache_basic_info_sync(self, symbol: str, trade_date: str, data_json: str, cache_key: str, is_permanent: int) -> bool:
         """同步缓存基础信息 - 内部使用"""
-        try:
-            conn = self._get_connection()
+        import time
+        max_retries = 3
+        retry_delay = 0.1
+
+        for attempt in range(max_retries):
             try:
-                conn.execute('''
-                    INSERT OR REPLACE INTO basic_info 
-                    (cache_key, symbol, trade_date, data_json, created_time, last_accessed, is_permanent)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
-                ''', (cache_key, symbol, trade_date, data_json, is_permanent))
-                
-                conn.commit()
-            finally:
-                self._return_connection(conn)
-            return True
-        except Exception as e:
-            print(f"同步缓存基础信息失败: {e}", flush=True)
-            return False
+                conn = self._get_connection()
+                try:
+                    conn.execute('''INSERT OR REPLACE INTO basic_info
+                        (cache_key, symbol, trade_date, data_json, created_time, last_accessed, is_permanent)
+                        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+                    ''', (cache_key, symbol, trade_date, data_json, is_permanent))
+
+                    conn.commit()
+                finally:
+                    self._return_connection(conn)
+                return True
+            except sqlite3.OperationalError as e:
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))  # 指数退避
+                    continue
+                # 最后一次失败或不是锁定错误，打印日志
+                if "database is locked" in str(e):
+                    # 数据库锁定错误已静默处理，不打印日志
+                    pass
+                else:
+                    print(f"同步缓存基础信息失败: {e}", flush=True)
+                return False
+            except Exception as e:
+                print(f"同步缓存基础信息失败: {e}", flush=True)
+                return False
+        return False
     
     def get_cached_basic_info(self, symbol: str, trade_date: str) -> Dict[str, Any]:
         """获取缓存的基础信息 - 简化命中逻辑"""

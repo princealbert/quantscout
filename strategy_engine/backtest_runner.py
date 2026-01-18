@@ -226,6 +226,7 @@ def run_backtest(config: Dict[str, Any] = None, config_path: str = None, generat
 import sys
 import os
 import json
+import traceback
 
 # 从临时文件加载配置
 with open(r'{temp_config_path}', 'r', encoding='utf-8') as f:
@@ -236,18 +237,31 @@ project_root = temp_config['project_root']
 sys.path.insert(0, project_root)
 
 # 导入并运行回测
-from strategy_engine.backtest_runner import run_backtest as inner_run_backtest
-report_data = inner_run_backtest(
-    config=temp_config['config'],
-    config_path=temp_config['config_path'],
-    generate_charts=temp_config['generate_charts'],
-    is_cycle_mode=temp_config['is_cycle_mode']
-)
+try:
+    from strategy_engine.backtest_runner import run_backtest as inner_run_backtest
+    report_data = inner_run_backtest(
+        config=temp_config['config'],
+        config_path=temp_config['config_path'],
+        generate_charts=temp_config['generate_charts'],
+        is_cycle_mode=temp_config['is_cycle_mode']
+    )
 
-# 将结果保存到临时文件
-result_path = r'{temp_config_path}' + '.result'
-with open(result_path, 'w', encoding='utf-8') as f:
-    json.dump(report_data, f, ensure_ascii=False, indent=2)
+    # 将结果保存到临时文件
+    result_path = r'{temp_config_path}' + '.result'
+    with open(result_path, 'w', encoding='utf-8') as f:
+        json.dump(report_data, f, ensure_ascii=False, indent=2)
+except Exception as e:
+    # 捕获异常并保存错误信息
+    error_result = {{
+        'success': False,
+        'error': str(e),
+        'error_type': type(e).__name__,
+        'traceback': traceback.format_exc()
+    }}
+    result_path = r'{temp_config_path}' + '.result'
+    with open(result_path, 'w', encoding='utf-8') as f:
+        json.dump(error_result, f, ensure_ascii=False, indent=2)
+    sys.exit(1)
 """
             
             # 创建临时Python脚本文件
@@ -307,29 +321,40 @@ with open(result_path, 'w', encoding='utf-8') as f:
             
             # 等待子进程完成
             process.wait()
-            
+            return_code = process.returncode
+
             # 等待输出线程完成
             stdout_thread.join(timeout=1)
             stderr_thread.join(timeout=1)
-            
+
             # 关闭流
             process.stdout.close()
             process.stderr.close()
-            
+
             # 读取回测结果
             result_path = temp_config_path + '.result'
             if os.path.exists(result_path):
                 with open(result_path, 'r', encoding='utf-8') as f:
                     report_data = json.load(f)
-                
+
+                # 检查是否是错误结果
+                if report_data.get('success') is False:
+                    error_msg = report_data.get('error', '未知错误')
+                    error_type = report_data.get('error_type', 'Exception')
+                    traceback_str = report_data.get('traceback', '')
+                    print(f"[错误] 子进程回测失败: {error_type}: {error_msg}")
+                    if traceback_str:
+                        print(f"[错误] 详细错误信息:\n{traceback_str}")
+
                 # 删除临时文件
                 os.unlink(temp_config_path)
                 os.unlink(temp_script_path)
                 os.unlink(result_path)
-                
+
                 return report_data
             else:
                 print(f"回测结果文件不存在: {result_path}")
+                print(f"子进程返回码: {return_code}")
                 # 删除临时文件
                 os.unlink(temp_config_path)
                 os.unlink(temp_script_path)

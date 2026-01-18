@@ -70,7 +70,7 @@ def start_controller():
         env['PYTHONUTF8'] = '1'
         
         # 直接在当前终端启动Streamlit headless版本
-        cmd = f'"{sys.executable}" -m streamlit run strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        cmd = f'"{sys.executable}" -m streamlit run strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info --server.runOnSave false'
         
         print("🌐 在当前终端启动Streamlit服务器...")
         print("📱 请在浏览器中访问: http://localhost:8502")
@@ -129,7 +129,7 @@ def start_parameter_optimizer():
         
         # 构建启动命令
         app_path = os.path.join(os.path.dirname(__file__), "ulti-para-seeker", "app.py")
-        cmd = f'"{sys.executable}" -m streamlit run "{app_path}" --server.port 8501 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        cmd = f'"{sys.executable}" -m streamlit run "{app_path}" --server.port 8501 --server.headless true --server.address 127.0.0.1 --logger.level info --server.runOnSave false'
         
         print("🌐 在当前终端启动Streamlit服务器...")
         print("📱 请在浏览器中访问: http://localhost:8501")
@@ -239,7 +239,7 @@ def start_all_applications():
         optimizer_cmd = f'"{sys.executable}" -m streamlit run "{optimizer_path}" --server.port 8501 --server.headless true --server.address 127.0.0.1 --logger.level info'
         
         # 启动策略控制器 (端口8502) - 添加详细日志级别
-        controller_cmd = f'"{sys.executable}" -m streamlit run strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info'
+        controller_cmd = f'"{sys.executable}" -m streamlit run strategy_controller/main.py --server.port 8502 --server.headless true --server.address 127.0.0.1 --logger.level info --server.runOnSave false'
         
         print("🌐 启动参数优化器服务器...")
         print(f"   命令: {optimizer_cmd}")

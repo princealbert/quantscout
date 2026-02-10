@@ -99,9 +99,9 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
         stop_profit = st.slider(
             "止盈比例 (%)",
             1.0,
-            20.0,
+            1000.0,
             3.0,
-            0.5,
+            1.0,
             help="当盈利达到该比例时自动卖出"
         )
     

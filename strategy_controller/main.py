@@ -109,13 +109,7 @@ def main():
             st.session_state.strategy_thread_started = False
             
             # 记录详细的策略配置信息
-            print(f"[DEBUG] 开始选股时的策略配置:")
-            print(f"[DEBUG] 策略类型: {st.session_state.get('strategy_type', '未设置')}")
-            print(f"[DEBUG] 权重配置: {st.session_state.get('weights_config', {})}")
-            print(f"[DEBUG] 子权重配置: {st.session_state.get('sub_weights_config', {})}")
-            print(f"[DEBUG] 是否优化: {st.session_state.get('is_optimized', False)}")
-            print(f"[DEBUG] 优化类型: {st.session_state.get('active_strategy_type', '未设置')}")
-            print(f"[DEBUG] 市场状况: {st.session_state.get('active_market_condition', '未设置')}")
+            logger.info(f"开始选股时的策略配置: 策略类型={st.session_state.get('strategy_type', '未设置')}, 权重配置={st.session_state.get('weights_config', {})}")
             
             # 立即显示进度条和状态
             st.rerun()
@@ -178,14 +172,11 @@ def main():
             screening_params = st.session_state.get('screening_params', {})
             sub_weights_config = st.session_state.get('sub_weights_config', None)
             
-            print(f"[INFO] 开始执行策略: {strategy_type}")
-            print(f"[INFO] 股票池类型: {screening_params.get('stock_pool_type', '全量A股')}")
+            logger.info(f"开始执行策略: {strategy_type}")
+            logger.info(f"股票池类型: {screening_params.get('stock_pool_type', '全量A股')}")
             
-            # 调试信息：显示实际传递给策略执行器的参数
-            print(f"[MAIN] 传递给策略执行器的参数:")
-            print(f"[MAIN] 策略类型: {strategy_type}")
-            print(f"[MAIN] 权重配置: {weights_config}")
-            print(f"[MAIN] 子权重配置: {sub_weights_config}")
+            # 记录传递给策略执行器的参数
+            logger.info(f"传递给策略执行器的参数: 策略类型={strategy_type}, 权重配置={weights_config}, 子权重配置={sub_weights_config}")
             
             results = run_strategy(
                 strategy_type,
@@ -203,14 +194,31 @@ def main():
             st.session_state.status_message = f"筛选完成！共找到 {len(results) if results else 0} 只股票"
             st.session_state.strategy_running = False
             
-            print(f"[INFO] 策略执行完成，结果数量: {len(results) if results else 0}")
+            logger.info(f"策略执行完成，结果数量: {len(results) if results else 0}")
             
         except Exception as e:
             st.session_state.current_progress = 0
-            st.session_state.status_message = f"筛选失败: {str(e)}"
+            error_msg = str(e)
+            
+            # 提供用户友好的错误提示
+            friendly_error_msg = "策略执行失败"
+            
+            # 根据错误类型提供更具体的提示
+            if "token" in error_msg.lower() or "api" in error_msg.lower():
+                friendly_error_msg = "API连接失败，请检查Token配置是否正确"
+            elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+                friendly_error_msg = "网络连接失败，请检查网络状态"
+            elif "gm" in error_msg.lower() or "juejin" in error_msg.lower():
+                friendly_error_msg = "东财掘金终端连接失败，请确保终端已启动"
+            elif "timeout" in error_msg.lower():
+                friendly_error_msg = "请求超时，请稍后重试"
+            elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
+                friendly_error_msg = "权限不足，请检查Token权限"
+            
+            st.session_state.status_message = f"筛选失败: {friendly_error_msg}"
             st.session_state.strategy_running = False
-            st.error(f"策略执行失败: {str(e)}")
-            print(f"[ERROR] 策略执行失败: {str(e)}")
+            st.error(f"{friendly_error_msg}\n\n详细错误: {error_msg}")
+            logger.error(f"策略执行失败: {error_msg}")
         
         # 触发重绘
         st.rerun()

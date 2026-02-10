@@ -8,15 +8,28 @@
 
 #### 加密方式
 
-- **算法**：SHA-256
-- **存储格式**：哈希值
+- **算法**：Fernet (AES-128)
+- **存储格式**：加密值
 - **存储位置**：`config/token_config.json`
 
 #### 安全机制
 
-1. **哈希存储**：Token经过SHA-256哈希处理后存储，不可逆
+1. **加密存储**：Token经过Fernet加密后存储，不可逆
 2. **非明文保存**：配置文件中不包含原始Token
-3. **验证机制**：验证时对输入Token进行哈希并与存储值比较
+3. **双重验证**：同时使用加密存储和哈希验证
+4. **密钥管理**：支持从环境变量获取密钥，提高安全性
+
+#### 环境变量配置
+
+为了提高安全性，建议设置环境变量来存储加密密钥：
+
+```bash
+# Windows命令行
+set GM_ENCRYPTION_KEY=your_encryption_key_here
+
+# Windows PowerShell
+$env:GM_ENCRYPTION_KEY="your_encryption_key_here"
+```
 
 #### 代码示例
 

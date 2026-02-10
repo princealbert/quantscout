@@ -74,6 +74,8 @@ pip install pandas
 pip install numpy
 pip install gm
 pip install openpyxl
+pip install cryptography
+pip install requests
 ```
 
 **验证安装：**

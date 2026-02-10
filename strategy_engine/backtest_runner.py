@@ -338,13 +338,16 @@ except Exception as e:
                     report_data = json.load(f)
 
                 # 检查是否是错误结果
-                if report_data.get('success') is False:
-                    error_msg = report_data.get('error', '未知错误')
-                    error_type = report_data.get('error_type', 'Exception')
-                    traceback_str = report_data.get('traceback', '')
-                    print(f"[错误] 子进程回测失败: {error_type}: {error_msg}")
-                    if traceback_str:
-                        print(f"[错误] 详细错误信息:\n{traceback_str}")
+                if report_data is not None:
+                    if report_data.get('success') is False:
+                        error_msg = report_data.get('error', '未知错误')
+                        error_type = report_data.get('error_type', 'Exception')
+                        traceback_str = report_data.get('traceback', '')
+                        print(f"[错误] 子进程回测失败: {error_type}: {error_msg}")
+                        if traceback_str:
+                            print(f"[错误] 详细错误信息:\n{traceback_str}")
+                else:
+                    print("[错误] 子进程回测失败: 未获取到回测结果")
 
                 # 删除临时文件
                 os.unlink(temp_config_path)

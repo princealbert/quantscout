@@ -116,21 +116,21 @@ with col1:
     stop_profit_min = st.slider(
         "止盈最小值 (%)",
         min_value=1,
-        max_value=20,
+        max_value=1000,
         value=3,
         step=1
     )
     stop_profit_max = st.slider(
         "止盈最大值 (%)",
         min_value=1,
-        max_value=20,
+        max_value=1000,
         value=15,
         step=1
     )
     stop_profit_step = st.slider(
         "止盈步长 (%)",
         min_value=1,
-        max_value=5,
+        max_value=50,
         value=2,
         step=1
     )

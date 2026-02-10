@@ -29,10 +29,26 @@ class TokenManager:
         self.token_file = self.config_dir / "token_config.json"
         self._ensure_config_dir()
         
-        # 生成默认密钥（生产环境应该从环境变量或安全存储中获取）
-        # 注意：这个密钥应该在生产环境中安全存储
-        self._key = b'rJI3qu21cPycjDjSovn9DPm1xbMFZh35Fb00U7Nb3PQ='
-        self._cipher_suite = Fernet(self._key)
+        # 从环境变量获取密钥，或使用固定的默认密钥
+        # 优先从环境变量获取密钥
+        env_key = os.environ.get('GM_ENCRYPTION_KEY')
+        if env_key:
+            # 确保密钥是有效的Fernet密钥格式
+            try:
+                self._key = base64.urlsafe_b64decode(env_key.encode())
+                self._cipher_suite = Fernet(self._key)
+                print("✅ 从环境变量加载加密密钥成功")
+            except Exception as e:
+                print(f"⚠️  环境变量密钥格式无效，使用默认密钥: {e}")
+                # 使用固定的默认密钥
+                self._key = b'rJI3qu21cPycjDjSovn9DPm1xbMFZh35Fb00U7Nb3PQ='
+                self._cipher_suite = Fernet(self._key)
+        else:
+            # 使用固定的默认密钥，确保Token可以被正确解密
+            self._key = b'rJI3qu21cPycjDjSovn9DPm1xbMFZh35Fb00U7Nb3PQ='
+            self._cipher_suite = Fernet(self._key)
+            print("⚠️  未设置环境变量GM_ENCRYPTION_KEY，使用默认密钥")
+            print("💡 建议在生产环境中设置环境变量GM_ENCRYPTION_KEY以提高安全性")
         
     def _ensure_config_dir(self):
         """确保配置目录存在"""
@@ -101,6 +117,7 @@ class TokenManager:
         """
         try:
             if not self.token_file.exists():
+                print(f"❌ Token配置文件不存在: {self.token_file}")
                 return None
             
             with open(self.token_file, 'r', encoding='utf-8') as f:
@@ -109,17 +126,38 @@ class TokenManager:
             encrypted_token = config.get("token")
             if not encrypted_token:
                 print(f"❌ Token配置错误: token_config.json文件中缺少token字段")
-                print(f"   当前文件内容: {config}")
                 print(f"   请重新配置Token")
                 return None
             
-            # 解密Token
-            token = self._cipher_suite.decrypt(encrypted_token.encode()).decode()
-            return token
+            # 尝试使用当前密钥解密
+            try:
+                token = self._cipher_suite.decrypt(encrypted_token.encode()).decode()
+                print(f"✅ 获取Token成功")
+                return token
+            except Exception as e:
+                print(f"⚠️  当前密钥解密失败: {e}")
+                print(f"   尝试使用备用密钥解密...")
+                
+                # 尝试使用旧的默认密钥解密
+                old_default_key = b'rJI3qu21cPycjDjSovn9DPm1xbMFZh35Fb00U7Nb3PQ='
+                old_cipher_suite = Fernet(old_default_key)
+                
+                try:
+                    token = old_cipher_suite.decrypt(encrypted_token.encode()).decode()
+                    print(f"✅ 使用备用密钥解密成功")
+                    # 重新使用新密钥加密并保存Token
+                    print(f"   正在使用新密钥重新加密Token...")
+                    self.save_token(token, config.get("description", ""))
+                    return token
+                except Exception as e2:
+                    print(f"❌ 备用密钥解密也失败: {e2}")
+                    print(f"   请重新配置Token")
+                    return None
             
         except Exception as e:
             print(f"❌ 获取Token失败: {e}")
             print(f"   请检查token_config.json文件或加密密钥是否正确")
+            print(f"   配置文件路径: {self.token_file}")
             return None
     
     def load_token_hash(self) -> Optional[str]:

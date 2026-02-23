@@ -210,6 +210,15 @@ streamlit run strategy_controller/main.py --server.port 8502
    - 手续费比例
 3. 点击「执行回测」
 
+#### 回测参数配置机制
+
+系统使用统一的回测参数配置机制，确保策略控制器和参数优化器使用相同的参数定义和验证逻辑：
+
+- **参数管理模块**：`strategy_controller/utils/backtest_params_manager.py` 集中管理所有回测参数
+- **参数设置组件**：`strategy_controller/ui/backtest_params_component.py` 提供统一的参数设置界面
+- **参数一致性**：两个模块使用相同的参数定义、验证规则和默认值
+- **参数范围**：支持自定义参数范围，适应不同场景的需求
+
 #### 回测结果
 
 回测完成后显示：

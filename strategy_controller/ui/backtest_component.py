@@ -18,6 +18,9 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# 导入回测参数设置组件
+from strategy_controller.ui.backtest_params_component import display_backtest_params
+
 # API可用性检查
 API_AVAILABLE = False
 # 暂时禁用API模式，使用备用方案
@@ -55,68 +58,16 @@ def display_backtest_button(strategy_results: List[Dict[str, Any]],
         with col3:
             st.metric("最佳股票", f"{strategy_results[0]['symbol']}")
     
-    # 回测配置选项
-    col1, col2, col3 = st.columns(3)
+    # 使用统一的回测参数设置组件
+    backtest_params = display_backtest_params()
     
-    with col1:
-        backtest_days = st.selectbox(
-            "回测天数",
-            [10, 30, 60, 90, 180, 360],
-            index=3,
-            help="选择回测的时间长度"
-        )
-    
-    with col2:
-        end_date = st.date_input(
-            "回测终止日期",
-            value=datetime.now(),
-            max_value=datetime.now(),
-            help="选择回测的终止日期，默认是当前日期"
-        )
-    
-    with col3:
-        max_stocks = st.selectbox(
-            "回测股票数量",
-            [1, 2, 3, 5, 10],
-            index=0,
-            help="选择排名前几的股票进行回测"
-        )
-    
-    # 初始资金配置
-    initial_capital = st.number_input(
-        "初始资金（元）",
-        min_value=10000,
-        max_value=1000000,
-        value=100000,
-        step=10000,
-        help="回测的初始资金"
-    )
-    
-    # 止盈止损配置
-    col4, col5 = st.columns(2)
-    
-    with col4:
-        stop_profit = st.slider(
-            "止盈比例 (%)",
-            1.0,
-            1000.0,
-            3.0,
-            1.0,
-            help="当盈利达到该比例时自动卖出"
-        )
-    
-    with col5:
-        stop_loss = st.slider(
-            "止损比例 (%)",
-            -20.0,
-            -1.0,
-            -2.0,
-            0.5,
-            help="当亏损达到该比例时自动卖出"
-        )
-    
-    # 回测参数说明
-    st.info("💡 回测将使用选股结果中排名靠前的股票，基于东财掘金API进行历史回测")
+    # 从返回的参数中提取值
+    backtest_days = backtest_params["backtest_days"]
+    end_date = datetime.strptime(backtest_params["end_date"], "%Y-%m-%d")
+    max_stocks = backtest_params["max_stocks"]
+    initial_capital = backtest_params["initial_capital"]
+    stop_profit = backtest_params["stop_profit"]
+    stop_loss = backtest_params["stop_loss"]
     
     # 发送到回测按钮
     col1, col2 = st.columns([3, 1])

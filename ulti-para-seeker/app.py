@@ -108,93 +108,29 @@ max_sub_combinations = st.sidebar.slider(
     step=1
 )
 
-# 止盈止损范围设置
-col1, col2 = st.sidebar.columns(2)
+# 导入回测参数设置组件
+import sys
+import os
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+from strategy_controller.ui.backtest_params_component import display_backtest_params
 
-with col1:
-    st.subheader("止盈设置")
-    stop_profit_min = st.slider(
-        "止盈最小值 (%)",
-        min_value=1,
-        max_value=1000,
-        value=3,
-        step=1
-    )
-    stop_profit_max = st.slider(
-        "止盈最大值 (%)",
-        min_value=1,
-        max_value=1000,
-        value=15,
-        step=1
-    )
-    stop_profit_step = st.slider(
-        "止盈步长 (%)",
-        min_value=1,
-        max_value=50,
-        value=2,
-        step=1
-    )
+# 回测参数设置
+st.sidebar.markdown("---")
+backtest_params = display_backtest_params(show_range_settings=True)
 
-with col2:
-    st.subheader("止损设置")
-    stop_loss_min = st.slider(
-        "止损最小值 (-%)",
-        min_value=1,
-        max_value=10,
-        value=1,
-        step=1
-    )
-    stop_loss_max = st.slider(
-        "止损最大值 (-%)",
-        min_value=1,
-        max_value=10,
-        value=5,
-        step=1
-    )
-    stop_loss_step = st.slider(
-        "止损步长 (-%)",
-        min_value=1,
-        max_value=5,
-        value=1,
-        step=1
-    )
-
-# 权重步长
-weight_step = st.sidebar.slider(
-    "权重步长 (%)",
-    min_value=5,
-    max_value=20,
-    value=10,
-    step=5
-)
-
-# 初始资金设置
-initial_capital = st.sidebar.number_input(
-    "初始资金",
-    min_value=10000,
-    max_value=1000000,
-    value=60000,
-    step=1000,
-    help="设置回测的初始资金，范围：1万-100万"
-)
-
-# 回测终点日期
-end_date = st.sidebar.date_input(
-    "回测终点日期",
-    value=datetime.now(),
-    min_value=datetime.now() - timedelta(days=365),
-    max_value=datetime.now()
-).strftime("%Y-%m-%d")
-
-# 回测天数
-backtest_days = st.sidebar.number_input(
-    "回测天数",
-    min_value=3,
-    max_value=365,
-    value=90,
-    step=1,
-    help="设置回测天数，范围：3-365天"
-)
+# 从返回的参数中提取值
+stop_profit_min = backtest_params.get("stop_profit_min", 3)
+stop_profit_max = backtest_params.get("stop_profit_max", 15)
+stop_profit_step = backtest_params.get("stop_profit_step", 2)
+stop_loss_min = backtest_params.get("stop_loss_min", 1)
+stop_loss_max = backtest_params.get("stop_loss_max", 5)
+stop_loss_step = backtest_params.get("stop_loss_step", 1)
+weight_step = backtest_params.get("weight_step", 10)
+initial_capital = backtest_params.get("initial_capital", 60000)
+end_date = backtest_params.get("end_date", datetime.now().strftime("%Y-%m-%d"))
+backtest_days = backtest_params.get("backtest_days", 90)
 
 # 主面板：显示信息和结果
 st.header("参数组合分析")

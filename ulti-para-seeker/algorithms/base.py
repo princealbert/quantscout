@@ -280,6 +280,14 @@ class BaseOptimizer(ABC):
                     # 极端情况下，调整止损值
                     stop_loss = stop_profit - param_space['stop_loss_ratio']['step']
         
+        # 生成最大持仓天数选项列表，按照指定步长
+        max_holding_days_options = list(range(
+            param_space.get('max_holding_days', {'min': 1})['min'],
+            param_space.get('max_holding_days', {'max': 30})['max'] + 1,
+            param_space.get('max_holding_days', {'step': 1})['step']
+        ))
+        max_holding_days = random.choice(max_holding_days_options)
+        
         # 生成权重配置
         weights_config = self._generate_random_weights_config(param_space['weights_step'])
         
@@ -295,6 +303,7 @@ class BaseOptimizer(ABC):
             'end_date': end_date,
             'stop_profit_ratio': stop_profit,
             'stop_loss_ratio': stop_loss,
+            'max_holding_days': max_holding_days,
             'weights_config': weights_config,
             'sub_weights_config': sub_weights,
             'initial_capital': initial_capital

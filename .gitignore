@@ -25,6 +25,7 @@ stock_data_cache.db
 
 # Editor directories and files
 .vscode/
+.trae/
 .idea/
 *.swp
 *.swo

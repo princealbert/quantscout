@@ -48,6 +48,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         self.max_velocity = {
             'stop_profit_ratio': 2,
             'stop_loss_ratio': 1,
+            'max_holding_days': 5,
             'weight_change': 10
         }
 
@@ -56,7 +57,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                              stop_profit_min: int = None, stop_profit_max: int = None,
                              stop_profit_step: int = None, stop_loss_min: int = None,
                              stop_loss_max: int = None, stop_loss_step: int = None,
-                             weight_step: int = None, initial_capital: int = 60000) -> Dict[str, Any]:
+                             weight_step: int = None, initial_capital: int = 60000,
+                             max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                             max_holding_days_step: int = 1) -> Dict[str, Any]:
         """
         定义参数空间
 
@@ -73,6 +76,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
             initial_capital: 初始资金
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
 
         Returns:
             Dict[str, Any]: 参数空间字典
@@ -93,6 +99,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': stop_loss_min if stop_loss_min is not None else -3,
                                   'max': stop_loss_max if stop_loss_max is not None else -1,
                                   'step': stop_loss_step if stop_loss_step is not None else 1},
+                'max_holding_days': {'min': max_holding_days_min,
+                                   'max': max_holding_days_min + 1,
+                                   'step': max_holding_days_step},
                 'weights_step': weight_step if weight_step is not None else 50,
                 'test_mode': True,
                 'end_date': end_date,
@@ -112,6 +121,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
 
             logger.info(f"- 止盈比例: {actual_stop_profit_min}%-{actual_stop_profit_max}%，步长{actual_stop_profit_step}%")
             logger.info(f"- 止损比例: {actual_stop_loss_min}%--{abs(actual_stop_loss_max)}%，步长{actual_stop_loss_step}%")
+            logger.info(f"- 最大持仓天数: {max_holding_days_min}-{max_holding_days_max}天，步长{max_holding_days_step}天")
             logger.info(f"- 权重配置: 总和100，步长{actual_weight_step}%")
 
             param_space = {
@@ -121,6 +131,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': actual_stop_loss_min,
                                   'max': actual_stop_loss_max,
                                   'step': actual_stop_loss_step},
+                'max_holding_days': {'min': max_holding_days_min,
+                                   'max': max_holding_days_max,
+                                   'step': max_holding_days_step},
                 'weights_step': actual_weight_step,
                 'test_mode': False,
                 'end_date': end_date,
@@ -136,6 +149,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                                       stop_loss_step: int = None, weight_step: int = None,
                                       focus_indicators: List[str] = None, focus_weight_factor: float = 1.5,
                                       initial_capital: int = 60000, backtest_days: int = 90,
+                                      max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                                      max_holding_days_step: int = 1,
                                       existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         生成参数组合
@@ -155,6 +170,10 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             focus_weight_factor: 重点指标的权重放大倍数
             initial_capital: 初始资金
             backtest_days: 回测天数
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
+            existing_blueprint: 现有蓝图数据
 
         Returns:
             List[Dict[str, Any]]: 参数组合列表
@@ -162,7 +181,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days,
                                               stop_profit_min, stop_profit_max, stop_profit_step,
                                               stop_loss_min, stop_loss_max, stop_loss_step,
-                                              weight_step, initial_capital, existing_blueprint)
+                                              weight_step, initial_capital, max_holding_days_min,
+                                              max_holding_days_max, max_holding_days_step, existing_blueprint)
 
     def generate_initial_population(self, test_mode: bool = False, max_sub_combinations: int = 10,
                                   end_date: str = '2025-12-25', backtest_days: int = 90,
@@ -170,6 +190,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                                   stop_profit_step: int = None, stop_loss_min: int = None,
                                   stop_loss_max: int = None, stop_loss_step: int = None,
                                   weight_step: int = None, initial_capital: int = 60000,
+                                  max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                                  max_holding_days_step: int = 1,
                                   existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         生成初始粒子群
@@ -187,6 +209,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
             initial_capital: 初始资金
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
             existing_blueprint: 现有蓝图，用于提取优势组合
 
         Returns:
@@ -196,7 +221,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days,
                                                stop_profit_min, stop_profit_max, stop_profit_step,
                                                stop_loss_min, stop_loss_max, stop_loss_step,
-                                               weight_step, initial_capital)
+                                               weight_step, initial_capital,
+                                               max_holding_days_min, max_holding_days_max, max_holding_days_step)
 
         print(f"开始生成粒子群初始种群...")
         print(f"- 粒子数量: {self.population_size}")
@@ -227,7 +253,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 print(f"\n✅ 成功提取了 {len(elite_combinations)} 个优势组合")
                 # 显示前3个优势组合的信息
                 for i, elite in enumerate(elite_combinations[:3], 1):
-                    print(f"  [{i}] 止盈:{elite.get('stop_profit_ratio')}%, 止损:{elite.get('stop_loss_ratio')}%")
+                    print(f"  [{i}] 止盈:{elite.get('stop_profit_ratio')}%, 止损:{elite.get('stop_loss_ratio')}%, 最大持仓:{elite.get('max_holding_days', 10)}天")
                 if len(elite_combinations) > 3:
                     print(f"  ... 还有 {len(elite_combinations) - 3} 个优势组合")
             else:
@@ -275,6 +301,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 # 粒子群算法的变异：在精英组合周围进行搜索
                 stop_profit = base_particle['stop_profit_ratio']
                 stop_loss = base_particle['stop_loss_ratio']
+                max_holding_days = base_particle.get('max_holding_days', 10)
                 weights_config = base_particle.get('weights_config', {})
 
                 # 在精英组合周围添加随机扰动
@@ -290,6 +317,13 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 stop_loss = max(
                     param_space['stop_loss_ratio']['min'],
                     min(param_space['stop_loss_ratio']['max'], stop_loss + loss_perturbation)
+                )
+
+                # 最大持仓天数扰动
+                days_perturbation = random.randint(-1, 1) * param_space['max_holding_days']['step']
+                max_holding_days = max(
+                    param_space['max_holding_days']['min'],
+                    min(param_space['max_holding_days']['max'], max_holding_days + days_perturbation)
                 )
 
                 # 权重扰动 - 提高变异概率
@@ -332,6 +366,18 @@ class ParticleSwarmOptimizer(BaseOptimizer):
 
                 stop_loss = random.choice(stop_loss_options)
 
+                # 生成最大持仓天数选项列表
+                max_holding_days_min = param_space['max_holding_days']['min']
+                max_holding_days_max = param_space['max_holding_days']['max']
+                max_holding_days_step = param_space['max_holding_days']['step']
+
+                max_holding_days_options = list(range(
+                    max_holding_days_min,
+                    max_holding_days_max + 1,
+                    max_holding_days_step
+                ))
+                max_holding_days = random.choice(max_holding_days_options)
+
                 # 生成权重配置
                 weights_config = self._generate_random_weights_config(param_space['weights_step'])
 
@@ -351,6 +397,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'end_date': end_date,
                 'stop_profit_ratio': stop_profit,
                 'stop_loss_ratio': stop_loss,
+                'max_holding_days': max_holding_days,
                 'weights_config': weights_config,
                 'sub_weights_config': sub_weights
             }
@@ -373,7 +420,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                         if weights_config:
                             sorted_weights = sorted(weights_config.items(), key=lambda x: x[1], reverse=True)[:3]
                             weights_summary = {k: v for k, v in sorted_weights}
-                        logger.info(f"  基于精英变异: 止盈={stop_profit}%, 止损={stop_loss}%, 权重={weights_summary}")
+                        logger.info(f"  基于精英变异: 止盈={stop_profit}%, 止损={stop_loss}%, 最大持仓={max_holding_days}天, 权重={weights_summary}")
 
                     if len(particles) >= self.population_size:
                         break
@@ -480,6 +527,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         """
         stop_profit = params.get('stop_profit_ratio', 0)
         stop_loss = params.get('stop_loss_ratio', 0)
+        max_holding_days = params.get('max_holding_days', 10)
 
         # 检查止盈
         sp_min = param_space['stop_profit_ratio']['min']
@@ -491,6 +539,12 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         sl_min = param_space['stop_loss_ratio']['min']
         sl_max = param_space['stop_loss_ratio']['max']
         if not (sl_min <= stop_loss <= sl_max):
+            return False
+
+        # 检查最大持仓天数
+        mhd_min = param_space['max_holding_days']['min']
+        mhd_max = param_space['max_holding_days']['max']
+        if not (mhd_min <= max_holding_days <= mhd_max):
             return False
 
         return True
@@ -588,7 +642,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 stop_loss_min: int = None, stop_loss_max: int = None,
                 stop_loss_step: int = None, weight_step: int = None,
                 initial_capital: int = 60000, backtest_days: int = 90,
-                existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                existing_blueprint: Optional[Dict[str, Any]] = None,
+                max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                max_holding_days_step: int = 1) -> List[Dict[str, Any]]:
         """
         执行粒子群算法优化
 
@@ -606,6 +662,9 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             initial_capital: 初始资金
             backtest_days: 回测天数
             existing_blueprint: 现有蓝图数据
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
 
         Returns:
             List[Dict[str, Any]]: 优化结果列表
@@ -623,7 +682,8 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             test_mode, max_sub_combinations, end_date, backtest_days,
             stop_profit_min, stop_profit_max, stop_profit_step,
             stop_loss_min, stop_loss_max, stop_loss_step,
-            weight_step, initial_capital, existing_blueprint
+            weight_step, initial_capital, max_holding_days_min,
+            max_holding_days_max, max_holding_days_step, existing_blueprint
         )
 
         # 为每个参数组合添加初始资金
@@ -641,6 +701,7 @@ class ParticleSwarmOptimizer(BaseOptimizer):
                 'velocity': {
                     'stop_profit_ratio': 0,
                     'stop_loss_ratio': 0,
+                    'max_holding_days': 0,
                 }
             })
 
@@ -816,6 +877,25 @@ class ParticleSwarmOptimizer(BaseOptimizer):
             min(self.max_velocity['stop_loss_ratio'], particle['velocity']['stop_loss_ratio'])
         )
 
+        # 更新最大持仓天数速度
+        cognitive_velocity_days = self.c1 * random.random() * (
+            particle['best_position'].get('max_holding_days', 10) - particle['params'].get('max_holding_days', 10)
+        )
+        social_velocity_days = self.c2 * random.random() * (
+            global_best['params'].get('max_holding_days', 10) - particle['params'].get('max_holding_days', 10)
+        )
+        particle['velocity']['max_holding_days'] = (
+            w * particle['velocity']['max_holding_days'] +
+            cognitive_velocity_days +
+            social_velocity_days
+        )
+
+        # 限制速度
+        particle['velocity']['max_holding_days'] = max(
+            -self.max_velocity['max_holding_days'],
+            min(self.max_velocity['max_holding_days'], particle['velocity']['max_holding_days'])
+        )
+
     def _update_position(self, particle: Dict[str, Any]):
         """
         更新粒子位置
@@ -834,6 +914,12 @@ class ParticleSwarmOptimizer(BaseOptimizer):
         # 限制在参数范围内（百分位格式）
         particle['params']['stop_loss_ratio'] = max(-15, min(-1, particle['params']['stop_loss_ratio']))
         particle['params']['stop_loss_ratio'] = int(particle['params']['stop_loss_ratio'])
+
+        # 更新最大持仓天数
+        particle['params']['max_holding_days'] = particle['params'].get('max_holding_days', 10) + particle['velocity']['max_holding_days']
+        # 限制在参数范围内
+        particle['params']['max_holding_days'] = max(1, min(365, particle['params']['max_holding_days']))
+        particle['params']['max_holding_days'] = int(particle['params']['max_holding_days'])
 
         # 确保止盈大于止损
         if particle['params']['stop_profit_ratio'] <= particle['params']['stop_loss_ratio']:

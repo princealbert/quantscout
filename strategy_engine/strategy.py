@@ -56,6 +56,9 @@ class BacktestStrategy:
 
         # 订单状态跟踪 - 用于确认订单是否真正成交
         self._pending_sell_orders = {}  # {order_id: {'symbol': xxx, 'amount': xxx, 'date': xxx}}
+        
+        # 持仓记录 - 用于跟踪每只股票的买入日期和持仓天数
+        self._position_records = {}  # {symbol: {'buy_date': datetime, 'buy_price': float}}
     
     def get_top_stock(self, context) -> Optional[Dict[str, str]]:
         """
@@ -323,9 +326,29 @@ class BacktestStrategy:
             elif profit_ratio <= stop_loss_ratio:  # 止损
                 print(f"止损触发: 亏损{profit_ratio*100:.2f}% (阈值{stop_loss_ratio*100:.2f}%)")
                 return True
-            else:
-                print(f"should_sell - 未达到止盈止损条件")
-                return False
+            
+            # 持仓天数条件
+            if symbol in self._position_records:
+                # 获取持仓信息
+                position_info = self._position_records[symbol]
+                buy_date = position_info['buy_date']
+                
+                # 计算持仓天数（买入当天不计算，从下一个交易日开始计算）
+                current_date = context.now
+                days_diff = (current_date - buy_date).days
+                holding_days = days_diff  # 因为buy_date是买入当天，days_diff就是从买入后下一个交易日开始计算的天数
+                
+                # 获取最大持仓天数参数
+                max_holding_days_param = getattr(self.params, 'max_holding_days', 5)
+                
+                print(f"should_sell - 持仓天数={holding_days}天, 最大持仓天数阈值={max_holding_days_param}天")
+                
+                if holding_days >= max_holding_days_param:
+                    print(f"最大持仓天数触发: 持仓{holding_days}天 (阈值{max_holding_days_param}天)")
+                    return True
+            
+            print(f"should_sell - 未达到卖出条件")
+            return False
             
         except Exception as e:
             print(f"卖出判断失败: {e}")
@@ -623,6 +646,13 @@ class BacktestStrategy:
             }
             self.trading_records.append(trade_record)
 
+            # 记录持仓信息（用于跟踪持仓天数）
+            self._position_records[symbol] = {
+                'buy_date': context.now,
+                'buy_price': current_price
+            }
+            print(f"记录持仓信息: {symbol}, 买入日期={context.now.strftime('%Y-%m-%d')}")
+
             print(f"买入成功: {symbol} ({sec_name}) {quantity}股, 价格{current_price:.2f}元")
 
             # 清空卖出记录（防止重复使用）
@@ -732,6 +762,11 @@ class BacktestStrategy:
                 'amount': current_price * volume_value
             }
             self.trading_records.append(trade_record)
+
+            # 清除持仓记录
+            if symbol in self._position_records:
+                del self._position_records[symbol]
+                print(f"清除持仓记录: {symbol}")
 
             print(f"卖出成功: {symbol} ({sec_name}) {volume_value}股, 价格{current_price:.2f}元")
             print(f"   预计到账金额: {current_price * volume_value:.2f}元 (未扣除佣金)")

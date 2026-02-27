@@ -61,6 +61,12 @@ class BacktestParamsManager:
                 "max": -1.0,
                 "step": 0.5
             },
+            "max_holding_days": 5,
+            "max_holding_days_range": {
+                "min": 1,
+                "max": 365,
+                "step": 1
+            },
             "end_date": datetime.now().strftime("%Y-%m-%d")
         }
     
@@ -113,6 +119,14 @@ class BacktestParamsManager:
                 min_loss = self.default_params["stop_loss_range"]["min"]
                 max_loss = self.default_params["stop_loss_range"]["max"]
                 if not (min_loss <= stop_loss <= max_loss):
+                    return False
+            
+            # 验证最大持仓天数
+            max_holding_days = params.get("max_holding_days")
+            if max_holding_days:
+                min_max_holding_days = self.default_params["max_holding_days_range"]["min"]
+                max_max_holding_days = self.default_params["max_holding_days_range"]["max"]
+                if not (min_max_holding_days <= max_holding_days <= max_max_holding_days):
                     return False
             
             return True

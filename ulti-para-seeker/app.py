@@ -108,491 +108,788 @@ max_sub_combinations = st.sidebar.slider(
     step=1
 )
 
-# 导入回测参数设置组件
-import sys
-import os
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-from strategy_controller.ui.backtest_params_component import display_backtest_params
-
 # 回测参数设置
 st.sidebar.markdown("---")
-backtest_params = display_backtest_params(show_range_settings=True)
+st.sidebar.subheader("回测参数配置")
 
-# 从返回的参数中提取值
-stop_profit_min = backtest_params.get("stop_profit_min", 3)
-stop_profit_max = backtest_params.get("stop_profit_max", 15)
-stop_profit_step = backtest_params.get("stop_profit_step", 2)
-stop_loss_min = backtest_params.get("stop_loss_min", 1)
-stop_loss_max = backtest_params.get("stop_loss_max", 5)
-stop_loss_step = backtest_params.get("stop_loss_step", 1)
-weight_step = backtest_params.get("weight_step", 10)
-initial_capital = backtest_params.get("initial_capital", 60000)
-end_date = backtest_params.get("end_date", datetime.now().strftime("%Y-%m-%d"))
-backtest_days = backtest_params.get("backtest_days", 90)
+# 回测天数
+backtest_days = st.sidebar.selectbox(
+    "回测天数",
+    [10, 30, 60, 90, 180, 360],
+    index=3,  # 默认90天
+    help="选择回测的时间长度"
+)
+
+# 回测终止日期
+end_date = st.sidebar.date_input(
+    "回测终止日期",
+    value=datetime.now(),
+    max_value=datetime.now(),
+    help="选择回测的终止日期，默认是当前日期"
+)
+end_date = end_date.strftime("%Y-%m-%d")
+
+# 初始资金
+initial_capital = st.sidebar.number_input(
+    "初始资金（元）",
+    min_value=10000,
+    max_value=1000000,
+    value=60000,
+    step=10000,
+    help="回测的初始资金"
+)
+
+# 参数范围设置
+st.sidebar.markdown("---")
+st.sidebar.subheader("参数范围设置")
+
+# 止盈范围设置
+st.sidebar.subheader("止盈设置")
+
+# 止盈最小值
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    stop_profit_min = st.slider(
+        "止盈最小值 (%)",
+        min_value=1,
+        max_value=1000,
+        value=3,
+        step=1
+    )
+with col2:
+    stop_profit_min_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=1000,
+        value=stop_profit_min,
+        step=1,
+        key="stop_profit_min_input"
+    )
+    stop_profit_min = stop_profit_min_input
+
+# 止盈最大值
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    stop_profit_max = st.slider(
+        "止盈最大值 (%)",
+        min_value=1,
+        max_value=1000,
+        value=15,
+        step=1
+    )
+with col2:
+    stop_profit_max_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=1000,
+        value=stop_profit_max,
+        step=1,
+        key="stop_profit_max_input"
+    )
+    stop_profit_max = stop_profit_max_input
+
+# 止盈步长
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    stop_profit_step = st.slider(
+        "止盈步长 (%)",
+        min_value=1,
+        max_value=50,
+        value=2,
+        step=1
+    )
+with col2:
+    stop_profit_step_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=50,
+        value=stop_profit_step,
+        step=1,
+        key="stop_profit_step_input"
+    )
+    stop_profit_step = stop_profit_step_input
+
+# 止损范围设置
+st.sidebar.subheader("止损设置")
+
+# 止损最小值
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    stop_loss_min = st.slider(
+        "止损最小值 (-%)",
+        min_value=1,
+        max_value=10,
+        value=1,
+        step=1
+    )
+with col2:
+    stop_loss_min_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=10,
+        value=stop_loss_min,
+        step=1,
+        key="stop_loss_min_input"
+    )
+    stop_loss_min = stop_loss_min_input
+
+# 止损最大值
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    stop_loss_max = st.slider(
+        "止损最大值 (-%)",
+        min_value=1,
+        max_value=10,
+        value=5,
+        step=1
+    )
+with col2:
+    stop_loss_max_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=10,
+        value=stop_loss_max,
+        step=1,
+        key="stop_loss_max_input"
+    )
+    stop_loss_max = stop_loss_max_input
+
+# 止损步长
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    stop_loss_step = st.slider(
+        "止损步长 (-%)",
+        min_value=1,
+        max_value=5,
+        value=1,
+        step=1
+    )
+with col2:
+    stop_loss_step_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=5,
+        value=stop_loss_step,
+        step=1,
+        key="stop_loss_step_input"
+    )
+    stop_loss_step = stop_loss_step_input
+
+# 权重步长设置
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    weight_step = st.slider(
+        "权重步长 (%)",
+        min_value=5,
+        max_value=20,
+        value=10,
+        step=5
+    )
+with col2:
+    weight_step_input = st.number_input(
+        "精确输入",
+        min_value=5,
+        max_value=20,
+        value=weight_step,
+        step=5,
+        key="weight_step_input"
+    )
+    weight_step = weight_step_input
+
+# 最大持仓天数范围设置
+st.sidebar.subheader("最大持仓天数设置")
+
+# 最大持仓天数最小值
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    max_holding_days_min = st.slider(
+        "最大持仓天数最小值",
+        min_value=1,
+        max_value=365,
+        value=1,
+        step=1
+    )
+with col2:
+    max_holding_days_min_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=365,
+        value=max_holding_days_min,
+        step=1,
+        key="max_holding_days_min_input"
+    )
+    max_holding_days_min = max_holding_days_min_input
+
+# 最大持仓天数最大值
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    max_holding_days_max = st.slider(
+        "最大持仓天数最大值",
+        min_value=1,
+        max_value=365,
+        value=30,
+        step=1
+    )
+with col2:
+    max_holding_days_max_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=365,
+        value=max_holding_days_max,
+        step=1,
+        key="max_holding_days_max_input"
+    )
+    max_holding_days_max = max_holding_days_max_input
+
+# 最大持仓天数步长
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    max_holding_days_step = st.slider(
+        "最大持仓天数步长",
+        min_value=1,
+        max_value=5,
+        value=1,
+        step=1
+    )
+with col2:
+    max_holding_days_step_input = st.number_input(
+        "精确输入",
+        min_value=1,
+        max_value=5,
+        value=max_holding_days_step,
+        step=1,
+        key="max_holding_days_step_input"
+    )
+    max_holding_days_step = max_holding_days_step_input
 
 # 主面板：显示信息和结果
-st.header("参数组合分析")
 
-# 计算并显示组合数和预计耗时
-if st.button("生成参数组合"):
-    with st.spinner("正在生成参数组合..."):
-        try:
-            # 生成参数范围
-            stop_profit_ratio = [x/100 for x in range(stop_profit_min, stop_profit_max+1, stop_profit_step)]
-            stop_loss_ratio = [-x/100 for x in range(stop_loss_min, stop_loss_max+1, stop_loss_step)]
-            
-            # 估算权重配置数量
-            core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
-            
-            # 使用用户选择的权重步长
-            weight_step_actual = weight_step
-            
-            # 基础权重组合
-            base_weights = optimizer._generate_weights_combinations(core_indicators, 100, weight_step_actual, min_weight=5, max_weight=95)
-            
-            # 高级模式下添加自定义权重组合
-            if use_advanced_weights:
-                custom_weights = optimizer._generate_custom_weights_combinations(
-                    core_indicators, 100, weight_step_actual,
-                    focus_indicators=selected_focus_indicators,
-                    focus_weight_factor=focus_weight_factor
-                )
-                # 合并并去重
-                all_weights = base_weights + custom_weights
-                seen = set()
-                unique_weights = []
-                for combo in all_weights:
-                    key = tuple(sorted(combo.items()))
-                    if key not in seen:
-                        seen.add(key)
-                        unique_weights.append(combo)
-                weights_config_count = len(unique_weights)
-            else:
-                weights_config_count = len(base_weights)
-            
-            # 估算子权重配置数量
-            sub_weights_config_count = len(optimizer._generate_sub_weights_combinations(is_test_mode, max_combinations=max_sub_combinations, use_advanced_mode=use_advanced_weights))
-            
-            # 计算总组合数
-            base_combinations = len(stop_profit_ratio) * len(stop_loss_ratio) * weights_config_count * sub_weights_config_count
-            
-            # 根据选择的算法调整组合数
-            if algorithm == "暴力搜索":
-                total_combinations = base_combinations
-                logger.info(f"[暴力搜索] 生成全部 {base_combinations} 个参数组合")
-            elif algorithm == "遗传算法":
-                # 遗传算法最终会根据max_sub_combinations选择固定数量的组合
-                # 前端显示全量组合数，便于用户了解参数空间大小
-                total_combinations = base_combinations
-                logger.info(f"[遗传算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
-            elif algorithm == "粒子群算法":
-                # 粒子群算法最终会根据max_sub_combinations选择固定数量的组合
-                # 前端显示全量组合数，便于用户了解参数空间大小
-                total_combinations = base_combinations
-                logger.info(f"[粒子群算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
-            
-            # 估算计算时间（假设每个组合需要10秒）
-            estimated_time = total_combinations * 10
-            hours, remainder = divmod(estimated_time, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            
-            # 显示结果
-            st.success(f"参数组合生成完成！")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("总参数组合数", f"{total_combinations:,}")
-            with col2:
-                st.metric("预计计算时间", f"{int(hours)}小时 {int(minutes)}分钟 {int(seconds)}秒")
-                
-            # 生成蓝图
-            blueprint_path = optimizer.generate_blueprint(
-                test_mode=is_test_mode,
-                max_sub_combinations=max_sub_combinations,
-                algorithm=algorithm,
-                end_date=end_date,
-                stop_profit_min=stop_profit_min,
-                stop_profit_max=stop_profit_max,
-                stop_profit_step=stop_profit_step,
-                stop_loss_min=-stop_loss_max,  # 止损最小值是负数，且小于止损最大值
-                stop_loss_max=-stop_loss_min,  # 止损最大值是负数，且大于止损最小值
-                stop_loss_step=stop_loss_step,
-                weight_step=weight_step,
-                use_advanced_weights=use_advanced_weights,
-                focus_indicators=selected_focus_indicators,
-                focus_weight_factor=focus_weight_factor,
-                initial_capital=initial_capital,
-                backtest_days=backtest_days
-            )
-            st.info(f"参数蓝图已保存到: {blueprint_path}")
-            
-        except Exception as e:
-            st.error(f"生成参数组合失败: {e}")
+# 使用标签页组织主面板内容
+tab1, tab2, tab3, tab4 = st.tabs(["参数组合分析", "蓝图管理", "运行优化", "回测结果"])
 
-# 蓝图管理
-st.header("蓝图管理")
-
-# 使用标签页组织蓝图管理功能
-tab1, tab2, tab3 = st.tabs(["查看蓝图", "加载蓝图", "管理蓝图"])
-
-# 标签页1: 查看蓝图列表
+# 标签页1: 参数组合分析
 with tab1:
-    st.subheader("蓝图文件列表")
+    st.header("参数组合分析")
     
-    if st.button("刷新蓝图列表"):
-        st.rerun()
+    # 计算并显示组合数和预计耗时
+    if st.button("生成参数组合", type="primary"):
+        with st.spinner("正在生成参数组合..."):
+            try:
+                # 生成参数范围
+                stop_profit_ratio = [x/100 for x in range(stop_profit_min, stop_profit_max+1, stop_profit_step)]
+                stop_loss_ratio = [-x/100 for x in range(stop_loss_min, stop_loss_max+1, stop_loss_step)]
+                
+                # 估算权重配置数量
+                core_indicators = ['kdj_j', 'trend', 'volume', 'fundamental', 'position', 'risk_reward']
+                
+                # 使用用户选择的权重步长
+                weight_step_actual = weight_step
+                
+                # 基础权重组合
+                base_weights = optimizer._generate_weights_combinations(core_indicators, 100, weight_step_actual, min_weight=5, max_weight=95)
+                
+                # 高级模式下添加自定义权重组合
+                if use_advanced_weights:
+                    custom_weights = optimizer._generate_custom_weights_combinations(
+                        core_indicators, 100, weight_step_actual,
+                        focus_indicators=selected_focus_indicators,
+                        focus_weight_factor=focus_weight_factor
+                    )
+                    # 合并并去重
+                    all_weights = base_weights + custom_weights
+                    seen = set()
+                    unique_weights = []
+                    for combo in all_weights:
+                        key = tuple(sorted(combo.items()))
+                        if key not in seen:
+                            seen.add(key)
+                            unique_weights.append(combo)
+                    weights_config_count = len(unique_weights)
+                else:
+                    weights_config_count = len(base_weights)
+                
+                # 估算子权重配置数量
+                sub_weights_config_count = len(optimizer._generate_sub_weights_combinations(is_test_mode, max_combinations=max_sub_combinations, use_advanced_mode=use_advanced_weights))
+                
+                # 计算总组合数
+                base_combinations = len(stop_profit_ratio) * len(stop_loss_ratio) * weights_config_count * sub_weights_config_count
+                
+                # 根据选择的算法调整组合数
+                if algorithm == "暴力搜索":
+                    total_combinations = base_combinations
+                    logger.info(f"[暴力搜索] 生成全部 {base_combinations} 个参数组合")
+                elif algorithm == "遗传算法":
+                    # 遗传算法最终会根据max_sub_combinations选择固定数量的组合
+                    # 前端显示全量组合数，便于用户了解参数空间大小
+                    total_combinations = base_combinations
+                    logger.info(f"[遗传算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
+                elif algorithm == "粒子群算法":
+                    # 粒子群算法最终会根据max_sub_combinations选择固定数量的组合
+                    # 前端显示全量组合数，便于用户了解参数空间大小
+                    total_combinations = base_combinations
+                    logger.info(f"[粒子群算法] 生成 {base_combinations} 个参数组合，将从中选择 {max_sub_combinations} 个进行优化")
+                
+                # 估算计算时间（假设每个组合需要10秒）
+                estimated_time = total_combinations * 10
+                hours, remainder = divmod(estimated_time, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                
+                # 显示结果
+                st.success(f"参数组合生成完成！")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("总参数组合数", f"{total_combinations:,}")
+                with col2:
+                    st.metric("预计计算时间", f"{int(hours)}小时 {int(minutes)}分钟 {int(seconds)}秒")
+                    
+                # 生成蓝图
+                blueprint_path = optimizer.generate_blueprint(
+                    test_mode=is_test_mode,
+                    max_sub_combinations=max_sub_combinations,
+                    algorithm=algorithm,
+                    end_date=end_date,
+                    stop_profit_min=stop_profit_min,
+                    stop_profit_max=stop_profit_max,
+                    stop_profit_step=stop_profit_step,
+                    stop_loss_min=-stop_loss_max,  # 止损最小值是负数，且小于止损最大值
+                    stop_loss_max=-stop_loss_min,  # 止损最大值是负数，且大于止损最小值
+                    stop_loss_step=stop_loss_step,
+                    weight_step=weight_step,
+                    use_advanced_weights=use_advanced_weights,
+                    focus_indicators=selected_focus_indicators,
+                    focus_weight_factor=focus_weight_factor,
+                    initial_capital=initial_capital,
+                    backtest_days=backtest_days,
+                    max_holding_days_min=max_holding_days_min,
+                    max_holding_days_max=max_holding_days_max,
+                    max_holding_days_step=max_holding_days_step
+                )
+                st.info(f"参数蓝图已保存到: {blueprint_path}")
+                
+            except Exception as e:
+                st.error(f"生成参数组合失败: {e}")
+
+# 标签页2: 蓝图管理
+with tab2:
+    st.header("蓝图管理")
     
-    blueprints = optimizer.list_blueprints()
+    # 使用子标签页组织蓝图管理功能
+    sub_tab1, sub_tab2, sub_tab3 = st.tabs(["查看蓝图", "加载蓝图", "管理蓝图"])
     
-    if blueprints:
-        st.info(f"共找到 {len(blueprints)} 个蓝图文件")
+    # 子标签页1: 查看蓝图列表
+    with sub_tab1:
+        st.subheader("蓝图文件列表")
         
-        for bp in blueprints:
-            with st.expander(f"{bp['filename']} ({bp['size_kb']} KB)"):
+        if st.button("刷新蓝图列表"):
+            st.rerun()
+        
+        blueprints = optimizer.list_blueprints()
+        
+        if blueprints:
+            st.info(f"共找到 {len(blueprints)} 个蓝图文件")
+            
+            for bp in blueprints:
+                with st.expander(f"{bp['filename']} ({bp['size_kb']} KB)"):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("总组合数", bp.get('total_combinations', 0))
+                    with col2:
+                        st.metric("算法", bp.get('algorithm', '未知'))
+                    with col3:
+                        st.metric("版本", bp.get('version', '未知'))
+                    
+                    st.write(f"创建时间: {bp['created_at']}")
+                    st.write(f"修改时间: {bp['modified_at']}")
+                    
+                    if bp.get('is_index'):
+                        st.info("这是一个分拆的蓝图索引文件")
+                    else:
+                        st.info("这是一个完整的蓝图文件")
+                    
+                    if 'error' in bp:
+                        st.error(f"读取错误: {bp['error']}")
+        else:
+            st.info("暂无蓝图文件")
+    
+    # 子标签页2: 加载蓝图
+    with sub_tab2:
+        st.subheader("加载蓝图")
+        
+        # 加载蓝图文件
+        blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint.json", key="load_blueprint_input")
+        
+        if st.button("加载蓝图"):
+            try:
+                blueprint = optimizer.load_blueprint(blueprint_file, load_all=False)
+                
+                # 显示蓝图基本信息
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("总组合数", bp.get('total_combinations', 0))
+                    st.metric("总组合数", blueprint.get("total_combinations", 0))
                 with col2:
-                    st.metric("算法", bp.get('algorithm', '未知'))
+                    st.metric("生成时间", blueprint.get("generated_at", "未知"))
                 with col3:
-                    st.metric("版本", bp.get('version', '未知'))
+                    st.metric("版本", blueprint.get("version", "未知"))
                 
-                st.write(f"创建时间: {bp['created_at']}")
-                st.write(f"修改时间: {bp['modified_at']}")
-                
-                if bp.get('is_index'):
-                    st.info("这是一个分拆的蓝图索引文件")
+                # 检查是否为分拆的蓝图文件
+                if blueprint.get("files"):
+                    st.info(f"这是一个分拆的蓝图文件，包含 {len(blueprint['files'])} 个子文件")
+                    
+                    # 显示子文件信息
+                    st.subheader("子文件信息")
+                    for file_info in blueprint["files"]:
+                        sub_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_info['file'])
+                        file_exists = "✅" if os.path.exists(sub_file_path) else "❌"
+                        st.write(f"{file_exists} {file_info['file']}: ID {file_info['start_id']}-{file_info['end_id']}, 共 {file_info['count']} 个组合")
+                    
+                    # 遍历所有子文件统计各状态的组合数
+                    status_counts = {}
+                    for sub_file_info in blueprint['files']:
+                        sub_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), sub_file_info['file'])
+                        if os.path.exists(sub_file_path):
+                            with open(sub_file_path, 'r', encoding='utf-8') as f:
+                                sub_blueprint = json.load(f)
+                            for combo in sub_blueprint['combinations']:
+                                status = combo['status']
+                                status_counts[status] = status_counts.get(status, 0) + 1
                 else:
-                    st.info("这是一个完整的蓝图文件")
+                    # 统计各状态的组合数
+                    status_counts = {}
+                    for combo in blueprint['combinations']:
+                        status = combo['status']
+                        status_counts[status] = status_counts.get(status, 0) + 1
+                    
+                # 显示进度条
+                if "completed" in status_counts and "total_combinations" in blueprint:
+                    completed = status_counts["completed"]
+                    total = blueprint["total_combinations"]
+                    progress = completed / total
+                    
+                    st.progress(progress)
+                    st.write(f"已完成: {completed}/{total} 个组合 ({progress:.1%})")
                 
-                if 'error' in bp:
-                    st.error(f"读取错误: {bp['error']}")
-    else:
-        st.info("暂无蓝图文件")
-
-# 标签页2: 加载蓝图
-with tab2:
-    st.subheader("加载蓝图")
-    
-    # 加载蓝图文件
-    blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint.json", key="load_blueprint_input")
-    
-    if st.button("加载蓝图"):
-        try:
-            blueprint = optimizer.load_blueprint(blueprint_file, load_all=False)
-            
-            # 显示蓝图基本信息
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("总组合数", blueprint.get("total_combinations", 0))
-            with col2:
-                st.metric("生成时间", blueprint.get("generated_at", "未知"))
-            with col3:
-                st.metric("版本", blueprint.get("version", "未知"))
-            
-            # 检查是否为分拆的蓝图文件
-            if blueprint.get("files"):
-                st.info(f"这是一个分拆的蓝图文件，包含 {len(blueprint['files'])} 个子文件")
-                
-                # 显示子文件信息
-                st.subheader("子文件信息")
-                for file_info in blueprint["files"]:
-                    sub_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_info['file'])
-                    file_exists = "✅" if os.path.exists(sub_file_path) else "❌"
-                    st.write(f"{file_exists} {file_info['file']}: ID {file_info['start_id']}-{file_info['end_id']}, 共 {file_info['count']} 个组合")
-                
-                # 遍历所有子文件统计各状态的组合数
-                status_counts = {}
-                for sub_file_info in blueprint['files']:
-                    sub_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), sub_file_info['file'])
-                    if os.path.exists(sub_file_path):
-                        with open(sub_file_path, 'r', encoding='utf-8') as f:
-                            sub_blueprint = json.load(f)
-                        for combo in sub_blueprint['combinations']:
-                            status = combo['status']
-                            status_counts[status] = status_counts.get(status, 0) + 1
-            else:
-                # 统计各状态的组合数
-                status_counts = {}
-                for combo in blueprint['combinations']:
-                    status = combo['status']
-                    status_counts[status] = status_counts.get(status, 0) + 1
-                
-            # 显示进度条
-            if "completed" in status_counts and "total_combinations" in blueprint:
-                completed = status_counts["completed"]
-                total = blueprint["total_combinations"]
-                progress = completed / total
-                
-                st.progress(progress)
-                st.write(f"已完成: {completed}/{total} 个组合 ({progress:.1%})")
-            
-            # 显示状态统计
-            st.subheader("状态统计")
-            for status, count in status_counts.items():
-                st.write(f"{status}: {count}个")
-                
-        except Exception as e:
-            st.error(f"加载蓝图失败: {e}")
-
-# 标签页3: 管理蓝图
-with tab3:
-    st.subheader("蓝图管理")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.warning("⚠️ 删除和重置操作不可恢复，请谨慎操作！")
-        
-        if st.button("清空所有蓝图文件", type="primary"):
-            if st.session_state.get('confirm_clear', False):
-                deleted_count = optimizer.clear_blueprints()
-                st.success(f"已删除 {deleted_count} 个蓝图文件")
-                st.session_state['confirm_clear'] = False
-                st.rerun()
-            else:
-                st.session_state['confirm_clear'] = True
-                st.error("请再次点击确认删除所有蓝图文件！")
-    
-    with col2:
-        st.subheader("重置蓝图状态")
-        
-        # 选择要重置的蓝图文件
-        blueprints = optimizer.list_blueprints()
-        if blueprints:
-            blueprint_to_reset = st.selectbox(
-                "选择要重置的蓝图文件",
-                options=[bp['filename'] for bp in blueprints],
-                format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)"
-            )
-            
-            # 显示当前状态统计
-            try:
-                # 构建完整的蓝图文件路径
-                blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_reset)
-                blueprint = optimizer.blueprint_manager.load_blueprint(blueprint_path)
-                status_counts = {}
-                for combo in blueprint['combinations']:
-                    status = combo['status']
-                    status_counts[status] = status_counts.get(status, 0) + 1
-
-                st.write("当前状态统计:")
+                # 显示状态统计
+                st.subheader("状态统计")
                 for status, count in status_counts.items():
-                    st.write(f"  {status}: {count}个")
+                    st.write(f"{status}: {count}个")
+                    
             except Exception as e:
-                st.error(f"读取蓝图状态失败: {e}")
-            
-            st.info("重置会将所有组合状态恢复为pending,清除回测结果,便于重新测试同一批组合")
-
-            if st.button("重置选中的蓝图", type="secondary"):
-                if st.session_state.get('confirm_reset', False):
-                    try:
-                        # 构建完整的蓝图文件路径
-                        blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_reset)
-                        # 调用BlueprintManager的重置并保存功能
-                        optimizer.blueprint_manager.reset_and_save_blueprint(None, blueprint_path)
-                        st.success(f"已重置蓝图文件: {blueprint_to_reset}")
-                        st.info("所有组合状态已恢复为pending,回测结果已清除")
-                        st.session_state['confirm_reset'] = False
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"重置蓝图失败: {e}")
-                else:
-                    st.session_state['confirm_reset'] = True
-                    st.error(f"请再次点击确认重置 {blueprint_to_reset}！")
-        else:
-            st.info("暂无蓝图文件可重置")
+                st.error(f"加载蓝图失败: {e}")
     
-    # 删除特定蓝图文件功能(移到下方)
-    st.subheader("删除特定蓝图文件")
-    
-    blueprints = optimizer.list_blueprints()
-    if blueprints:
-        blueprint_to_delete = st.selectbox(
-            "选择要删除的蓝图文件",
-            options=[bp['filename'] for bp in blueprints],
-            format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)",
-            key="delete_blueprint_select"
-        )
+    # 子标签页3: 管理蓝图
+    with sub_tab3:
+        st.subheader("蓝图管理")
         
-        if st.button("删除选中的蓝图文件", key="delete_blueprint_btn"):
-            if st.session_state.get('confirm_delete', False):
-                success = optimizer.delete_blueprint(blueprint_to_delete)
-                if success:
-                    st.success(f"已删除蓝图文件: {blueprint_to_delete}")
-                    st.session_state['confirm_delete'] = False
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.warning("⚠️ 删除和重置操作不可恢复，请谨慎操作！")
+            
+            if st.button("清空所有蓝图文件", type="primary"):
+                if st.session_state.get('confirm_clear', False):
+                    deleted_count = optimizer.clear_blueprints()
+                    st.success(f"已删除 {deleted_count} 个蓝图文件")
+                    st.session_state['confirm_clear'] = False
                     st.rerun()
                 else:
-                    st.error(f"删除蓝图文件失败: {blueprint_to_delete}")
-            else:
-                st.session_state['confirm_delete'] = True
-                st.error(f"请再次点击确认删除 {blueprint_to_delete}！")
-    else:
-        st.info("暂无蓝图文件可删除")
-    
-    # 清理蓝图功能
-    st.subheader("清理蓝图")
-    
-    blueprints = optimizer.list_blueprints()
-    if blueprints:
-        st.info("清理蓝图可以删除低质量的组合，保留最优组合，减小文件大小")
+                    st.session_state['confirm_clear'] = True
+                    st.error("请再次点击确认删除所有蓝图文件！")
         
-        # 选择要清理的蓝图文件
-        blueprint_to_clean = st.selectbox(
-            "选择要清理的蓝图文件",
-            options=[bp['filename'] for bp in blueprints],
-            format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)",
-            key="clean_blueprint_select"
-        )
-        
-        # 显示当前蓝图信息
-        try:
-            blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_clean)
-            with open(blueprint_path, 'r', encoding='utf-8') as f:
-                blueprint_data = json.load(f)
+        with col2:
+            st.subheader("重置蓝图状态")
             
-            total_count = len(blueprint_data.get('combinations', []))
-            completed_count = sum(1 for c in blueprint_data.get('combinations', []) if c.get('status') == 'completed')
-            failed_count = sum(1 for c in blueprint_data.get('combinations', []) if c.get('status') == 'failed')
-            
-            st.write(f"当前蓝图状态:")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("总组合数", total_count)
-            col2.metric("已完成", completed_count)
-            col3.metric("失败", failed_count)
-            
-            # 清理参数设置
-            col1, col2 = st.columns(2)
-            with col1:
-                max_total = st.number_input(
-                    "保留的最大总组合数",
-                    value=1000,
-                    min_value=100,
-                    max_value=5000,
-                    step=100,
-                    help="蓝图保留的最大组合总数"
+            # 选择要重置的蓝图文件
+            blueprints = optimizer.list_blueprints()
+            if blueprints:
+                blueprint_to_reset = st.selectbox(
+                    "选择要重置的蓝图文件",
+                    options=[bp['filename'] for bp in blueprints],
+                    format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)"
                 )
-            with col2:
-                max_elite = st.number_input(
-                    "保留的最优组合数",
-                    value=500,
-                    min_value=50,
-                    max_value=2000,
-                    step=50,
-                    help="保留的高质量组合数量"
-                )
-            
-            keep_failed = st.checkbox("保留失败的组合", value=False, help="是否保留状态为failed的组合")
-            
-            if st.button("清理选中的蓝图", type="primary"):
-                if st.session_state.get('confirm_clean', False):
-                    try:
-                        from utils.blueprint_cleaner import BlueprintCleaner
-                        
-                        with st.spinner("正在清理蓝图..."):
-                            cleaner = BlueprintCleaner(
-                                max_total=max_total,
-                                max_elite=max_elite,
-                                keep_failed=keep_failed
-                            )
-                            
-                            cleaned_blueprint, archive_data = cleaner.clean_blueprint(
-                                blueprint_data,
-                                blueprint_file=blueprint_path,
-                                auto_archive=True
-                            )
-                            
-                            # 保存清理后的蓝图
-                            with open(blueprint_path, 'w', encoding='utf-8') as f:
-                                json.dump(cleaned_blueprint, f, ensure_ascii=False, indent=2)
-                            
-                            # 显示清理结果
-                            st.success(f"蓝图清理完成！")
-                            st.write(f"- 清理前: {total_count} 个组合")
-                            st.write(f"- 清理后: {len(cleaned_blueprint.get('combinations', []))} 个组合")
-                            st.write(f"- 减少组合: {total_count - len(cleaned_blueprint.get('combinations', []))} 个")
-                            
-                            if archive_data.get('archived_count', 0) > 0:
-                                archive_file = archive_data.get('archive_file', '未知')
-                                st.info(f"已归档 {archive_data['archived_count']} 个组合到: {archive_file}")
-                            
-                            st.session_state['confirm_clean'] = False
+                
+                # 显示当前状态统计
+                try:
+                    # 构建完整的蓝图文件路径
+                    blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_reset)
+                    blueprint = optimizer.blueprint_manager.load_blueprint(blueprint_path)
+                    status_counts = {}
+                    for combo in blueprint['combinations']:
+                        status = combo['status']
+                        status_counts[status] = status_counts.get(status, 0) + 1
+
+                    st.write("当前状态统计:")
+                    for status, count in status_counts.items():
+                        st.write(f"  {status}: {count}个")
+                except Exception as e:
+                    st.error(f"读取蓝图状态失败: {e}")
+                
+                st.info("重置会将所有组合状态恢复为pending,清除回测结果,便于重新测试同一批组合")
+
+                if st.button("重置选中的蓝图", type="secondary"):
+                    if st.session_state.get('confirm_reset', False):
+                        try:
+                            # 构建完整的蓝图文件路径
+                            blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_reset)
+                            # 调用BlueprintManager的重置并保存功能
+                            optimizer.blueprint_manager.reset_and_save_blueprint(None, blueprint_path)
+                            st.success(f"已重置蓝图文件: {blueprint_to_reset}")
+                            st.info("所有组合状态已恢复为pending,回测结果已清除")
+                            st.session_state['confirm_reset'] = False
                             st.rerun()
-                    
-                    except Exception as e:
-                        st.error(f"清理蓝图失败: {e}")
-                        import traceback
-                        st.error(traceback.format_exc())
+                        except Exception as e:
+                            st.error(f"重置蓝图失败: {e}")
+                    else:
+                        st.session_state['confirm_reset'] = True
+                        st.error(f"请再次点击确认重置 {blueprint_to_reset}！")
+            else:
+                st.info("暂无蓝图文件可重置")
+        
+        # 删除特定蓝图文件功能(移到下方)
+        st.subheader("删除特定蓝图文件")
+        
+        blueprints = optimizer.list_blueprints()
+        if blueprints:
+            blueprint_to_delete = st.selectbox(
+                "选择要删除的蓝图文件",
+                options=[bp['filename'] for bp in blueprints],
+                format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)",
+                key="delete_blueprint_select"
+            )
+            
+            if st.button("删除选中的蓝图文件", key="delete_blueprint_btn"):
+                if st.session_state.get('confirm_delete', False):
+                    success = optimizer.delete_blueprint(blueprint_to_delete)
+                    if success:
+                        st.success(f"已删除蓝图文件: {blueprint_to_delete}")
+                        st.session_state['confirm_delete'] = False
+                        st.rerun()
+                    else:
+                        st.error(f"删除蓝图文件失败: {blueprint_to_delete}")
                 else:
-                    st.session_state['confirm_clean'] = True
-                    st.error(f"请再次点击确认清理 {blueprint_to_clean}！")
-        except Exception as e:
-            st.error(f"读取蓝图信息失败: {e}")
+                    st.session_state['confirm_delete'] = True
+                    st.error(f"请再次点击确认删除 {blueprint_to_delete}！")
+        else:
+            st.info("暂无蓝图文件可删除")
+        
+        # 清理蓝图功能
+        st.subheader("清理蓝图")
+        
+        blueprints = optimizer.list_blueprints()
+        if blueprints:
+            st.info("清理蓝图可以删除低质量的组合，保留最优组合，减小文件大小")
+            
+            # 选择要清理的蓝图文件
+            blueprint_to_clean = st.selectbox(
+                "选择要清理的蓝图文件",
+                options=[bp['filename'] for bp in blueprints],
+                format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)",
+                key="clean_blueprint_select"
+            )
+            
+            # 显示当前蓝图信息
+            try:
+                blueprint_path = os.path.join(optimizer.current_dir, blueprint_to_clean)
+                with open(blueprint_path, 'r', encoding='utf-8') as f:
+                    blueprint_data = json.load(f)
+                
+                total_count = len(blueprint_data.get('combinations', []))
+                completed_count = sum(1 for c in blueprint_data.get('combinations', []) if c.get('status') == 'completed')
+                failed_count = sum(1 for c in blueprint_data.get('combinations', []) if c.get('status') == 'failed')
+                
+                st.write(f"当前蓝图状态:")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("总组合数", total_count)
+                col2.metric("已完成", completed_count)
+                col3.metric("失败", failed_count)
+                
+                # 清理参数设置
+                col1, col2 = st.columns(2)
+                with col1:
+                    max_total = st.number_input(
+                        "保留的最大总组合数",
+                        value=1000,
+                        min_value=100,
+                        max_value=5000,
+                        step=100,
+                        help="蓝图保留的最大组合总数"
+                    )
+                with col2:
+                    max_elite = st.number_input(
+                        "保留的最优组合数",
+                        value=500,
+                        min_value=50,
+                        max_value=2000,
+                        step=50,
+                        help="保留的高质量组合数量"
+                    )
+                
+                keep_failed = st.checkbox("保留失败的组合", value=False, help="是否保留状态为failed的组合")
+                
+                if st.button("清理选中的蓝图", type="primary"):
+                    if st.session_state.get('confirm_clean', False):
+                        try:
+                            from utils.blueprint_cleaner import BlueprintCleaner
+                            
+                            with st.spinner("正在清理蓝图..."):
+                                cleaner = BlueprintCleaner(
+                                    max_total=max_total,
+                                    max_elite=max_elite,
+                                    keep_failed=keep_failed
+                                )
+                                
+                                cleaned_blueprint, archive_data = cleaner.clean_blueprint(
+                                    blueprint_data,
+                                    blueprint_file=blueprint_path,
+                                    auto_archive=True
+                                )
+                                
+                                # 保存清理后的蓝图
+                                with open(blueprint_path, 'w', encoding='utf-8') as f:
+                                    json.dump(cleaned_blueprint, f, ensure_ascii=False, indent=2)
+                                
+                                # 显示清理结果
+                                st.success(f"蓝图清理完成！")
+                                st.write(f"- 清理前: {total_count} 个组合")
+                                st.write(f"- 清理后: {len(cleaned_blueprint.get('combinations', []))} 个组合")
+                                st.write(f"- 减少组合: {total_count - len(cleaned_blueprint.get('combinations', []))} 个")
+                                
+                                if archive_data.get('archived_count', 0) > 0:
+                                    archive_file = archive_data.get('archive_file', '未知')
+                                    st.info(f"已归档 {archive_data['archived_count']} 个组合到: {archive_file}")
+                                
+                                st.session_state['confirm_clean'] = False
+                                st.rerun()
+                        
+                        except Exception as e:
+                            st.error(f"清理蓝图失败: {e}")
+                            import traceback
+                            st.error(traceback.format_exc())
+                    else:
+                        st.session_state['confirm_clean'] = True
+                        st.error(f"请再次点击确认清理 {blueprint_to_clean}！")
+            except Exception as e:
+                st.error(f"读取蓝图信息失败: {e}")
+        else:
+            st.info("暂无蓝图文件可清理")
+
+# 标签页3: 运行优化
+with tab3:
+    st.header("运行优化")
+    
+    # 蓝图文件选择
+    blueprints = optimizer.list_blueprints()
+    blueprint_options = [bp['filename'] for bp in blueprints] if blueprints else []
+
+    if blueprint_options:
+        blueprint_file = st.selectbox(
+            "选择要优化的蓝图文件",
+            options=blueprint_options,
+            format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)"
+        )
     else:
-        st.info("暂无蓝图文件可清理")
+        st.warning("暂无蓝图文件，请先生成参数组合")
+        blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint.json", key="run_optimization_input")
 
-# 运行优化
-st.header("运行优化")
+    # 自动显示结果的标志
+    show_results = False
 
-# 蓝图文件选择
-blueprints = optimizer.list_blueprints()
-blueprint_options = [bp['filename'] for bp in blueprints] if blueprints else []
+    if st.button("开始优化", type="primary"):
+        try:
+            # 加载蓝图
+            # 使用optimizer.current_dir确保与OptimizerManager使用相同的目录
+            blueprint_path = os.path.join(optimizer.current_dir, blueprint_file)
+            
+            if not os.path.exists(blueprint_path):
+                st.error(f"蓝图文件不存在: {blueprint_path}")
+                st.error(f"当前工作目录: {os.getcwd()}")
+                st.error(f"Optimizer目录: {optimizer.current_dir}")
+                st.stop()
+            
+            blueprint = optimizer.load_blueprint(blueprint_file)
+            
+            # 创建进度条占位符，实现不换行更新
+            progress_bar = st.progress(0)
+            progress_text = st.empty()
+            progress_text.write("开始优化...")
+            
+            # 判断蓝图是否是分拆的蓝图文件
+            is_split_blueprint = 'files' in blueprint
+            
+            # 实际执行优化过程
+            if is_split_blueprint:
+                # 分拆的蓝图文件，遍历所有子文件
+                for sub_file_info in blueprint['files']:
+                    sub_file_path = os.path.join(optimizer.current_dir, sub_file_info['file'])
+                    if not os.path.exists(sub_file_path):
+                        progress_text.warning(f"子文件不存在: {sub_file_info['file']}")
+                        continue
+                    
+                    # 加载子文件
+                    with open(sub_file_path, 'r', encoding='utf-8') as f:
+                        sub_blueprint = json.load(f)
+                    
+                    # 处理子文件中的组合
+                    for combo in sub_blueprint['combinations']:
+                        if combo['status'] == 'pending':
+                            # 更新状态为运行中
+                            optimizer.update_combination_status(blueprint, combo['id'], 'running')
+                            
+                            # 执行实际回测
+                            try:
+                                # 调用实际的回测方法
+                                result = optimizer.run_backtest(combo['params'])
 
-if blueprint_options:
-    blueprint_file = st.selectbox(
-        "选择要优化的蓝图文件",
-        options=blueprint_options,
-        format_func=lambda x: f"{x} ({next(bp['size_kb'] for bp in blueprints if bp['filename'] == x)} KB)"
-    )
-else:
-    st.warning("暂无蓝图文件，请先生成参数组合")
-    blueprint_file = st.text_input("蓝图文件路径", value="parameter_blueprint.json", key="run_optimization_input")
+                                # 检查返回值是否有效
+                                if result is None:
+                                    raise Exception("回测返回空结果，可能子进程异常退出")
 
-# 自动显示结果的标志
-show_results = False
+                                # 检查是否是错误结果
+                                if isinstance(result, dict) and result.get('success') is False:
+                                    error_msg = result.get('error', '未知错误')
+                                    raise Exception(f"子进程回测失败: {error_msg}")
 
-if st.button("开始优化"):
-    try:
-        # 加载蓝图
-        # 使用optimizer.current_dir确保与OptimizerManager使用相同的目录
-        blueprint_path = os.path.join(optimizer.current_dir, blueprint_file)
-        
-        if not os.path.exists(blueprint_path):
-            st.error(f"蓝图文件不存在: {blueprint_path}")
-            st.error(f"当前工作目录: {os.getcwd()}")
-            st.error(f"Optimizer目录: {optimizer.current_dir}")
-            st.stop()
-        
-        blueprint = optimizer.load_blueprint(blueprint_file)
-        
-        # 创建进度条占位符，实现不换行更新
-        progress_bar = st.progress(0)
-        progress_text = st.empty()
-        progress_text.write("开始优化...")
-        
-        # 判断蓝图是否是分拆的蓝图文件
-        is_split_blueprint = 'files' in blueprint
-        
-        # 实际执行优化过程
-        if is_split_blueprint:
-            # 分拆的蓝图文件，遍历所有子文件
-            for sub_file_info in blueprint['files']:
-                sub_file_path = os.path.join(optimizer.current_dir, sub_file_info['file'])
-                if not os.path.exists(sub_file_path):
-                    progress_text.warning(f"子文件不存在: {sub_file_info['file']}")
-                    continue
-                
-                # 加载子文件
-                with open(sub_file_path, 'r', encoding='utf-8') as f:
-                    sub_blueprint = json.load(f)
-                
-                # 处理子文件中的组合
-                for combo in sub_blueprint['combinations']:
+                                # 保留完整的结果，包括原始参数
+                                formatted_result = result
+                            except Exception as e:
+                                progress_text.error(f"回测失败: {e}")
+                                # 生成失败结果，包含原始参数
+                                formatted_result = {
+                                    **combo['params'],
+                                    'total_return': -100.0,
+                                    'annual_return': -100.0,
+                                    'max_drawdown': -100.0,
+                                    'sharpe_ratio': 0.0,
+                                    'win_rate': 0.0,
+                                    'trades_count': 0
+                                }
+
+                            # 更新状态为已完成
+                            optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
+                            
+                            
+                            
+                            # 更新进度
+                            completed = optimizer._count_completed_combinations(blueprint)
+                            total = blueprint['total_combinations']
+                            progress = completed / total
+                            progress_bar.progress(progress)
+                            progress_text.write(f"已完成 {completed}/{total} 个组合 ({progress:.1%})...")
+                            
+                            # 测试模式下仅处理一个组合
+                            if is_test_mode:
+                                break
+                    
+                    # 测试模式下仅处理一个子文件
+                    if is_test_mode:
+                        break
+            else:
+                # 非分拆的蓝图文件，直接遍历组合
+                for combo in blueprint['combinations']:
                     if combo['status'] == 'pending':
                         # 更新状态为运行中
                         optimizer.update_combination_status(blueprint, combo['id'], 'running')
+                        optimizer.save_blueprint(blueprint, blueprint_file)
                         
                         # 执行实际回测
                         try:
@@ -625,11 +922,12 @@ if st.button("开始优化"):
 
                         # 更新状态为已完成
                         optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
+                        optimizer.save_blueprint(blueprint, blueprint_file)
                         
                         
                         
                         # 更新进度
-                        completed = optimizer._count_completed_combinations(blueprint)
+                        completed = sum(1 for c in blueprint['combinations'] if c['status'] == 'completed')
                         total = blueprint['total_combinations']
                         progress = completed / total
                         progress_bar.progress(progress)
@@ -638,155 +936,99 @@ if st.button("开始优化"):
                         # 测试模式下仅处理一个组合
                         if is_test_mode:
                             break
-                
-                # 测试模式下仅处理一个子文件
-                if is_test_mode:
-                    break
-        else:
-            # 非分拆的蓝图文件，直接遍历组合
-            for combo in blueprint['combinations']:
-                if combo['status'] == 'pending':
-                    # 更新状态为运行中
-                    optimizer.update_combination_status(blueprint, combo['id'], 'running')
-                    optimizer.save_blueprint(blueprint, blueprint_file)
-                    
-                    # 执行实际回测
-                    try:
-                        # 调用实际的回测方法
-                        result = optimizer.run_backtest(combo['params'])
-
-                        # 检查返回值是否有效
-                        if result is None:
-                            raise Exception("回测返回空结果，可能子进程异常退出")
-
-                        # 检查是否是错误结果
-                        if isinstance(result, dict) and result.get('success') is False:
-                            error_msg = result.get('error', '未知错误')
-                            raise Exception(f"子进程回测失败: {error_msg}")
-
-                        # 保留完整的结果，包括原始参数
-                        formatted_result = result
-                    except Exception as e:
-                        progress_text.error(f"回测失败: {e}")
-                        # 生成失败结果，包含原始参数
-                        formatted_result = {
-                            **combo['params'],
-                            'total_return': -100.0,
-                            'annual_return': -100.0,
-                            'max_drawdown': -100.0,
-                            'sharpe_ratio': 0.0,
-                            'win_rate': 0.0,
-                            'trades_count': 0
-                        }
-
-                    # 更新状态为已完成
-                    optimizer.update_combination_status(blueprint, combo['id'], 'completed', formatted_result)
-                    optimizer.save_blueprint(blueprint, blueprint_file)
-                    
-                    
-                    
-                    # 更新进度
-                    completed = sum(1 for c in blueprint['combinations'] if c['status'] == 'completed')
-                    total = blueprint['total_combinations']
-                    progress = completed / total
-                    progress_bar.progress(progress)
-                    progress_text.write(f"已完成 {completed}/{total} 个组合 ({progress:.1%})...")
-                    
-                    # 测试模式下仅处理一个组合
-                    if is_test_mode:
-                        break
-        
-        # 优化完成，清空进度条
-        progress_bar.empty()
-        progress_text.empty()
-        st.success("参数优化完成！")
-        
-        # 自动清理蓝图文件
-        try:
-            from utils.blueprint_cleaner import BlueprintCleaner
-            blueprint_path = os.path.join(optimizer.current_dir, blueprint_file)
             
-            # 加载蓝图检查大小
-            with open(blueprint_path, 'r', encoding='utf-8') as f:
-                blueprint_data = json.load(f)
+            # 优化完成，清空进度条
+            progress_bar.empty()
+            progress_text.empty()
+            st.success("参数优化完成！")
             
-            total_combinations = len(blueprint_data.get('combinations', []))
-            max_total = 1000  # 默认阈值
+            # 自动清理蓝图文件
+            try:
+                from utils.blueprint_cleaner import BlueprintCleaner
+                blueprint_path = os.path.join(optimizer.current_dir, blueprint_file)
+                
+                # 加载蓝图检查大小
+                with open(blueprint_path, 'r', encoding='utf-8') as f:
+                    blueprint_data = json.load(f)
+                
+                total_combinations = len(blueprint_data.get('combinations', []))
+                max_total = 1000  # 默认阈值
+                
+                if total_combinations > max_total:
+                    st.info(f"检测到蓝图包含 {total_combinations} 个组合，超过阈值 {max_total}，开始自动清理...")
+                    
+                    cleaner = BlueprintCleaner(max_total=max_total, max_elite=500, keep_failed=False)
+                    cleaned_blueprint, archive_data = cleaner.clean_blueprint(
+                        blueprint_data,
+                        blueprint_file=blueprint_path,
+                        auto_archive=True
+                    )
+                    
+                    # 保存清理后的蓝图
+                    with open(blueprint_path, 'w', encoding='utf-8') as f:
+                        json.dump(cleaned_blueprint, f, ensure_ascii=False, indent=2)
+                    
+                    # 显示清理结果
+                    st.success("蓝图清理完成！")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("清理前", total_combinations)
+                    col2.metric("清理后", len(cleaned_blueprint.get('combinations', [])))
+                    col3.metric("减少", total_combinations - len(cleaned_blueprint.get('combinations', [])))
+                    
+                    if archive_data.get('archived_count', 0) > 0:
+                        st.info(f"已归档 {archive_data['archived_count']} 个组合到: {archive_data.get('archive_file', '未知')}")
+            except Exception as e:
+                st.warning(f"自动清理蓝图失败: {e}")
+                st.info("您可以稍后在'蓝图管理'标签页中手动清理")
             
-            if total_combinations > max_total:
-                st.info(f"检测到蓝图包含 {total_combinations} 个组合，超过阈值 {max_total}，开始自动清理...")
+            # 导出结果到Excel
+            if 'all_completed_results' in locals() and all_completed_results:
+                # 从所有蓝图文件中收集已完成的结果
+                all_completed_results = []
                 
-                cleaner = BlueprintCleaner(max_total=max_total, max_elite=500, keep_failed=False)
-                cleaned_blueprint, archive_data = cleaner.clean_blueprint(
-                    blueprint_data,
-                    blueprint_file=blueprint_path,
-                    auto_archive=True
-                )
+                # 获取所有蓝图文件
+                blueprints = optimizer.list_blueprints()
                 
-                # 保存清理后的蓝图
-                with open(blueprint_path, 'w', encoding='utf-8') as f:
-                    json.dump(cleaned_blueprint, f, ensure_ascii=False, indent=2)
+                for bp in blueprints:
+                    bp_path = os.path.join(optimizer.current_dir, bp['filename'])
+                    if os.path.exists(bp_path):
+                        try:
+                            blueprint = optimizer.load_blueprint(bp['filename'], load_all=True)
+                            
+                            # 检查是否为分拆的蓝图文件
+                            if blueprint.get('files'):
+                                # 分拆的蓝图文件，遍历所有子文件
+                                for sub_file_info in blueprint['files']:
+                                    sub_file_path = os.path.join(optimizer.current_dir, sub_file_info['file'])
+                                    if os.path.exists(sub_file_path):
+                                        with open(sub_file_path, 'r', encoding='utf-8') as f:
+                                            sub_blueprint = json.load(f)
+                                        for combo in sub_blueprint['combinations']:
+                                            if combo['status'] == 'completed' and combo['result']:
+                                                all_completed_results.append(combo['result'])
+                            else:
+                                # 完整的蓝图文件，直接遍历组合
+                                for combo in blueprint['combinations']:
+                                    if combo['status'] == 'completed' and combo['result']:
+                                        all_completed_results.append(combo['result'])
+                        except Exception as e:
+                            st.warning(f"读取蓝图文件 {bp['filename']} 失败: {e}")
                 
-                # 显示清理结果
-                st.success("蓝图清理完成！")
-                col1, col2, col3 = st.columns(3)
-                col1.metric("清理前", total_combinations)
-                col2.metric("清理后", len(cleaned_blueprint.get('combinations', [])))
-                col3.metric("减少", total_combinations - len(cleaned_blueprint.get('combinations', [])))
-                
-                if archive_data.get('archived_count', 0) > 0:
-                    st.info(f"已归档 {archive_data['archived_count']} 个组合到: {archive_data.get('archive_file', '未知')}")
+                if all_completed_results:
+                    # 导出结果到Excel
+                    output_file = "parameter_optimization_results.xlsx"
+                    optimizer.export_to_excel(all_completed_results, output_file)
+                    st.info(f"回测结果已导出到Excel文件: {output_file}")
+            
+            # 设置自动显示结果的标志
+            show_results = True
+            
         except Exception as e:
-            st.warning(f"自动清理蓝图失败: {e}")
-            st.info("您可以稍后在'蓝图管理'标签页中手动清理")
-        
-        # 导出结果到Excel
-        if 'all_completed_results' in locals() and all_completed_results:
-            # 从所有蓝图文件中收集已完成的结果
-            all_completed_results = []
-            
-            # 获取所有蓝图文件
-            blueprints = optimizer.list_blueprints()
-            
-            for bp in blueprints:
-                bp_path = os.path.join(optimizer.current_dir, bp['filename'])
-                if os.path.exists(bp_path):
-                    try:
-                        blueprint = optimizer.load_blueprint(bp['filename'], load_all=True)
-                        
-                        # 检查是否为分拆的蓝图文件
-                        if blueprint.get('files'):
-                            # 分拆的蓝图文件，遍历所有子文件
-                            for sub_file_info in blueprint['files']:
-                                sub_file_path = os.path.join(optimizer.current_dir, sub_file_info['file'])
-                                if os.path.exists(sub_file_path):
-                                    with open(sub_file_path, 'r', encoding='utf-8') as f:
-                                        sub_blueprint = json.load(f)
-                                    for combo in sub_blueprint['combinations']:
-                                        if combo['status'] == 'completed' and combo['result']:
-                                            all_completed_results.append(combo['result'])
-                        else:
-                            # 完整的蓝图文件，直接遍历组合
-                            for combo in blueprint['combinations']:
-                                if combo['status'] == 'completed' and combo['result']:
-                                    all_completed_results.append(combo['result'])
-                    except Exception as e:
-                        st.warning(f"读取蓝图文件 {bp['filename']} 失败: {e}")
-            
-            if all_completed_results:
-                # 导出结果到Excel
-                output_file = "parameter_optimization_results.xlsx"
-                optimizer.export_to_excel(all_completed_results, output_file)
-                st.info(f"回测结果已导出到Excel文件: {output_file}")
-        
-        # 设置自动显示结果的标志
-        show_results = True
-        
-    except Exception as e:
-        st.error(f"运行优化失败: {e}")
+            st.error(f"运行优化失败: {e}")
 
-# 显示回测结果
-st.header("回测结果")
+# 标签页4: 回测结果
+with tab4:
+    st.header("回测结果")
 
 # 初始化session_state
 if 'show_results' not in st.session_state:
@@ -886,6 +1128,7 @@ if st.button("查看回测结果") or show_results:
                     '回测终止日期': result.get('end_date', ''),
                     '止盈比例(%)': result.get('stop_profit_ratio', 0.0) * 100,
                     '止损比例(%)': abs(result.get('stop_loss_ratio', 0.0) * 100),
+                    '最大持仓天数': result.get('max_holding_days', ''),
                     '总收益率(%)': result.get('total_return', 0.0),
                     '年化收益率(%)': result.get('annual_return', 0.0),
                     '最大回撤(%)': result.get('max_drawdown', 0.0),
@@ -1002,13 +1245,16 @@ if st.button("查看回测结果") or show_results:
 
                     # 使用列布局展示关键参数
                     st.markdown("### 参数配置")
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         st.metric("回测天数", f"{best_result['回测天数']}天")
                     with col2:
                         st.metric("止盈比例", f"{best_result['止盈比例(%)']}%")
                     with col3:
                         st.metric("止损比例", f"{best_result['止损比例(%)']}%")
+                    with col4:
+                        max_holding_days = best_result.get('最大持仓天数', '')
+                        st.metric("最大持仓天数", f"{max_holding_days}天" if max_holding_days else "-")
                     
                     # 显示权重配置
                     st.markdown("### 权重配置")

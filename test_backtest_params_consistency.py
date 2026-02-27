@@ -39,6 +39,8 @@ def test_param_definitions():
         "stop_profit_range",
         "stop_loss",
         "stop_loss_range",
+        "max_holding_days",
+        "max_holding_days_range",
         "end_date"
     ]
     
@@ -68,6 +70,7 @@ def test_param_validation():
         "max_stocks": 1,
         "stop_profit": 3.0,
         "stop_loss": -2.0,
+        "max_holding_days": 5,
         "end_date": datetime.now().strftime("%Y-%m-%d")
     }
     
@@ -84,6 +87,7 @@ def test_param_validation():
         "max_stocks": 15,  # 超出范围
         "stop_profit": 0.5,  # 超出范围
         "stop_loss": -25.0,  # 超出范围
+        "max_holding_days": 366,  # 超出范围
         "end_date": datetime.now().strftime("%Y-%m-%d")
     }
     
@@ -109,6 +113,7 @@ def test_param_persistence():
         "max_stocks": 3,
         "stop_profit": 5.0,
         "stop_loss": -3.0,
+        "max_holding_days": 10,
         "end_date": datetime.now().strftime("%Y-%m-%d")
     }
     
@@ -156,7 +161,8 @@ def test_param_ranges():
         "initial_capital": backtest_params_manager.get_param_range("initial_capital"),
         "max_stocks": backtest_params_manager.get_param_range("max_stocks"),
         "stop_profit": backtest_params_manager.get_param_range("stop_profit"),
-        "stop_loss": backtest_params_manager.get_param_range("stop_loss")
+        "stop_loss": backtest_params_manager.get_param_range("stop_loss"),
+        "max_holding_days": backtest_params_manager.get_param_range("max_holding_days")
     }
     
     missing_ranges = []

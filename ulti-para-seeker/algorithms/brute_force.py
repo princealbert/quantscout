@@ -36,7 +36,9 @@ class BruteForceOptimizer(BaseOptimizer):
                              stop_profit_min: int = None, stop_profit_max: int = None, 
                              stop_profit_step: int = None, stop_loss_min: int = None, 
                              stop_loss_max: int = None, stop_loss_step: int = None, 
-                             weight_step: int = None, initial_capital: int = 60000) -> Dict[str, Any]:
+                             weight_step: int = None, initial_capital: int = 60000, 
+                             max_holding_days_min: int = 1, max_holding_days_max: int = 30, 
+                             max_holding_days_step: int = 1) -> Dict[str, Any]:
         """
         定义参数空间
 
@@ -53,6 +55,9 @@ class BruteForceOptimizer(BaseOptimizer):
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
             initial_capital: 初始资金
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
 
         Returns:
             Dict[str, Any]: 参数空间字典
@@ -71,6 +76,9 @@ class BruteForceOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': stop_loss_min if stop_loss_min is not None else -3, 
                                   'max': stop_loss_max if stop_loss_max is not None else -1, 
                                   'step': stop_loss_step if stop_loss_step is not None else 1},
+                'max_holding_days': {'min': max_holding_days_min, 
+                                   'max': max_holding_days_min + 1, 
+                                   'step': max_holding_days_step},
                 'weight_step': weight_step if weight_step is not None else 50,
                 'test_mode': True,
                 'end_date': end_date,
@@ -99,6 +107,9 @@ class BruteForceOptimizer(BaseOptimizer):
                 'stop_loss_ratio': {'min': actual_stop_loss_min, 
                                   'max': actual_stop_loss_max, 
                                   'step': actual_stop_loss_step},
+                'max_holding_days': {'min': max_holding_days_min, 
+                                   'max': max_holding_days_max, 
+                                   'step': max_holding_days_step},
                 'weight_step': actual_weight_step,
                 'test_mode': False,
                 'end_date': end_date,
@@ -112,7 +123,9 @@ class BruteForceOptimizer(BaseOptimizer):
                                   stop_profit_min: int = None, stop_profit_max: int = None, 
                                   stop_profit_step: int = None, stop_loss_min: int = None, 
                                   stop_loss_max: int = None, stop_loss_step: int = None, 
-                                  weight_step: int = None, initial_capital: int = 60000) -> List[Dict[str, Any]]:
+                                  weight_step: int = None, initial_capital: int = 60000, 
+                                  max_holding_days_min: int = 1, max_holding_days_max: int = 30, 
+                                  max_holding_days_step: int = 1) -> List[Dict[str, Any]]:
         """
         生成参数组合
 
@@ -129,6 +142,9 @@ class BruteForceOptimizer(BaseOptimizer):
             stop_loss_step: 止损步长（%）
             weight_step: 权重步长（%）
             initial_capital: 初始资金
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
@@ -137,7 +153,9 @@ class BruteForceOptimizer(BaseOptimizer):
         param_space = self.define_parameter_space(test_mode, max_sub_combinations, end_date, backtest_days, 
                                                stop_profit_min, stop_profit_max, stop_profit_step, 
                                                stop_loss_min, stop_loss_max, stop_loss_step, 
-                                               weight_step, initial_capital)
+                                               weight_step, initial_capital, 
+                                               max_holding_days_min, max_holding_days_max, 
+                                               max_holding_days_step)
         
         # 生成止盈止损比例列表（百分位格式，如 3 表示 3%）
         stop_profit_values = [param_space['stop_profit_ratio']['min'] + i * param_space['stop_profit_ratio']['step']
@@ -151,6 +169,14 @@ class BruteForceOptimizer(BaseOptimizer):
         # 生成止损比例列表
         stop_loss_values = [stop_loss_min + i * stop_loss_step
                           for i in range(int((stop_loss_max - stop_loss_min) / stop_loss_step) + 1)]
+        
+        # 生成最大持仓天数列表
+        max_holding_days_min = param_space['max_holding_days']['min']
+        max_holding_days_max = param_space['max_holding_days']['max']
+        max_holding_days_step = param_space['max_holding_days']['step']
+        
+        max_holding_days_values = [max_holding_days_min + i * max_holding_days_step
+                                  for i in range(int((max_holding_days_max - max_holding_days_min) / max_holding_days_step) + 1)]
         
         # 生成权重配置
         from utils.weight_utils import generate_weights_combinations, generate_sub_weights_combinations
@@ -173,22 +199,24 @@ class BruteForceOptimizer(BaseOptimizer):
                 if stop_profit <= stop_loss:
                     continue  # 跳过无效的止盈止损组合
                 
-                for weights_config in weights_configs:
-                    for sub_weights_config in sub_weights_configs:
-                        # 将deepv权重设置为零
-                        weights_config_with_zero_deepv = weights_config.copy()
-                        weights_config_with_zero_deepv['deepv'] = 0
-                        
-                        param_comb = {
-                            'backtest_days': backtest_days,
-                            'end_date': end_date,
-                            'stop_profit_ratio': stop_profit,
-                            'stop_loss_ratio': stop_loss,
-                            'weights_config': weights_config_with_zero_deepv,
-                            'sub_weights_config': sub_weights_config
-                        }
-                        
-                        combinations.append(param_comb)
+                for max_holding_days in max_holding_days_values:
+                    for weights_config in weights_configs:
+                        for sub_weights_config in sub_weights_configs:
+                            # 将deepv权重设置为零
+                            weights_config_with_zero_deepv = weights_config.copy()
+                            weights_config_with_zero_deepv['deepv'] = 0
+                            
+                            param_comb = {
+                                'backtest_days': backtest_days,
+                                'end_date': end_date,
+                                'stop_profit_ratio': stop_profit,
+                                'stop_loss_ratio': stop_loss,
+                                'max_holding_days': max_holding_days,
+                                'weights_config': weights_config_with_zero_deepv,
+                                'sub_weights_config': sub_weights_config
+                            }
+                            
+                            combinations.append(param_comb)
         
         # 测试模式下只返回第一个组合
         if test_mode and combinations:
@@ -198,7 +226,9 @@ class BruteForceOptimizer(BaseOptimizer):
         return combinations
     
     def optimize(self, test_mode: bool = False, max_sub_combinations: int = 10, 
-                end_date: str = '2025-12-25', initial_capital: int = 60000) -> List[Dict[str, Any]]:
+                end_date: str = '2025-12-25', initial_capital: int = 60000,
+                max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                max_holding_days_step: int = 1) -> List[Dict[str, Any]]:
         """
         执行暴力优化
         
@@ -207,6 +237,9 @@ class BruteForceOptimizer(BaseOptimizer):
             max_sub_combinations: 最大子权重组合数
             end_date: 回测终点日期
             initial_capital: 初始资金
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
             
         Returns:
             List[Dict[str, Any]]: 优化结果列表
@@ -218,7 +251,10 @@ class BruteForceOptimizer(BaseOptimizer):
             test_mode=test_mode,
             max_sub_combinations=max_sub_combinations,
             end_date=end_date,
-            backtest_days=90  # 默认使用90天回测
+            backtest_days=90,  # 默认使用90天回测
+            max_holding_days_min=max_holding_days_min,
+            max_holding_days_max=max_holding_days_max,
+            max_holding_days_step=max_holding_days_step
         )
         
         # 为每个参数组合添加初始资金
@@ -248,7 +284,10 @@ class BruteForceOptimizer(BaseOptimizer):
                                       stop_loss_min: int = None, stop_loss_max: int = None, 
                                       stop_loss_step: int = None, weight_step: int = None, 
                                       focus_indicators: List[str] = None, focus_weight_factor: float = 1.5, 
-                                      initial_capital: int = 60000, backtest_days: int = 90) -> List[Dict[str, Any]]:
+                                      initial_capital: int = 60000, backtest_days: int = 90, 
+                                      max_holding_days_min: int = 1, max_holding_days_max: int = 30, 
+                                      max_holding_days_step: int = 1,
+                                      existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         生成参数组合
 
@@ -267,6 +306,10 @@ class BruteForceOptimizer(BaseOptimizer):
             focus_weight_factor: 重点指标的权重放大倍数
             initial_capital: 初始资金
             backtest_days: 回测天数
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
+            existing_blueprint: 现有蓝图数据
             
         Returns:
             List[Dict[str, Any]]: 参数组合列表
@@ -274,4 +317,6 @@ class BruteForceOptimizer(BaseOptimizer):
         return self.generate_initial_population(test_mode, max_sub_combinations, end_date, backtest_days, 
                                               stop_profit_min, stop_profit_max, stop_profit_step, 
                                               stop_loss_min, stop_loss_max, stop_loss_step, 
-                                              weight_step, initial_capital)
+                                              weight_step, initial_capital, 
+                                              max_holding_days_min, max_holding_days_max, 
+                                              max_holding_days_step)

@@ -74,6 +74,16 @@ def display_backtest_params(config: Optional[Dict[str, Any]] = None,
     )
     params["initial_capital"] = initial_capital
     
+    # 持仓天数配置（仅在非参数范围设置模式下显示）
+    if not show_range_settings:
+        max_holding_days = st.selectbox(
+            "最大持仓天数",
+            [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180, 270, 365],
+            index=[1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180, 270, 365].index(params.get("max_holding_days", 5)),
+            help="设置最大持仓期限，买入当天不计算，达到该天数时自动卖出"
+        )
+        params["max_holding_days"] = max_holding_days
+    
     # 止盈止损配置（仅在非参数范围设置模式下显示）
     if not show_range_settings:
         col4, col5 = st.columns(2)
@@ -182,6 +192,40 @@ def display_backtest_params(config: Optional[Dict[str, Any]] = None,
             step=5
         )
         params["weight_step"] = weight_step
+        
+        # 最大持仓天数范围设置
+        st.subheader("最大持仓天数设置")
+        col12, col13, col14 = st.columns(3)
+        
+        with col12:
+            max_holding_days_min = st.slider(
+                "最大持仓天数最小值",
+                min_value=1,
+                max_value=365,
+                value=1,
+                step=1
+            )
+            params["max_holding_days_min"] = max_holding_days_min
+        
+        with col13:
+            max_holding_days_max = st.slider(
+                "最大持仓天数最大值",
+                min_value=1,
+                max_value=365,
+                value=30,
+                step=1
+            )
+            params["max_holding_days_max"] = max_holding_days_max
+        
+        with col14:
+            max_holding_days_step = st.slider(
+                "最大持仓天数步长",
+                min_value=1,
+                max_value=5,
+                value=1,
+                step=1
+            )
+            params["max_holding_days_step"] = max_holding_days_step
     
     # 回测参数说明
     st.info("💡 回测将使用选股结果中排名靠前的股票，基于东财掘金API进行历史回测")

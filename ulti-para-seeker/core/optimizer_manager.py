@@ -71,7 +71,9 @@ class OptimizerManager:
                                       stop_loss_max: int = None, stop_loss_step: int = None,
                                       weight_step: int = None, use_advanced_weights: bool = True,
                                       focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000,
-                                      backtest_days: int = 90, existing_blueprint: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                                      backtest_days: int = 90, existing_blueprint: Optional[Dict[str, Any]] = None,
+                                      max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                                      max_holding_days_step: int = 1) -> List[Dict[str, Any]]:
         """
         根据选择的算法生成参数组合
 
@@ -93,6 +95,9 @@ class OptimizerManager:
             initial_capital: 初始资金
             backtest_days: 回测天数
             existing_blueprint: 现有蓝图数据（用于提取优势组合）
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
         
         Returns:
             List[Dict[str, Any]]: 所有可能的参数组合列表
@@ -120,6 +125,9 @@ class OptimizerManager:
             focus_weight_factor=focus_weight_factor,
             initial_capital=initial_capital,
             backtest_days=backtest_days,
+            max_holding_days_min=max_holding_days_min,
+            max_holding_days_max=max_holding_days_max,
+            max_holding_days_step=max_holding_days_step,
             existing_blueprint=existing_blueprint  # 传递现有蓝图
         )
     
@@ -132,7 +140,9 @@ class OptimizerManager:
                         weight_step: int = None, use_advanced_weights: bool = True,
                         focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000, 
                         use_parallel: bool = False, auto_clean_blueprint: bool = True,
-                        blueprint_max_total: int = 1000, blueprint_max_elite: int = 500) -> List[Dict[str, Any]]:
+                        blueprint_max_total: int = 1000, blueprint_max_elite: int = 500, 
+                        max_holding_days_min: int = 1, max_holding_days_max: int = 30, 
+                        max_holding_days_step: int = 1) -> List[Dict[str, Any]]:
         """
         执行参数优化
 
@@ -158,6 +168,9 @@ class OptimizerManager:
             auto_clean_blueprint: 是否自动清理蓝图文件
             blueprint_max_total: 蓝图保留的最大总组合数
             blueprint_max_elite: 保留的最优组合数
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
 
         Returns:
             List[Dict[str, Any]]: 回测结果列表
@@ -207,7 +220,10 @@ class OptimizerManager:
                     weight_step=weight_step,
                     use_advanced_weights=use_advanced_weights,
                     focus_indicators=focus_indicators,
-                    focus_weight_factor=focus_weight_factor
+                    focus_weight_factor=focus_weight_factor,
+                    max_holding_days_min=max_holding_days_min,
+                    max_holding_days_max=max_holding_days_max,
+                    max_holding_days_step=max_holding_days_step
                 )
                 # 为每个参数组合添加初始资金
                 for param in param_combinations:
@@ -235,7 +251,10 @@ class OptimizerManager:
                     end_date=end_date,
                     initial_capital=initial_capital,
                     backtest_days=90,  # 默认使用90天回测
-                    existing_blueprint=existing_blueprint  # 传递现有蓝图
+                    existing_blueprint=existing_blueprint,  # 传递现有蓝图
+                    max_holding_days_min=max_holding_days_min,
+                    max_holding_days_max=max_holding_days_max,
+                    max_holding_days_step=max_holding_days_step
                 )
 
         # 优化完成后,自动清理蓝图文件
@@ -250,7 +269,9 @@ class OptimizerManager:
                           stop_profit_step: int = None, stop_loss_min: int = None, stop_loss_max: int = None,
                           stop_loss_step: int = None, weight_step: int = None, use_advanced_weights: bool = True,
                           focus_indicators: List[str] = None, focus_weight_factor: float = None, initial_capital: int = 60000,
-                          backtest_days: int = 90, force_new_blueprint: bool = False) -> str:
+                          backtest_days: int = 90, force_new_blueprint: bool = False,
+                          max_holding_days_min: int = 1, max_holding_days_max: int = 30,
+                          max_holding_days_step: int = 1) -> str:
         """
         生成参数组合蓝图文件
         
@@ -273,6 +294,9 @@ class OptimizerManager:
             initial_capital: 初始资金
             backtest_days: 回测天数
             force_new_blueprint: 是否强制生成新蓝图，忽略现有文件
+            max_holding_days_min: 最大持仓天数最小值
+            max_holding_days_max: 最大持仓天数最大值
+            max_holding_days_step: 最大持仓天数步长
             
         Returns:
             蓝图文件路径
@@ -312,7 +336,10 @@ class OptimizerManager:
             focus_indicators=focus_indicators,
             focus_weight_factor=focus_weight_factor,
             backtest_days=backtest_days,
-            existing_blueprint=existing_blueprint  # 传递现有蓝图
+            existing_blueprint=existing_blueprint,  # 传递现有蓝图
+            max_holding_days_min=max_holding_days_min,
+            max_holding_days_max=max_holding_days_max,
+            max_holding_days_step=max_holding_days_step
         )
         
         # 为每个参数组合添加初始资金

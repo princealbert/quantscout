@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 import os
 import sys
 from datetime import datetime
@@ -46,7 +46,7 @@ def main():
     if 'screening_params' not in st.session_state:
         st.session_state.screening_params = {'max_results': 30, 'skip_st': True, 'test_mode': False, 'batch_size': 1000, 'max_workers': 6, 'stock_pool_type': '全量A股'}
     if 'strategy_type' not in st.session_state:
-        st.session_state.strategy_type = "z哥综合策略 (KDJ+知行趋势+深V信号)"
+        st.session_state.strategy_type = "多维综合策略 (KDJ+知行趋势+深V信号)"
     
     # 侧边栏控制面板
     with st.sidebar:
@@ -74,7 +74,7 @@ def main():
         st.session_state.weights_config = weights_config  # 实时保存到session state
         
         # 配置面板（已移除优化器功能）
-        if strategy_type == "z哥综合策略 (KDJ+知行趋势+深V信号)":
+        if strategy_type == "多维综合策略 (KDJ+知行趋势+深V信号)":
             display_configuration_panel()
         
         # 筛选参数
@@ -167,7 +167,7 @@ def main():
         
         # 同步执行策略
         try:
-            strategy_type = st.session_state.get('strategy_type', "z哥综合策略 (KDJ+知行趋势+深V信号)")
+            strategy_type = st.session_state.get('strategy_type', "多维综合策略 (KDJ+知行趋势+深V信号)")
             weights_config = st.session_state.get('weights_config', {})
             screening_params = st.session_state.get('screening_params', {})
             sub_weights_config = st.session_state.get('sub_weights_config', None)

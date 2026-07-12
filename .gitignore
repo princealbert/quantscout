@@ -49,7 +49,6 @@ ulti-para-seeker/yield_distribution.html
 # Deprecated files
 *.deprecated
 
-# Parameter blueprints (optional, uncomment if you want to exclude them)
-# parameter_blueprint*.json
-# parameter mark*.json
-test_write.txt
+# Parameter blueprints
+parameter_blueprint*.json
+parameter mark*.json

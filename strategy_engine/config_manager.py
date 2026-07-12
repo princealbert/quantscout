@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
 配置管理模块 - 负责策略参数的统一管理
@@ -58,7 +58,7 @@ class ConfigManager:
                 "min_trade_amount": 100
             },
             "strategy": {
-                "strategy_id": "zge_strategy_v1",
+                "strategy_id": "multi_dim_strategy_v1",
                 "strategy_type": "碗选股",
                 "weights_config": {
                     "kdj": 25,
@@ -181,7 +181,7 @@ class ConfigManager:
         
         # 添加说明文档
         template['_description'] = """
-z哥选股策略配置模板
+QuantScout选股策略配置模板
 
 配置说明:
 1. backtest: 回测相关参数
@@ -305,8 +305,8 @@ class FrontendConfigLoader:
             'backtest_days': backtest.get('backtest_days', 90),
             'stop_profit_ratio': strategy.get('stop_profit_ratio', 0.03),
             'stop_loss_ratio': strategy.get('stop_loss_ratio', -0.02),
-            'strategy_id': backtest.get('strategy_id', f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
-            'strategy_type': strategy.get('strategy_type', 'zge_strategy'),
+            'strategy_id': backtest.get('strategy_id', f"multi_dim_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+            'strategy_type': strategy.get('strategy_type', 'multi_dim_strategy'),
             'max_stocks_to_backtest': backtest.get('max_stocks_to_backtest', 100 if is_test_mode else len(selected_stocks)),
             'stock_pool_limit': 100 if is_test_mode else backtest.get('stock_pool_limit', 50),  # 测试模式下限制股票池为100只
             'weights_config': strategy.get('weights_config', {}),
@@ -432,7 +432,7 @@ def get_strategy_params_compatible() -> Dict[str, Any]:
         'backtest_days': backtest_params.get('backtest_days', 90),
         'stop_profit_ratio': trading_params.get('stop_profit_ratio', 0.03),
         'stop_loss_ratio': trading_params.get('stop_loss_ratio', -0.02),
-        'strategy_id': strategy_params.get('strategy_id', 'zge_strategy_v1'),
+        'strategy_id': strategy_params.get('strategy_id', 'multi_dim_strategy_v1'),
         'strategy_type': strategy_params.get('strategy_type', '碗选股'),
         'max_stocks_to_backtest': backtest_params.get('max_stocks_to_backtest', 1),
         'stock_pool_limit': backtest_params.get('stock_pool_limit', 50),

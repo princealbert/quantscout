@@ -17,7 +17,7 @@
     "min_trade_amount": 100
   },
   "strategy": {
-    "strategy_id": "zge_strategy_v1",
+    "strategy_id": "multi_dim_strategy_v1",
     "strategy_type": "碗选股",
     "weights_config": {
       "kdj": 25,

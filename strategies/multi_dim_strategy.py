@@ -1,6 +1,6 @@
-# coding=utf-8
+﻿# coding=utf-8
 """
-z哥选股策略 - 重构后的精简版本
+QuantScout选股策略 - 重构后的精简版本
 集成KDJ、知行趋势线、深V信号的综合选股器
 """
 
@@ -29,8 +29,8 @@ from utils.logger import logger
 from data.batch_processor import BatchProcessor
 
 
-class ZGeStrategyScreener:
-    """z哥选股策略集成器（重构精简版）"""
+class MultiDimStrategyScreener:
+    """多维综合策略集成器（重构精简版）"""
     
     def __init__(self, batch_size=500, max_workers=6, weights_config=None, sub_weights_config=None):
         self.batch_size = batch_size
@@ -111,7 +111,7 @@ class ZGeStrategyScreener:
             return
         
         print("\n" + "="*180)
-        print("z哥选股策略结果 (KDJ J值<20 + 趋势信号 + 深V信号)")
+        print("QuantScout选股策略结果 (KDJ J值<20 + 趋势信号 + 深V信号)")
         print("="*180)
         print(f"{'排名':<4} {'股票代码':<12} {'股票名称':<10} {'收盘价':<8} {'J值':<8} {'综合评分':<8} {'目标价':<8} {'止损价':<8} {'盈亏比':<8} {'位置':<10} {'白线斜率':<8} {'深V信号':<8} {'PE':<8} {'流通市值(亿)':<12}")
         print("-"*180)
@@ -140,7 +140,7 @@ class ZGeStrategyScreener:
         os.makedirs('reports', exist_ok=True)
         
         if filename is None:
-            filename = f'reports/zge_strategy_results_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            filename = f'reports/multi_dim_strategy_results_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
         
         # 转换数据类型，确保JSON序列化
         serializable_results = []
@@ -161,7 +161,7 @@ class ZGeStrategyScreener:
         
         save_data = {
             'screener_info': {
-                'strategy': 'z哥选股策略 (KDJ+知行趋势+深V信号)',
+                'strategy': 'QuantScout选股策略 (KDJ+知行趋势+深V信号)',
                 'trade_date': results[0]['trade_date'] if results else '',
                 'total_stocks': len(results),
                 'created_time': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -176,11 +176,11 @@ class ZGeStrategyScreener:
         return filename
 
 
-def run_zge_strategy_screener(test_mode=True, max_results=50, skip_st=True):
-    """运行z哥选股策略"""
-    print("正在启动z哥选股策略...")
+def run_multi_dim_strategy_screener(test_mode=True, max_results=50, skip_st=True):
+    """运行多维综合策略"""
+    print("正在启动多维综合策略...")
     
-    screener = ZGeStrategyScreener(batch_size=1000, max_workers=6)
+    screener = MultiDimStrategyScreener(batch_size=1000, max_workers=6)
     
     try:
         results = screener.screen_stocks_batch(
@@ -204,4 +204,4 @@ def run_zge_strategy_screener(test_mode=True, max_results=50, skip_st=True):
 
 if __name__ == "__main__":
     # 运行测试模式
-    run_zge_strategy_screener(test_mode=False, max_results=50, skip_st=True)
+    run_multi_dim_strategy_screener(test_mode=False, max_results=50, skip_st=True)

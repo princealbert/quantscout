@@ -297,7 +297,7 @@ def _generate_backtest_script(config: Dict[str, Any]) -> str:
             "backtest_days": config['backtest_info']['backtest_days'],
             "end_date": config['backtest_info'].get('end_date', datetime.now().strftime('%Y-%m-%d')),
             "max_stocks_to_backtest": config['backtest_info']['selected_stocks_count'],
-            "strategy_id": f"zge_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            "strategy_id": f"multi_dim_strategy_backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         },
         "strategy": {
             "strategy_type": config['backtest_info']['strategy_type'],

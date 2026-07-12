@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
 侧边栏组件 - 策略选择和筛选参数配置
@@ -14,7 +14,7 @@ def display_strategy_selector():
     
     strategy = st.radio(
         "选择选股策略",
-        ["z哥综合策略 (KDJ+知行趋势+深V信号)"],
+        ["多维综合策略 (KDJ+知行趋势+深V信号)"],
         index=0,
         horizontal=True
     )

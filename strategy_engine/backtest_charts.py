@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
 回测结果分析器
@@ -128,7 +128,7 @@ class BacktestAnalyzer:
         """生成文本报告"""
         report = []
         report.append("=" * 70)
-        report.append("📊 z哥选股策略回测报告")
+        report.append("📊 QuantScout选股策略回测报告")
         report.append("=" * 70)
         
         # 基本指标
@@ -184,7 +184,7 @@ class BacktestAnalyzer:
                 label='组合净值', color='blue', linewidth=2)
         plt.axhline(y=self.initial_capital, color='red', linestyle='--', 
                    label=f'初始资金 ({self.initial_capital:,.0f}元)')
-        plt.title('z哥选股策略 - 组合净值曲线', fontsize=14, fontweight='bold')
+        plt.title('QuantScout选股策略 - 组合净值曲线', fontsize=14, fontweight='bold')
         plt.ylabel('组合价值 (元)', fontsize=12)
         plt.legend()
         plt.grid(True, alpha=0.3)

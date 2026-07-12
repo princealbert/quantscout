@@ -1,6 +1,6 @@
-# 更新日志
+﻿# 更新日志
 
-本文档记录z哥选股策略系统所有重要变更。
+本文档记录QuantScout选股策略系统所有重要变更。
 
 格式基于[Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
@@ -151,7 +151,7 @@ python launcher.py
 ### 新增 ✨
 
 - 初始版本发布
-- 基础选股功能（z哥综合策略）
+- 基础选股功能（QuantScout综合策略）
 - 简单的回测功能
 - Streamlit Web界面
 - 权重配置

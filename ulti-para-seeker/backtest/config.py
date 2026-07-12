@@ -137,7 +137,7 @@ def get_strategy_params_optimizer() -> Dict[str, Any]:
         'backtest_days': backtest_params.get('backtest_days', 90),
         'stop_profit_ratio': trading_params.get('stop_profit_ratio', 0.03),
         'stop_loss_ratio': trading_params.get('stop_loss_ratio', -0.02),
-        'strategy_id': strategy_params.get('strategy_id', 'zge_strategy_v1'),
+        'strategy_id': strategy_params.get('strategy_id', 'multi_dim_strategy_v1'),
         'strategy_type': strategy_params.get('strategy_type', '碗选股'),
         'max_stocks_to_backtest': backtest_params.get('max_stocks_to_backtest', 1),
         'stock_pool_limit': None,  # 优化器模式下不限制股票池大小

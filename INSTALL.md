@@ -1,274 +1,256 @@
-# 安装指南
+# QuantScout安装指南
 
-本指南将帮助您完成z哥选股策略系统的完整安装和配置。
+## 📋 前置依赖安装(零基础必读)
 
-## 📋 前置要求
+> 在开始 QuantScout 安装之前,请先完成以下基础环境准备。每项都附有下载链接和安装要点。
 
-### 1. 操作系统
+### 1. Python(必需)
 
-- **必需**：Windows 10 或 Windows 11
-- **不支持**：macOS、Linux（本系统基于Windows专用的东财掘金SDK开发）
+- **版本要求**: Python 3.8 或更高
+- **下载地址**: [https://www.python.org/downloads/](https://www.python.org/downloads/)
+- **安装要点**:
+  - 安装时<strong>务必勾选</strong> `Add Python to PATH`(否则后续命令行无法识别 `python` 命令)
+  - 推荐选择 `Customize installation`,保持默认选项(pip、tcl/tk、py launcher)
+  - 安装完成后,打开 PowerShell 输入 `python --version` 验证,应显示 `Python 3.x.x`
 
-### 2. Python环境
+### 2. conda(强烈推荐)
 
-- **Python版本**：3.8 或更高版本
-- **推荐版本**：3.9 或 3.10
+- **作用**: 管理 Python 虚拟环境,避免污染系统 Python
+- **推荐版本**: Anaconda(完整版) 或 Miniconda(轻量版)
+- **下载地址**:
+  - Anaconda: [https://www.anaconda.com/download](https://www.anaconda.com/download)
+  - Miniconda: [https://docs.conda.io/en/latest/miniconda.html](https://docs.conda.io/en/latest/miniconda.html)
+- **安装要点**:
+  - 安装时勾选 `Add Anaconda to my PATH environment variable`(或安装后手动添加)
+  - 推荐为当前用户安装(Just Me),无需管理员权限
+  - 安装完成后,打开 PowerShell 输入 `conda --version` 验证
+- **说明**: conda 不是必需,但本项目默认使用 `dcquant` 虚拟环境,强烈推荐安装
 
-**检查Python版本：**
+### 3. Git(可选)
+
+- **作用**: 克隆项目代码(若直接下载 zip 包则不需要)
+- **下载地址**: [https://git-scm.com/download/win](https://git-scm.com/download/win)
+- **安装要点**: 保持默认选项即可
+- **验证**: PowerShell 输入 `git --version`
+
+### 4. 东财掘金量化终端(必需)
+
+- **作用**: 提供行情数据接口(本项目核心依赖)
+- **下载地址**: [https://www.myquant.cn/](https://www.myquant.cn/)
+- **安装要点**:
+  - 完成账号注册和<strong>实名认证</strong>(未实名无法生成 API Token)
+  - 使用 QuantScout 时终端必须保持运行(可最小化到托盘)
+- **详细图文教程**: 参见 [docs/gm_guide.html](docs/gm_guide.html)(浏览器打开即可查看)
+
+### 5. 验证基础环境
+
+完成上述安装后,运行以下命令一键检测:
+
 ```bash
-python --version
-# 或
-python3 --version
+python setup_wizard.py --check-env
 ```
 
-**如果没有安装Python：**
-1. 访问 [Python官网](https://www.python.org/downloads/)
-2. 下载Windows安装包
-3. 运行安装程序，**务必勾选"Add Python to PATH"**
-4. 完成安装后重启命令行窗口
+看到 `[OK] 基础环境核心检测通过 (Python + pip)` 即表示基础环境就绪。
 
-### 3. 东财掘金量化终端
+---
 
-**必需**：必须先安装东财掘金量化终端
+## 🚀 快速上手(3步搞定)
 
-**安装步骤：**
-1. 访问东财掘金官网下载量化终端
-2. 下载完成后运行安装程序
-3. 按照提示完成安装
-4. 安装完成后启动终端并登录
+> 若已完成上述前置依赖安装,可按以下 3 步完成项目部署。
 
-**注意**：使用本系统时，东财掘金终端必须保持运行状态。
+### 步骤1:安装东财掘金量化终端
 
-## 🚀 安装步骤
+1. 访问 [东财掘金官网](https://www.myquant.cn/) 下载并安装量化终端
+2. 启动终端并登录您的账号(需完成实名认证)
 
-### 步骤1：获取项目代码
+**注意**:使用本系统时,东财掘金终端必须保持运行状态。详细教程见 [docs/gm_guide.html](docs/gm_guide.html)。
 
-#### 方式A：从GitHub克隆（推荐）
+### 步骤2:创建虚拟环境并安装依赖
+
+**推荐使用 conda(默认 dcquant 环境)**:
 
 ```bash
-git clone <项目仓库地址>
-cd 1593121d-dda9-11f0-8409-e89c2599a417
+# 创建并激活 dcquant 环境
+conda create -n dcquant python=3.10 -y
+conda activate dcquant
+
+# 安装依赖(使用清华源加速)
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 ```
 
-#### 方式B：下载ZIP文件
-
-1. 在GitHub项目页面点击"Code"按钮
-2. 选择"Download ZIP"
-3. 解压下载的ZIP文件到指定目录
-4. 进入解压后的目录
-
-### 步骤2：安装Python依赖
-
-#### 方式A：使用requirements.txt（推荐）
+**或使用系统 Python(不推荐)**:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-#### 方式B：手动安装
+> **提示**:也可运行 `python setup_wizard.py --auto-fix`,自动完成 conda 环境创建和依赖安装。
+
+### 步骤3:运行配置向导
 
 ```bash
-pip install streamlit
-pip install plotly
-pip install pandas
-pip install numpy
-pip install gm
-pip install openpyxl
-pip install cryptography
-pip install requests
+python setup_wizard.py
 ```
 
-**验证安装：**
+向导将引导您完成 5 个阶段:
+1. 基础环境检测(Python / pip / conda / git)
+2. 项目依赖检测与安装
+3. 东财掘金终端检测(含 API 连通性测试)
+4. Token 配置(从掘金终端获取并粘贴)
+5. 桌面快捷方式创建(双击即可启动)
+
+---
+
+## 🎯 启动应用
+
+配置完成后,有以下 3 种启动方式,推荐使用方式一。
+
+### 方式一:双击桌面快捷方式(推荐,小白用户首选)
+
+配置向导第 5 阶段会自动在桌面创建 3 个快捷方式:
+
+- **QuantScout - 一键启动**:同时启动策略控制器和参数优化器(推荐日常使用)
+- **QuantScout - 策略控制器**:仅启动策略选股系统(端口 8502)
+- **QuantScout - 参数优化器**:仅启动参数优化系统(端口 8501)
+
+双击图标即可启动,无需打开终端或记忆命令。.bat 脚本会自动激活 conda dcquant 环境并设置 UTF-8 编码。
+
+### 方式二:双击 .bat 启动脚本
+
+在项目根目录下,直接双击对应的 `.bat` 文件:
+
+| 脚本 | 功能 | 端口 |
+|------|------|------|
+| `启动策略控制器.bat` | 启动策略控制器 | 8502 |
+| `启动参数优化器.bat` | 启动参数优化器 | 8501 |
+| `一键启动全部.bat` | 同时启动两个应用 | 8501 + 8502 |
+
+### 方式三:命令行启动(推荐)
+
 ```bash
-python -c "import streamlit; print(streamlit.__version__)"
-python -c "import gm; print('gm SDK installed')"
+streamlit run Home.py
 ```
 
-### 步骤3：获取API Token
+启动后会打开浏览器,通过左侧导航栏切换"策略控制器"和"参数优化器"页面。
 
-1. 启动东财掘金量化终端
-2. 登录您的账号
-3. 在主界面点击「系统设置」
-4. 进入「密钥管理」
-5. 点击「生成Token」按钮
-6. 复制生成的Token（格式：32位十六进制字符串）
-
-**Token格式示例：**
-```
-1234567890abcdef1234567890abcdef12345678
-```
-
-⚠️  **注意：** 不要使用上面的示例Token，这只是一个格式示例。请使用您在东财掘金终端中生成的实际Token。
-
-**注意事项：**
-- Token是敏感信息，请妥善保管
-- 不要将Token分享给他人
-- 建议定期更换Token
-
-### 步骤4：验证安装
-
-运行启动器验证系统是否正确安装：
+### 方式四:命令行启动(兼容保留)
 
 ```bash
 python launcher.py
 ```
 
-选择「4. 测试后端选股功能」进行快速测试。
+启动器选项:
+- **1** - 启动策略控制器(端口:8502)
+- **2** - 启动参数优化器(端口:8501)
+- **3** - 同时启动两个应用
+- **4** - 测试后端选股功能
+- **5** - 显示帮助信息
+- **6** - 退出
 
-如果测试通过，说明系统安装成功。
+> 注:launcher.py 为旧版入口,仍可使用,但推荐使用 `streamlit run Home.py`。
 
-## ⚙️ 配置说明
+---
 
-### 1. Token配置
+## ⚠️ 掘金终端回测前置条件
 
-首次使用时需要在应用中配置Token：
+若需要使用东财掘金量化终端的回测功能,除上述启动方式外,还需满足以下条件:
 
-#### 方法A：通过Web界面配置（推荐）
+1. **在掘金量化终端中创建策略项目**:先在终端内创建一个策略项目
+2. **项目代码放入策略目录**:将本项目代码(git clone 或复制)放入该策略项目目录下
+3. **回测入口文件**:根目录的 `main.py` 是掘金终端回测的入口文件
+4. **终端运行状态**:回测时需保持掘金量化终端登录运行状态
 
-1. 运行启动器：`python launcher.py`
-2. 选择「1. 启动策略控制器」或「3. 同时启动两个应用」
-3. 在浏览器中打开的应用界面左侧边栏找到「API Token配置」
-4. 展开配置面板
-5. 粘贴Token并点击「保存Token」
+> 注意:`main.py` 是掘金终端回测专用入口。选股和参数优化功能通过 Streamlit 界面(`Home.py`)使用即可,无需依赖掘金终端的策略目录结构。
 
-#### 方法B：使用旧版配置文件（已弃用）
+---
 
-如果您之前使用过旧版本，系统支持自动迁移：
+## ⚙️ 系统要求
 
-1. 在Token配置界面展开「从旧系统迁移」
-2. 点击「迁移旧Token」
-3. 系统会自动从`token_config.py`读取并迁移Token
+### 必需条件
+- **操作系统**: Windows 10/11
+- **Python版本**: 3.8+
+- **东财掘金量化终端**: 已安装并运行
+- **API Token**: 从掘金终端生成(需实名认证)
 
-### 2. 端口配置
+### 推荐配置
+- **内存**: 8GB+
+- **处理器**: Intel i5+
+- **网络**: 稳定的互联网连接(用于获取股票数据)
+- **虚拟环境**: conda dcquant(由 setup_wizard.py 自动创建)
 
-默认端口配置：
+---
 
-- **策略控制器**：8502
-- **参数优化器**：8501
+## 🛠️ 配置向导(setup_wizard.py)命令一览
 
-如需修改端口，编辑启动命令：
+| 命令 | 用途 |
+|------|------|
+| `python setup_wizard.py` | 完整配置向导(交互式) |
+| `python setup_wizard.py --check-env` | 仅检测环境,不修改 |
+| `python setup_wizard.py --auto-fix` | 自动创建 conda 环境 + 安装缺失依赖 |
+| `python setup_wizard.py --diagnose` | 输出完整诊断报告(供 Agent 分析) |
+| `python setup_wizard.py --create-shortcut` | 仅创建桌面快捷方式 |
+
+---
+
+## 🔧 常见问题
+
+### Q1:pip 安装失败
 
 ```bash
-streamlit run strategy_controller/main.py --server.port 8503
+# 使用国内镜像源
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+
+# 或仅安装单个包
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple gm
 ```
 
-### 3. 数据缓存
+### Q2:Token 验证失败
 
-系统会自动缓存股票数据到`cache/`目录，避免重复下载。
+- 确保东财掘金终端已启动并登录
+- 确认账号已完成实名认证(未实名无法生成 Token)
+- 重新生成 Token(系统设置 → 密钥管理)
+- 检查 Token 是否复制完整(无多余空格或截断)
+- 检查网络连接
 
-首次运行时可能需要较长时间下载数据。
+### Q3:端口被占用
 
-## 🔧 常见安装问题
-
-### 问题1：pip安装失败
-
-**错误信息：**
-```
-ERROR: Could not find a version that satisfies the requirement gm
-```
-
-**解决方案：**
-- 确保网络连接正常
-- 尝试使用国内镜像源：
-  ```bash
-  pip install -i https://pypi.tuna.tsinghua.edu.cn/simple gm
-  ```
-- 或手动下载gm SDK的whl文件后安装
-
-### 问题2：gm SDK导入失败
-
-**错误信息：**
-```
-ImportError: No module named 'gm'
-```
-
-**解决方案：**
 ```bash
-pip uninstall gm
-pip install gm
-```
+# 查找占用端口的进程
+netstat -ano | findstr :8502
 
-### 问题3：Streamlit启动失败
-
-**错误信息：**
-```
-streamlit run: command not found
-```
-
-**解决方案：**
-- 确保已安装streamlit：`pip install streamlit`
-- 尝试使用Python模块方式启动：`python -m streamlit run ...`
-
-### 问题4：端口被占用
-
-**错误信息：**
-```
-Port 8501 is already in use
-```
-
-**解决方案：**
-
-方法A：终止占用端口的进程
-```bash
-netstat -ano | findstr :8501
+# 终止进程
 taskkill /PID <进程ID> /F
 ```
 
-方法B：使用其他端口启动
-```bash
-streamlit run app.py --server.port 8503
-```
+### Q4:启动失败
 
-### 问题5：东财掘金终端连接失败
+- 检查 Python 版本:`python --version`(需 3.8+)
+- 重新安装依赖:`pip install -r requirements.txt`
+- 运行诊断:`python setup_wizard.py --diagnose` 查看完整报告
+- 确保使用 Windows 系统
+- 确认掘金终端正在运行
 
-**错误信息：**
-```
-连接失败，请确保东财掘金终端正在运行
-```
+### Q5:conda 命令未找到
 
-**解决方案：**
-- 确保东财掘金终端已启动
-- 确保已登录账号
-- 检查防火墙设置
-- 尝试重启东财掘金终端
+- 检查 Anaconda/Miniconda 是否正确安装
+- 手动将以下路径加入系统 PATH(以 Anaconda 为例):
+  - `C:\Users\<用户名>\anaconda3`
+  - `C:\Users\<用户名>\anaconda3\Scripts`
+  - `C:\Users\<用户名>\anaconda3\Library\bin`
+- 重启 PowerShell 后再次验证
 
-## 📦 卸载说明
+### Q6:.bat 启动脚本提示「未找到 Python」
 
-如果需要卸载本系统：
+- 检查 Python 是否正确安装并加入 PATH
+- 若使用 conda,确认 dcquant 环境已创建:`conda env list`
+- 运行 `python setup_wizard.py --auto-fix` 重新配置环境
 
-1. 删除项目目录
-2. （可选）卸载Python包：
-   ```bash
-   pip uninstall streamlit plotly pandas numpy gm openpyxl
-   ```
-3. （可选）删除东财掘金终端
-
-## 🔄 更新说明
-
-### 从旧版本升级
-
-如果您之前使用过本系统，建议进行以下升级：
-
-1. 备份旧版本的项目目录
-2. 获取新版本代码
-3. 运行启动器，系统会自动检测并提示迁移Token
-4. 完成迁移后，可以删除旧版`token_config.py`
-
-### 数据迁移
-
-旧版本的选股结果和配置文件可以继续使用，无需特殊迁移。
+---
 
 ## 📞 获取帮助
 
-如果遇到安装问题：
-
-1. 查看本文档的「常见安装问题」部分
-2. 检查应用日志输出
-3. 在GitHub Issues中搜索类似问题
-4. 创建新的Issue并提供详细的错误信息
-
-## ✅ 安装完成
-
-恭喜！您已成功安装z哥选股策略系统。
-
-下一步，请阅读[使用指南](USAGE.md)了解如何使用系统。
+- 查看 [AGENT.md](AGENT.md) 了解 Agent 部署引导指南(含小白用户决策树)
+- 查看 [USAGE.md](USAGE.md) 了解使用方法
+- 查看 [docs/gm_guide.html](docs/gm_guide.html) 掘金终端图文教程
+- 运行 `python setup_wizard.py --diagnose` 获取诊断报告
+- 在 GitHub Issues 中提交问题

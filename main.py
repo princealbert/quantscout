@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
-z哥选股策略回测系统 - 解耦重构版
+QuantScout选股策略回测系统 - 解耦重构版
 基于模块化设计的回测系统，职责清晰，易于维护
 """
 
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     import sys
     import os
     
-    print("🎯 z哥选股策略回测系统 - 解耦重构版")
+    print("🎯 QuantScout选股策略回测系统 - 解耦重构版")
     print("="*60)
     print("📁 模块化架构:")
     print("  - strategy.py: 纯策略逻辑实现")
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     original_argv = sys.argv.copy()
     
     # 创建命令行参数解析器
-    parser = argparse.ArgumentParser(description='z哥选股策略回测系统')
+    parser = argparse.ArgumentParser(description='QuantScout选股策略回测系统')
     parser.add_argument('-c', '--config', type=str, help='指定前端生成的JSON配置文件路径')
     parser.add_argument('--params-file', type=str, help='指定策略参数文件路径（用于并行回测）')
     

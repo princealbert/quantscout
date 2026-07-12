@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
 头部组件模块 - 页面配置和头部显示
@@ -15,7 +15,7 @@ def setup_page():
     # 仅通过环境变量设置编码
     
     st.set_page_config(
-        page_title="z哥选股策略控制器",
+        page_title="QuantScout量化选股系统",
         page_icon="🎯",
         layout="wide",
         initial_sidebar_state="expanded"
@@ -91,7 +91,7 @@ def setup_page():
 
 def display_header():
     """显示页面头部"""
-    st.markdown('<div class="main-header">🎯 z哥选股策略控制器</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🎯 QuantScout量化选股系统</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     

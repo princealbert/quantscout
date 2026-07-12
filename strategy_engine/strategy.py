@@ -80,7 +80,7 @@ class BacktestStrategy:
             try:
                 import json
                 import os
-                from strategies.zge_strategy import ZGeStrategyScreener
+                from strategies.multi_dim_strategy import MultiDimStrategyScreener
                 from scoring.comprehensive_scorer import ComprehensiveScorer
                 
                 # 加载权重配置 - 使用参数化配置
@@ -105,14 +105,14 @@ class BacktestStrategy:
                         print(f"从文件加载权重配置失败，使用默认权重配置")
                 
                 # 创建选股器实例
-                print(f"创建ZGeStrategyScreener实例")
-                screener = ZGeStrategyScreener(
+                print(f"创建MultiDimStrategyScreener实例")
+                screener = MultiDimStrategyScreener(
                     batch_size=100,  # 小批量处理，适应回测环境
                     max_workers=2,   # 减少线程数，避免资源竞争
                     weights_config=weights_config,  # 使用碗选股策略权重
                     sub_weights_config=sub_weights_config
                 )
-                print(f"ZGeStrategyScreener实例创建成功")
+                print(f"MultiDimStrategyScreener实例创建成功")
                 
                 # 获取真实股票池（调用选股系统的get_stock_pool方法）
                 current_date = context.now.strftime('%Y-%m-%d')

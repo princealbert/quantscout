@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
-z哥选股策略启动器 - 统一入口
+QuantScout选股策略启动器 - 统一入口
 整合所有功能，提供完整的用户体验
 """
 
@@ -46,16 +46,16 @@ def check_dependencies():
 
 def start_controller():
     """启动策略控制器 - 在当前终端启动headless版本"""
-    print("🚀 启动重构版z哥选股策略控制器...")
+    print("🚀 启动QuantScout量化选股系统...")
     print("=" * 60)
-    print("🎯 z哥选股策略控制器 (重构版)")
+    print("🎯 QuantScout量化选股系统 (重构版)")
     print("=" * 60)
     print("🆕 重构特性:")
     print("• 模块化架构: UI/业务/展示/工具模块分离")
     print("• 单一职责原则: 每个模块专注特定功能")
     print("• 代码可维护性: 更清晰的代码组织结构")
     print("• 功能特色:")
-    print("  • 策略支持: z哥综合策略")
+    print("  • 策略支持: 多维综合策略")
     print("  • 实时权重调整: 支持7个维度的权重配置")
     print("  • 可视化分析: 图表分析、数据表格、详细视图")
     print("  • 批量处理: 支持全量A股分批处理")
@@ -170,12 +170,12 @@ def run_backend_test():
     print("🔧 测试后端选股功能...")
     
     try:
-        from strategies.zge_strategy import run_zge_strategy_screener
+        from strategies.multi_dim_strategy import run_multi_dim_strategy_screener
         
-        print("测试z哥综合策略...")
+        print("测试多维综合策略...")
         
         # 使用正确的函数调用方式
-        results = run_zge_strategy_screener(
+        results = run_multi_dim_strategy_screener(
             test_mode=True,    # 测试模式：仅处理前100只股票
             max_results=10,    # 最大结果数
             skip_st=True       # 跳过ST股
@@ -302,7 +302,7 @@ def display_help():
 
 def main():
     """主函数"""
-    print("🎯 z哥选股策略系统启动器")
+    print("🎯 QuantScout量化选股系统启动器")
     print("=" * 50)
     
     # 检查依赖

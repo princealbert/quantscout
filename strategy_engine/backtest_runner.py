@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
 回测执行模块 - 负责回测的配置和执行
@@ -408,14 +408,14 @@ except Exception as e:
                     strategy_params = FrontendConfigLoader.convert_to_strategy_params(frontend_config)
                     
                     # 显示配置信息
-                    print("z哥选股策略回测系统 - 前端配置模式")
+                    print("QuantScout选股策略回测系统 - 前端配置模式")
                     print("="*50)
                     print(f"初始资金: {strategy_params.get('initial_capital', 100000):,}元")
                     print(f"佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}千分")
                     print(f"止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
                     print(f"止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
                     print(f"回测天数: {strategy_params.get('backtest_days', 90)}天")
-                    print(f"策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
+                    print(f"策略ID: {strategy_params.get('strategy_id', 'multi_dim_strategy')}")
                     print(f"回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
                     print("="*50)
                     
@@ -481,14 +481,14 @@ except Exception as e:
                 # 从strategy_params中提取实际参数
                 strategy_params = config['strategy_params']
                 
-                print("z哥选股策略回测系统 - 参数优化器模式")
+                print("QuantScout选股策略回测系统 - 参数优化器模式")
                 print("="*50)
                 print(f"初始资金: {strategy_params.get('initial_capital', 100000):,}元")
                 print(f"佣金比例: {strategy_params.get('commission_ratio', 0.0003)*10000}千分")
                 print(f"止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
                 print(f"止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
                 print(f"回测天数: {strategy_params.get('backtest_days', 90)}天")
-                print(f"策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
+                print(f"策略ID: {strategy_params.get('strategy_id', 'multi_dim_strategy')}")
                 print(f"回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
                 
                 # 显示权重配置信息
@@ -509,7 +509,7 @@ except Exception as e:
             # 检查是否为嵌套配置结构（来自前端配置）
             elif 'backtest' in config and 'strategy' in config:
                     # 解析嵌套配置结构，类似于前端配置文件
-                    print("z哥选股策略回测系统 - 嵌套配置模式")
+                    print("QuantScout选股策略回测系统 - 嵌套配置模式")
                     print("="*50)
                     
                     # 提取backtest部分参数
@@ -536,7 +536,7 @@ except Exception as e:
                     print(f"止盈比例: {strategy_params.get('stop_profit_ratio', 0.03)*100:.2f}%")
                     print(f"止损比例: {strategy_params.get('stop_loss_ratio', -0.02)*100:.2f}%")
                     print(f"回测天数: {strategy_params.get('backtest_days', 90)}天")
-                    print(f"策略ID: {strategy_params.get('strategy_id', 'zge_strategy')}")
+                    print(f"策略ID: {strategy_params.get('strategy_id', 'multi_dim_strategy')}")
                     print(f"回测股票数量: {strategy_params.get('max_stocks_to_backtest', 1)}只")
                     
                     # 显示权重配置信息
@@ -558,14 +558,14 @@ except Exception as e:
                 # 非嵌套配置结构，直接使用
                 params = StrategyParams(**config)
                 
-                print("z哥选股策略回测系统 - 直接配置模式")
+                print("QuantScout选股策略回测系统 - 直接配置模式")
                 print("="*50)
                 print(f"初始资金: {config.get('initial_capital', 100000):,}元")
                 print(f"佣金比例: {config.get('commission_ratio', 0.0003)*10000}千分")
                 print(f"止盈比例: {config.get('stop_profit_ratio', 0.03)*100:.2f}%")
                 print(f"止损比例: {config.get('stop_loss_ratio', -0.02)*100:.2f}%")
                 print(f"回测天数: {config.get('backtest_days', 90)}天")
-                print(f"策略ID: {config.get('strategy_id', 'zge_strategy')}")
+                print(f"策略ID: {config.get('strategy_id', 'multi_dim_strategy')}")
                 print(f"回测股票数量: {config.get('max_stocks_to_backtest', 1)}只")
                 
                 # 显示权重配置信息
@@ -618,7 +618,7 @@ except Exception as e:
             # 直接创建默认参数，不使用全局变量
             params = StrategyParams()
             
-            print("z哥选股策略回测系统 - 参数化配置")
+            print("QuantScout选股策略回测系统 - 参数化配置")
             print("="*50)
             print(f"初始资金: {params.initial_capital:,}元")
             print(f"佣金比例: {params.commission_ratio*10000}千分")

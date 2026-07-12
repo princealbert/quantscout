@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东财掘金量化终端 - 安装与配置图文教程</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8edf3 100%);
+            color: #2c3e50;
+            line-height: 1.7;
+            padding: 20px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        header h1 { font-size: 28px; margin-bottom: 10px; }
+        header p { opacity: 0.9; font-size: 15px; }
+        header .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        .toc {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 20px 30px;
+        }
+        .toc h3 { font-size: 16px; margin-bottom: 12px; color: #1e3c72; }
+        .toc ol { padding-left: 20px; }
+        .toc li { margin: 6px 0; }
+        .toc a { color: #2a5298; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        main { padding: 30px; }
+        section {
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+        section:last-child { border-bottom: none; }
+        section h2 {
+            color: #1e3c72;
+            font-size: 22px;
+            margin-bottom: 16px;
+            padding-left: 12px;
+            border-left: 4px solid #2a5298;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #2a5298;
+            padding: 16px 20px;
+            margin: 14px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .step-number {
+            display: inline-block;
+            background: #2a5298;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .step-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #1e3c72;
+        }
+        .step-content { margin-top: 10px; padding-left: 38px; }
+        .step-content p { margin: 8px 0; }
+        .diagram {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        .diagram svg { max-width: 100%; height: auto; }
+        .diagram-caption {
+            font-size: 13px;
+            color: #888;
+            margin-top: 8px;
+            font-style: italic;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 16px;
+            margin: 14px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .note strong { color: #856404; }
+        .warning {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 12px 16px;
+            margin: 14px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning strong { color: #721c24; }
+        .tip {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 12px 16px;
+            margin: 14px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .tip strong { color: #155724; }
+        code {
+            background: #f1f3f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 14px;
+            color: #c7254e;
+        }
+        .btn-link {
+            display: inline-block;
+            background: #2a5298;
+            color: #fff;
+            padding: 10px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        .btn-link:hover { background: #1e3c72; }
+        .token-display {
+            background: #2c3e50;
+            color: #2ecc71;
+            padding: 16px;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 14px;
+            word-break: break-all;
+            margin: 12px 0;
+            position: relative;
+        }
+        .token-display::before {
+            content: "示例 Token";
+            position: absolute;
+            top: -10px;
+            left: 12px;
+            background: #2ecc71;
+            color: #2c3e50;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        footer {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 24px 30px;
+            text-align: center;
+            font-size: 13px;
+        }
+        footer a { color: #3498db; text-decoration: none; }
+        .checklist {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 16px 0;
+        }
+        .checklist h4 { color: #2e7d32; margin-bottom: 10px; }
+        .checklist ul { list-style: none; padding-left: 0; }
+        .checklist li {
+            padding: 4px 0;
+            padding-left: 28px;
+            position: relative;
+        }
+        .checklist li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2e7d32;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            header { padding: 24px 16px; }
+            main { padding: 16px; }
+            header h1 { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <h1>东财掘金量化终端 - 安装与配置教程</h1>
+        <p>QuantScout 量化选股系统依赖东财掘金终端提供行情数据</p>
+        <p>本教程将引导您完成从下载到生成 Token 的全部流程</p>
+        <span class="badge">适用版本:掘金终端 3.x | Windows 10/11</span>
+    </header>
+
+    <nav class="toc">
+        <h3>目录</h3>
+        <ol>
+            <li><a href="#overview">概览:为什么需要掘金终端?</a></li>
+            <li><a href="#download">下载掘金量化终端</a></li>
+            <li><a href="#install">安装终端</a></li>
+            <li><a href="#register">注册账号与实名认证</a></li>
+            <li><a href="#login">登录终端</a></li>
+            <li><a href="#token">生成 API Token</a></li>
+            <li><a href="#verify">验证 Token 是否可用</a></li>
+            <li><a href="#faq">常见问题</a></li>
+        </ol>
+    </nav>
+
+    <main>
+
+        <section id="overview">
+            <h2>1. 概览:为什么需要掘金终端?</h2>
+            <p>QuantScout 系统通过 <strong>东财掘金(gm SDK)</strong> 获取 A 股行情数据、历史 K 线、财务指标等。这些数据接口需要:</p>
+            <ul style="padding-left: 24px; margin-top: 8px;">
+                <li>掘金<strong>终端程序</strong>保持运行(它作为本地代理,转发 API 请求)</li>
+                <li>有效的 <strong>API Token</strong>(用于身份认证,从终端生成)</li>
+            </ul>
+
+            <div class="diagram">
+                <svg width="600" height="200" viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#1e3c72;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#2a5298;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <!-- QuantScout 应用 -->
+                    <rect x="20" y="60" width="140" height="80" rx="8" fill="url(#grad1)" />
+                    <text x="90" y="95" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">QuantScout</text>
+                    <text x="90" y="115" text-anchor="middle" fill="#fff" font-size="11">选股 / 回测</text>
+
+                    <!-- 箭头 1 -->
+                    <line x1="170" y1="100" x2="230" y2="100" stroke="#2a5298" stroke-width="2" marker-end="url(#arrow)" />
+                    <text x="200" y="92" text-anchor="middle" fill="#666" font-size="10">gm SDK 调用</text>
+
+                    <!-- 掘金终端 -->
+                    <rect x="240" y="60" width="140" height="80" rx="8" fill="#fff" stroke="#2a5298" stroke-width="2" />
+                    <text x="310" y="95" text-anchor="middle" fill="#1e3c72" font-size="13" font-weight="bold">掘金终端</text>
+                    <text x="310" y="115" text-anchor="middle" fill="#666" font-size="11">本地代理</text>
+
+                    <!-- 箭头 2 -->
+                    <line x1="390" y1="100" x2="450" y2="100" stroke="#2a5298" stroke-width="2" marker-end="url(#arrow)" />
+                    <text x="420" y="92" text-anchor="middle" fill="#666" font-size="10">数据请求</text>
+
+                    <!-- 东财服务器 -->
+                    <rect x="460" y="60" width="120" height="80" rx="8" fill="#27ae60" />
+                    <text x="520" y="95" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">东财服务器</text>
+                    <text x="520" y="115" text-anchor="middle" fill="#fff" font-size="11">行情数据中心</text>
+
+                    <!-- 标签 -->
+                    <text x="90" y="170" text-anchor="middle" fill="#888" font-size="11">本机运行</text>
+                    <text x="310" y="170" text-anchor="middle" fill="#888" font-size="11">本机运行(必须开启)</text>
+                    <text x="520" y="170" text-anchor="middle" fill="#888" font-size="11">云端</text>
+
+                    <defs>
+                        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#2a5298" />
+                        </marker>
+                    </defs>
+                </svg>
+                <div class="diagram-caption">图 1:数据流向 - QuantScout 通过掘金终端访问东财行情服务器</div>
+            </div>
+
+            <div class="note">
+                <strong>关键点:</strong>使用 QuantScout 时,掘金终端必须保持运行状态。如果终端关闭,选股和回测功能将无法获取数据。
+            </div>
+        </section>
+
+        <section id="download">
+            <h2>2. 下载掘金量化终端</h2>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-title">访问掘金官网</span>
+                <div class="step-content">
+                    <p>打开浏览器,访问东财掘金官网:</p>
+                    <p><a class="btn-link" href="https://www.myquant.cn/" target="_blank">前往掘金官网 →</a></p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-title">下载 Windows 版终端</span>
+                <div class="step-content">
+                    <p>在官网首页找到「下载」或「量化终端」入口,选择 <strong>Windows 版</strong>进行下载。</p>
+                    <p>推荐下载最新稳定版(3.x 系列),文件大小约 200-300MB。</p>
+                </div>
+            </div>
+
+            <div class="diagram">
+                <svg width="500" height="180" viewBox="0 0 500 180" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="20" y="20" width="460" height="140" rx="6" fill="#f8f9fa" stroke="#dee2e6" />
+                    <text x="250" y="50" text-anchor="middle" fill="#1e3c72" font-size="14" font-weight="bold">掘金官网下载页面(示意)</text>
+
+                    <rect x="60" y="70" width="180" height="70" rx="4" fill="#fff" stroke="#2a5298" stroke-width="2" />
+                    <text x="150" y="95" text-anchor="middle" fill="#2a5298" font-size="13" font-weight="bold">Windows 版</text>
+                    <text x="150" y="115" text-anchor="middle" fill="#666" font-size="11">推荐下载</text>
+                    <circle cx="220" cy="105" r="8" fill="#28a745" />
+                    <text x="220" y="109" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">✓</text>
+
+                    <rect x="260" y="70" width="180" height="70" rx="4" fill="#fff" stroke="#dee2e6" />
+                    <text x="350" y="95" text-anchor="middle" fill="#666" font-size="13">Mac 版</text>
+                    <text x="350" y="115" text-anchor="middle" fill="#999" font-size="11">不支持</text>
+                </svg>
+                <div class="diagram-caption">图 2:选择 Windows 版本下载</div>
+            </div>
+
+            <div class="tip">
+                <strong>提示:</strong>如官网改版找不到下载入口,可直接访问下载页:<a href="https://www.myquant.cn/download" target="_blank">https://www.myquant.cn/downloads</a>
+            </div>
+        </section>
+
+        <section id="install">
+            <h2>3. 安装终端</h2>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-title">运行安装包</span>
+                <div class="step-content">
+                    <p>双击下载的安装包(如 <code>myquant_setup_3.x.x.exe</code>),按提示完成安装。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-title">选择安装路径(可选)</span>
+                <div class="step-content">
+                    <p>默认安装路径为 <code>C:\myquant\</code>,如无特殊需求建议保持默认。</p>
+                    <p>安装路径<strong>不要包含中文或空格</strong>,避免后续 SDK 调用出现问题。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <span class="step-title">完成安装并启动</span>
+                <div class="step-content">
+                    <p>安装完成后,桌面会出现「掘金量化终端」快捷方式。双击启动。</p>
+                </div>
+            </div>
+
+            <div class="warning">
+                <strong>注意:</strong>如果系统提示「Windows 已保护你的电脑」,点击「更多信息」→「仍要运行」即可。这是 SmartScreen 对未签名安装包的常规提示。
+            </div>
+        </section>
+
+        <section id="register">
+            <h2>4. 注册账号与实名认证</h2>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-title">注册掘金账号</span>
+                <div class="step-content">
+                    <p>首次启动终端会弹出登录界面,点击「注册」按钮,使用手机号注册账号。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-title">完成实名认证</span>
+                <div class="step-content">
+                    <p>登录后,进入「个人中心」→「账号设置」→「实名认证」。</p>
+                    <p>填写真实姓名、身份证号,完成实名认证。<strong>未实名认证的账号无法生成 API Token</strong>。</p>
+                </div>
+            </div>
+
+            <div class="diagram">
+                <svg width="500" height="160" viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="20" y="20" width="460" height="120" rx="6" fill="#f8f9fa" stroke="#dee2e6" />
+
+                    <rect x="50" y="50" width="120" height="60" rx="4" fill="#fff" stroke="#2a5298" />
+                    <text x="110" y="80" text-anchor="middle" fill="#2a5298" font-size="12">1. 注册账号</text>
+                    <text x="110" y="98" text-anchor="middle" fill="#666" font-size="10">手机号注册</text>
+
+                    <line x1="170" y1="80" x2="200" y2="80" stroke="#2a5298" stroke-width="2" marker-end="url(#arrow2)" />
+
+                    <rect x="210" y="50" width="120" height="60" rx="4" fill="#fff" stroke="#2a5298" />
+                    <text x="270" y="80" text-anchor="middle" fill="#2a5298" font-size="12">2. 实名认证</text>
+                    <text x="270" y="98" text-anchor="middle" fill="#666" font-size="10">身份证信息</text>
+
+                    <line x1="330" y1="80" x2="360" y2="80" stroke="#2a5298" stroke-width="2" marker-end="url(#arrow2)" />
+
+                    <rect x="370" y="50" width="90" height="60" rx="4" fill="#28a745" />
+                    <text x="415" y="80" text-anchor="middle" fill="#fff" font-size="12">完成</text>
+                    <text x="415" y="98" text-anchor="middle" fill="#fff" font-size="10">可生成 Token</text>
+
+                    <defs>
+                        <marker id="arrow2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#2a5298" />
+                        </marker>
+                    </defs>
+                </svg>
+                <div class="diagram-caption">图 3:注册与认证流程</div>
+            </div>
+        </section>
+
+        <section id="login">
+            <h2>5. 登录终端</h2>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-title">启动终端并登录</span>
+                <div class="step-content">
+                    <p>双击桌面「掘金量化终端」图标,输入注册的账号密码登录。</p>
+                    <p>登录成功后,终端主界面会显示行情、策略、回测等模块入口。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-title">保持终端运行</span>
+                <div class="step-content">
+                    <p>使用 QuantScout 期间,掘金终端<strong>必须保持运行</strong>(可以最小化,但不能关闭)。</p>
+                    <p>终端作为本地代理,负责转发 SDK 的数据请求到东财服务器。</p>
+                </div>
+            </div>
+
+            <div class="note">
+                <strong>提示:</strong>终端最小化到托盘后仍可正常工作。如果右下角托盘没有掘金图标,说明终端已退出,需要重新启动。
+            </div>
+        </section>
+
+        <section id="token">
+            <h2>6. 生成 API Token</h2>
+
+            <p>API Token 是 QuantScout 访问掘金数据的身份凭证,需要从终端生成。</p>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-title">进入「密钥管理」</span>
+                <div class="step-content">
+                    <p>在掘金终端主界面,点击右上角的「系统设置」(齿轮图标),选择「密钥管理」或「API Token」。</p>
+                    <p>部分版本路径为:「工具」→「系统设置」→「密钥管理」。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-title">生成新 Token</span>
+                <div class="step-content">
+                    <p>在密钥管理页面,点击「生成 Token」或「新建密钥」按钮。</p>
+                    <p>系统会弹出生成的 Token 字符串,长度通常为 32-64 个字符。</p>
+                </div>
+            </div>
+
+            <div class="diagram">
+                <svg width="500" height="220" viewBox="0 0 500 220" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="20" y="20" width="460" height="180" rx="6" fill="#f8f9fa" stroke="#dee2e6" />
+                    <text x="250" y="45" text-anchor="middle" fill="#1e3c72" font-size="13" font-weight="bold">掘金终端 - 密钥管理界面(示意)</text>
+
+                    <rect x="50" y="65" width="400" height="40" rx="4" fill="#fff" stroke="#dee2e6" />
+                    <text x="65" y="90" fill="#666" font-size="11">路径: 系统设置 → 密钥管理</text>
+
+                    <rect x="50" y="115" width="400" height="40" rx="4" fill="#fff" stroke="#dee2e6" />
+                    <text x="65" y="135" fill="#888" font-size="11">已生成 Token:</text>
+                    <text x="65" y="150" fill="#2ecc71" font-size="11" font-family="monospace">a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6...</text>
+
+                    <rect x="350" y="160" width="100" height="30" rx="4" fill="#2a5298" />
+                    <text x="400" y="180" text-anchor="middle" fill="#fff" font-size="11">生成 Token</text>
+
+                    <circle cx="365" cy="130" r="10" fill="#dc3545" />
+                    <text x="365" y="134" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">1</text>
+
+                    <circle cx="365" cy="175" r="10" fill="#dc3545" />
+                    <text x="365" y="179" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">2</text>
+                </svg>
+                <div class="diagram-caption">图 4:生成 Token 流程(具体界面以实际版本为准)</div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <span class="step-title">复制 Token</span>
+                <div class="step-content">
+                    <p>点击 Token 旁边的「复制」按钮,或手动选中 Token 字符串复制。</p>
+                    <p>Token 形如:</p>
+                </div>
+            </div>
+
+            <div class="token-display">
+                a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+            </div>
+
+            <div class="warning">
+                <strong>重要安全提示:</strong>
+                <ul style="margin: 8px 0 0 24px;">
+                    <li>Token 是敏感凭证,<strong>切勿</strong>分享给他人或上传到公开仓库</li>
+                    <li>QuantScout 会使用 Fernet 加密方式本地存储 Token</li>
+                    <li>如怀疑 Token 泄露,请立即在终端中删除并重新生成</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="verify">
+            <h2>7. 验证 Token 是否可用</h2>
+
+            <p>Token 生成后,建议运行 QuantScout 配置向导验证:</p>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-title">运行配置向导</span>
+                <div class="step-content">
+                    <p>在项目根目录打开终端(PowerShell 或 cmd),执行:</p>
+                    <p><code>python setup_wizard.py</code></p>
+                    <p>向导会引导您完成环境检测、依赖安装,并在第 4 阶段提示输入 Token。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-title">输入并验证 Token</span>
+                <div class="step-content">
+                    <p>粘贴 Token 后,向导会自动调用掘金 API 测试连通性(获取交易日数据)。</p>
+                    <p>看到 <code>[OK] 掘金 API 连通性测试通过</code> 即表示配置成功。</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <span class="step-title">启动应用</span>
+                <div class="step-content">
+                    <p>Token 验证通过后,可双击桌面快捷方式启动 QuantScout,或运行:</p>
+                    <p><code>python launcher.py</code></p>
+                </div>
+            </div>
+
+            <div class="checklist">
+                <h4>配置完成检查清单</h4>
+                <ul>
+                    <li>掘金终端已安装并能正常启动</li>
+                    <li>已完成账号注册和实名认证</li>
+                    <li>已生成 API Token 并配置到 QuantScout</li>
+                    <li>运行 <code>python setup_wizard.py</code> 显示 API 连通性测试通过</li>
+                    <li>掘金终端在使用 QuantScout 期间保持运行</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="faq">
+            <h2>8. 常见问题</h2>
+
+            <h3 style="margin: 20px 0 10px; color:#1e3c72;">Q1: 提示「API 连通性测试失败」怎么办?</h3>
+            <div class="note">
+                <strong>排查步骤:</strong>
+                <ol style="margin: 8px 0 0 24px;">
+                    <li>确认掘金终端已启动并登录(查看右下角托盘是否有掘金图标)</li>
+                    <li>确认 Token 复制完整(无多余空格或截断)</li>
+                    <li>检查网络连接(终端需要联网访问东财服务器)</li>
+                    <li>尝试重新生成 Token</li>
+                </ol>
+            </div>
+
+            <h3 style="margin: 20px 0 10px; color:#1e3c72;">Q2: Token 可以在多台电脑上使用吗?</h3>
+            <div class="note">
+                <strong>解答:</strong>可以,但同一时间只能在一台电脑上使用。Token 与账号绑定,而非设备绑定。在另一台电脑使用时,需重新运行 <code>setup_wizard.py</code> 配置。
+            </div>
+
+            <h3 style="margin: 20px 0 10px; color:#1e3c72;">Q3: Token 会过期吗?</h3>
+            <div class="note">
+                <strong>解答:</strong>Token 一般长期有效,但如果长时间未使用或账号有异常,可能会被自动失效。重新生成即可。
+            </div>
+
+            <h3 style="margin: 20px 0 10px; color:#1e3c72;">Q4: 免费版有数据访问限制吗?</h3>
+            <div class="note">
+                <strong>解答:</strong>免费版有每分钟 API 调用次数限制(通常 60-200 次/分钟)。QuantScout 已内置批量处理和缓存机制,正常使用不受影响。如需更高频率,可联系掘金客服升级。
+            </div>
+
+            <h3 style="margin: 20px 0 10px; color:#1e3c72;">Q5: 终端可以最小化运行吗?</h3>
+            <div class="note">
+                <strong>解答:</strong>可以。终端最小化到托盘后,API 代理功能仍正常工作。但<strong>不能完全退出</strong>(右键托盘退出会断开 API)。
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>本教程由 QuantScout 项目提供 | 仅用于学习研究,不构成投资建议</p>
+        <p style="margin-top: 8px;">
+            掘金官网:<a href="https://www.myquant.cn/" target="_blank">https://www.myquant.cn/</a> |
+            在线文档:<a href="https://www.myquant.cn/docs/python/" target="_blank">Python SDK 文档</a>
+        </p>
+    </footer>
+
+</div>
+</body>
+</html>

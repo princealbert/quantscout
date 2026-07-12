@@ -80,7 +80,13 @@ class BaseOptimizer(ABC):
             Dict[str, Any]: 回测结果
         """
         from backtest.backtest_adapter import BacktestAdapter
-        return BacktestAdapter.run_backtest(params)
+        result = BacktestAdapter.run_backtest(params)
+        
+        # 确保回测结果中包含max_holding_days参数
+        if 'max_holding_days' in params and 'max_holding_days' not in result:
+            result['max_holding_days'] = params['max_holding_days']
+        
+        return result
     
     def validate_parameters(self, params: Dict[str, Any]) -> bool:
         """

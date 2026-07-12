@@ -21,7 +21,7 @@ from strategy_controller.utils.time_formatter import format_time
 # 导入选股策略（带错误处理）- 更新为重构后的模块
 try:
     # 导入重构后的策略模块
-    from strategies.zge_strategy import ZGeStrategyScreener, run_zge_strategy_screener
+    from strategies.multi_dim_strategy import MultiDimStrategyScreener, run_multi_dim_strategy_screener
     STRATEGY_IMPORT_SUCCESS = True
 except ImportError as e:
     print(f"[WARNING] 策略模块导入失败: {e}")
@@ -29,7 +29,7 @@ except ImportError as e:
     STRATEGY_IMPORT_SUCCESS = False
     
     # 创建空的占位类
-    class ZGeStrategyScreener:
+    class MultiDimStrategyScreener:
         def __init__(self, batch_size=500, max_workers=6, weights_config=None, sub_weights_config=None):
             self.batch_size = batch_size
             self.max_workers = max_workers
@@ -86,12 +86,12 @@ except ImportError as e:
         def save_results(self, results, filename=None):
             return None
     
-    def run_zge_strategy_screener(*args, **kwargs):
+    def run_multi_dim_strategy_screener(*args, **kwargs):
         st.error("策略模块不可用")
         return []
 
 
-def create_weighted_screener(weights: Dict[str, int], params: Dict[str, Any], sub_weights_config: Dict[str, Any] = None) -> ZGeStrategyScreener:
+def create_weighted_screener(weights: Dict[str, int], params: Dict[str, Any], sub_weights_config: Dict[str, Any] = None) -> MultiDimStrategyScreener:
     """创建带权重配置的选股器"""
     # 参数验证和类型转换
     batch_size = int(params.get('batch_size', 500))
@@ -106,7 +106,7 @@ def create_weighted_screener(weights: Dict[str, int], params: Dict[str, Any], su
         logger.debug("子权重配置: 未启用")
     
     # 直接通过构造函数传递参数，避免传递不存在的参数
-    screener = ZGeStrategyScreener(
+    screener = MultiDimStrategyScreener(
         batch_size=batch_size,
         max_workers=max_workers,
         weights_config=weights,
@@ -167,10 +167,10 @@ def run_strategy(strategy_type: str, weights: Dict[str, int], params: Dict[str, 
     
     try:
         # 标准化策略类型
-        if strategy_type == "zge_comprehensive":
-            strategy_type = "z哥综合策略 (KDJ+知行趋势+深V信号)"
+        if strategy_type == "multi_dim":
+            strategy_type = "多维综合策略 (KDJ+知行趋势+深V信号)"
             
-        if strategy_type == "z哥综合策略 (KDJ+知行趋势+深V信号)":
+        if strategy_type == "多维综合策略 (KDJ+知行趋势+深V信号)":
             # 创建带权重配置的选股器
             logger.info("🔧 创建选股器实例")
             screener = create_weighted_screener(weights, params, sub_weights_config)

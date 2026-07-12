@@ -24,7 +24,7 @@ class StrategyParams:
         self.initial_capital = kwargs.get('initial_capital', 100000)
         self.commission_ratio = kwargs.get('commission_ratio', 0.0003)
         self.backtest_days = kwargs.get('backtest_days', 90)
-        self.strategy_id = kwargs.get('strategy_id', 'zge_strategy_backtest_v1')
+        self.strategy_id = kwargs.get('strategy_id', 'multi_dim_strategy_backtest_v1')
         
         # 交易参数
         self.stop_profit_ratio = kwargs.get('stop_profit_ratio', 0.03)  # 止盈比例3%
@@ -33,7 +33,7 @@ class StrategyParams:
         # 选股参数
         self.weights_config = kwargs.get('weights_config', None)
         self.sub_weights_config = kwargs.get('sub_weights_config', None)
-        self.strategy_type = kwargs.get('strategy_type', 'zge_strategy')
+        self.strategy_type = kwargs.get('strategy_type', 'multi_dim_strategy')
         
         # 股票池配置
         self.stock_pool_limit = kwargs.get('stock_pool_limit', None)  # 股票池大小限制，None表示不限制

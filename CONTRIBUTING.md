@@ -1,6 +1,6 @@
-# CONTRIBUTING.md
+﻿# CONTRIBUTING.md
 
-感谢您对z哥选股策略系统的关注！我们欢迎任何形式的贡献。
+感谢您对QuantScout选股策略系统的关注！我们欢迎任何形式的贡献。
 
 ## 🤝 如何贡献
 

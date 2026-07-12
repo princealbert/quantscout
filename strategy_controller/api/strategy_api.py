@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # coding=utf-8
 """
 策略参数API接口 - 提供前端与回测系统之间的参数传递接口
@@ -23,7 +23,7 @@ class StrategyAPI:
         """
         if api_base_path is None:
             # 使用临时目录作为默认路径
-            api_base_path = os.path.join(tempfile.gettempdir(), "zge_strategy_api")
+            api_base_path = os.path.join(tempfile.gettempdir(), "multi_dim_strategy_api")
         
         self.api_base_path = api_base_path
         os.makedirs(self.api_base_path, exist_ok=True)
@@ -148,7 +148,7 @@ class StrategyAPI:
         script_content = f'''#!/usr/bin/env python
 # coding=utf-8
 """
-z哥选股策略回测脚本 - 通过API自动生成
+QuantScout选股策略回测脚本 - 通过API自动生成
 策略类型: {strategy_type}
 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
@@ -193,7 +193,7 @@ def main():
     backtest_params = config_data["backtest_params"]
     
     print("=" * 60)
-    print("🎯 z哥选股策略回测系统")
+    print("🎯 QuantScout选股策略回测系统")
     print("=" * 60)
     print(f"策略类型: {{strategy_type}}")
     print(f"回测股票: {{len(selected_stocks)}}只")
@@ -233,7 +233,7 @@ def main():
     end_date = datetime.now()
     start_date = end_date - timedelta(days=backtest_days)
     
-    strategy_id = f"zge_strategy_{{config_data['config_id']}}"
+    strategy_id = f"multi_dim_strategy_{{config_data['config_id']}}"
     
     print(f"\\n🚀 准备启动回测...")
     print(f"回测期间: {{start_date.strftime('%Y-%m-%d')}} 到 {{end_date.strftime('%Y-%m-%d')}}")

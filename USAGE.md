@@ -1,6 +1,6 @@
 # 使用指南
 
-本指南详细介绍z哥选股策略系统的各项功能和使用方法。
+本指南详细介绍QuantScout选股策略系统的各项功能和使用方法。
 
 ## 📖 快速导航
 
@@ -16,7 +16,19 @@
 
 ### 1. 启动策略控制器
 
-#### 方法A：使用启动器（推荐）
+#### 方法A：使用 Streamlit 多页面架构（推荐）
+
+```bash
+streamlit run Home.py
+```
+
+启动后通过左侧导航栏进入"策略控制器"页面。
+
+#### 方法B：双击 .bat 脚本（小白用户首选）
+
+双击项目根目录的 `启动策略控制器.bat` 或 `一键启动全部.bat`。
+
+#### 方法C：使用启动器（兼容保留）
 
 ```bash
 python launcher.py
@@ -24,11 +36,7 @@ python launcher.py
 
 选择「1. 启动策略控制器」或「3. 同时启动两个应用」。
 
-#### 方法B：直接启动
-
-```bash
-streamlit run strategy_controller/main.py --server.port 8502
-```
+> 注：launcher.py 为旧版入口，仍可使用，但推荐使用 `streamlit run Home.py`。
 
 ### 2. 界面介绍
 
@@ -36,7 +44,7 @@ streamlit run strategy_controller/main.py --server.port 8502
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  📊 z哥选股策略控制器 (重构版)                     │
+│  📊 QuantScout选股策略控制器 (重构版)                     │
 ├───────────────────┬───────────────────────────────┤
 │  🎛️ 控制面板      │  主内容区域                   │
 │                   │                               │
@@ -71,7 +79,7 @@ streamlit run strategy_controller/main.py --server.port 8502
 
 当前支持的策略：
 
-- **z哥综合策略 (KDJ+知行趋势+深V信号)**
+- **QuantScout综合策略 (KDJ+知行趋势+深V信号)**
   - KDJ指标：超买超卖信号
   - 知行趋势：趋势跟踪信号
   - 深V信号：反转信号
@@ -263,7 +271,19 @@ streamlit run strategy_controller/main.py --server.port 8502
 
 ### 1. 启动参数优化器
 
-#### 方法A：使用启动器（推荐）
+#### 方法A：使用 Streamlit 多页面架构（推荐）
+
+```bash
+streamlit run Home.py
+```
+
+启动后通过左侧导航栏进入"参数优化器"页面。
+
+#### 方法B：双击 .bat 脚本（小白用户首选）
+
+双击项目根目录的 `启动参数优化器.bat` 或 `一键启动全部.bat`。
+
+#### 方法C：使用启动器（兼容保留）
 
 ```bash
 python launcher.py
@@ -271,11 +291,7 @@ python launcher.py
 
 选择「2. 启动参数优化器」或「3. 同时启动两个应用」。
 
-#### 方法B：直接启动
-
-```bash
-streamlit run ulti-para-seeker/app.py --server.port 8501
-```
+> 注：launcher.py 为旧版入口，仍可使用，但推荐使用 `streamlit run Home.py`。
 
 ### 2. 算法配置
 

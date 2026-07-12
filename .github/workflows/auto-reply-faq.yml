@@ -1,0 +1,215 @@
+# 常见问题自动回复 - 根据关键词匹配自动回复常见问题
+name: Auto Reply FAQ
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  auto-reply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 自动回复常见问题
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = (issue.title || '').toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const content = `${title}\n${body}`;
+
+            // 常见问题匹配规则
+            const faqRules = [
+              {
+                keywords: ['安装', '依赖', 'requirements', 'pip install', '环境配置'],
+                title: '🔧 关于安装和环境配置',
+                body: `感谢反馈！关于安装和环境配置，请参考以下步骤：
+
+            1. **推荐使用 conda dcquant 环境**（Python 3.10）：
+               \`\`\`bash
+               conda create -n dcquant python=3.10 -y
+               conda activate dcquant
+               pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+               \`\`\`
+
+            2. **一键配置向导**：
+               \`\`\`bash
+               python setup_wizard.py --auto-fix
+               \`\`\`
+               这会自动创建 conda 环境并安装缺失依赖。
+
+            3. **详细文档**：
+               - 安装指南：[INSTALL.md](../../INSTALL.md)
+               - 环境检测：\`python setup_wizard.py --check-env\`
+               - 完整诊断：\`python setup_wizard.py --diagnose\`
+
+            如果仍有问题，请附上 \`python setup_wizard.py --diagnose\` 的完整输出。`
+              },
+              {
+                keywords: ['token', '密钥', '认证', '授权', 'api key', '掘金'],
+                title: '🔑 关于 Token 配置',
+                body: `感谢反馈！关于 Token 配置，请参考以下步骤：
+
+            1. **获取 Token**：在东财掘金量化终端 → 系统设置 → 密钥管理 → 生成 Token
+            2. **配置 Token**：
+               \`\`\`bash
+               python setup_wizard.py
+               \`\`\`
+               向导第 4 阶段会引导输入 Token 并自动验证连通性。
+            3. **Token 格式要求**：16-64 个字符，由字母、数字、\`-\`、\`_\` 组成
+            4. **安全说明**：Token 使用 Fernet 加密存储，不会明文保存
+
+            **掘金终端回测前置条件**：
+            使用掘金终端回测功能时，需先在终端创建策略项目，再将本项目代码放入该策略项目目录下，回测入口为根目录的 \`main.py\`。
+
+            详细教程：[docs/gm_guide.html](../../docs/gm_guide.html)`
+              },
+              {
+                keywords: ['启动', '运行', 'streamlit', 'launcher', '如何开始'],
+                title: '🚀 关于启动应用',
+                body: `感谢反馈！启动应用有以下方式：
+
+            **推荐方式（Streamlit 多页面架构）**：
+            \`\`\`bash
+            streamlit run Home.py
+            \`\`\`
+
+            **小白用户首选（双击 .bat 脚本）**：
+            - \`一键启动全部.bat\`：同时启动策略控制器和参数优化器
+            - \`启动策略控制器.bat\`：仅启动策略选股系统
+            - \`启动参数优化器.bat\`：仅启动参数优化系统
+
+            **兼容方式（旧版启动器）**：
+            \`\`\`bash
+            python launcher.py
+            \`\`\`
+
+            详细说明：[README.md](../../README.md)`
+              },
+              {
+                keywords: ['选股', '筛选', '结果为空', '没有股票'],
+                title: '📊 关于选股功能',
+                body: `感谢反馈！关于选股功能：
+
+            1. **选股结果为空的可能原因**：
+               - 筛选条件过于严格
+               - 当前市场不满足策略条件
+               - Token 权限不足
+               - 未使用测试模式验证
+
+            2. **建议步骤**：
+               - 先勾选「测试模式」快速验证
+               - 放宽筛选条件
+               - 确保掘金终端正在运行
+               - 查看终端日志了解详细错误信息
+
+            3. **详细使用说明**：[USAGE.md](../../USAGE.md)
+
+            ⚠️ 重要声明：本系统是练习程序，指标因子组合仅为散户自由搭配水平，不具备投产策略水准。`
+              },
+              {
+                keywords: ['回测', 'backtest', '回测失败', 'main.py'],
+                title: '🔄 关于回测功能',
+                body: `感谢反馈！关于回测功能：
+
+            1. **掘金终端回测前置条件**（重要）：
+               - 必须先在掘金量化终端中创建策略项目
+               - 将本项目代码放入该策略项目目录下（git clone 或复制）
+               - 回测入口为根目录的 \`main.py\`
+               - 回测时需保持掘金终端登录运行状态
+
+            2. **Streamlit 内回测**：
+               - 选股和参数优化功能通过 \`streamlit run Home.py\` 使用即可
+               - 无需依赖掘金终端的策略目录结构
+
+            3. **回测参数配置**：
+               - 止盈/止损比例
+               - 最大持仓天数（1-365天，默认5天）
+               - 初始资金、手续费比例等
+
+            详细说明：[USAGE.md](../../USAGE.md)`
+              },
+              {
+                keywords: ['优化', '蓝图', 'blueprint', 'genetic', '粒子群'],
+                title: '⚙️ 关于参数优化器',
+                body: `感谢反馈！关于参数优化器：
+
+            1. **支持的算法**：
+               - 暴力搜索：遍历所有参数组合，保证全局最优
+               - 遗传算法：快速收敛，适合大规模参数空间
+               - 粒子群算法：收敛速度快，参数调节简单
+
+            2. **使用流程**：
+               - 配置算法和参数范围
+               - 生成参数组合（蓝图）
+               - 运行优化
+               - 发送最优参数到策略控制器
+
+            3. **建议**：
+               - 首次使用先开启测试模式验证
+               - 参数空间较大时使用遗传算法或粒子群算法
+
+            详细说明：[USAGE.md](../../USAGE.md)`
+              }
+            ];
+
+            // 匹配 FAQ
+            const matchedReplies = [];
+            for (const rule of faqRules) {
+              if (rule.keywords.some(kw => content.includes(kw))) {
+                matchedReplies.push(rule);
+              }
+            }
+
+            // 如果匹配到 FAQ，自动回复
+            if (matchedReplies.length > 0) {
+              const replyBody = matchedReplies.map(r => `## ${r.title}\n\n${r.body}`).join('\n\n---\n\n');
+
+              const finalBody = `👋 感谢提交 issue！根据内容自动匹配到以下常见问题解答：
+
+            ---
+
+            ${replyBody}
+
+            ---
+
+            📌 如果以上解答未能解决你的问题，请补充更多细节（如错误日志、环境信息、复现步骤等），我们会尽快跟进。
+
+            > ⚠️ 重要声明：本系统是练习程序，指标因子组合仅为散户自由搭配水平，不具备投产策略水准。
+
+            > 💡 提示：运行 \`python setup_wizard.py --diagnose\` 可获取完整环境诊断报告，有助于排查问题。`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: finalBody
+              });
+
+              core.info(`已为 issue #${issue.number} 自动回复 FAQ`);
+            } else {
+              // 未匹配到 FAQ，回复通用欢迎语
+              const welcomeBody = `👋 感谢提交 issue！
+
+            我们会尽快查看并回复。为了帮助更快解决问题，建议补充以下信息：
+
+            - **环境信息**：操作系统、Python 版本、conda 环境等
+            - **复现步骤**：具体操作步骤
+            - **错误信息**：完整的错误日志
+            - **诊断报告**：运行 \`python setup_wizard.py --diagnose\` 的输出
+
+            > ⚠️ 重要声明：本系统是练习程序，指标因子组合仅为散户自由搭配水平，不具备投产策略水准。`;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: welcomeBody
+              });
+
+              core.info(`已为 issue #${issue.number} 回复通用欢迎语`);
+            }

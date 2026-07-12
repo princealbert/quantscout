@@ -1,0 +1,88 @@
+# Issue 自动标签分类 - 根据关键词自动为新 issue 打标签
+name: Issue Labeler
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 根据关键词自动打标签
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = (issue.title || '').toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const content = `${title}\n${body}`;
+
+            // 标签匹配规则
+            const labelRules = [
+              { label: 'bug', keywords: ['bug', '错误', '失败', '报错', '异常', '崩溃', '无法启动', '不能运行', 'failed', 'error', 'crash'] },
+              { label: 'enhancement', keywords: ['建议', '优化', '改进', '希望增加', '新功能', 'feature', 'enhancement', 'improve', 'suggest'] },
+              { label: 'documentation', keywords: ['文档', '说明', '教程', 'readme', 'documentation', 'docs', 'guide'] },
+              { label: 'question', keywords: ['如何', '怎么', '请问', '哪里', '为什么', '？', 'how', 'why', 'where', 'question', 'help'] },
+              { label: 'installation', keywords: ['安装', '配置', '环境', '依赖', 'setup', 'install', 'environment', 'requirements'] },
+              { label: 'token', keywords: ['token', '密钥', '认证', '授权', 'auth', '密码', 'api key'] },
+              { label: '回测', keywords: ['回测', 'backtest', '回测引擎', '回测结果'] },
+              { label: '选股', keywords: ['选股', '筛选', '策略', 'screener', 'strategy', 'stock'] },
+              { label: '优化器', keywords: ['优化器', '参数优化', '蓝图', 'optimizer', 'blueprint', 'genetic', 'particle'] },
+              { label: 'UI', keywords: ['界面', '页面', '显示', 'ui', 'streamlit', '布局', '组件'] },
+            ];
+
+            const labelsToAdd = [];
+            for (const rule of labelRules) {
+              if (rule.keywords.some(kw => content.includes(kw))) {
+                labelsToAdd.push(rule.label);
+              }
+            }
+
+            // 确保标签存在
+            for (const labelName of labelsToAdd) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName
+                });
+              } catch (e) {
+                // 标签不存在，创建它
+                const colors = {
+                  'bug': 'd73a4a',
+                  'enhancement': 'a2eeef',
+                  'documentation': '0075ca',
+                  'question': 'd876e3',
+                  'installation': 'fbca04',
+                  'token': 'e99695',
+                  '回测': 'c5def5',
+                  '选股': 'bfe5bf',
+                  '优化器': 'fef2a0',
+                  'UI': '1d76db'
+                };
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName,
+                  color: colors[labelName] || 'ededed',
+                  description: `自动分类标签: ${labelName}`
+                });
+              }
+            }
+
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+              core.info(`已为 issue #${issue.number} 添加标签: ${labelsToAdd.join(', ')}`);
+            } else {
+              core.info(`issue #${issue.number} 未匹配到任何标签`);
+            }

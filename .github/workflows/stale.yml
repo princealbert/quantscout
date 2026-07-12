@@ -1,0 +1,68 @@
+# 陈旧 Issue 自动关闭 - 标记并关闭长期未活动的 issue
+name: Close Stale Issues
+
+on:
+  schedule:
+    # 每天凌晨 2 点运行（北京时间）
+    - cron: '0 18 * * *'  # UTC 18:00 = 北京时间 02:00
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 标记并关闭陈旧 issue
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue 配置
+          days-before-issue-stale: 30        # 30 天无活动标记为 stale
+          days-before-issue-close: 7         # 标记 stale 后 7 天仍无活动则关闭
+          stale-issue-label: 'stale'
+          exempt-issue-labels: 'pinned,security,enhancement,help wanted'
+
+          # PR 配置
+          days-before-pr-stale: 60          # PR 60 天无活动标记为 stale
+          days-before-pr-close: 14          # 标记 stale 后 14 天仍无活动则关闭
+          stale-pr-label: 'stale'
+          exempt-pr-labels: 'pinned,security,dependencies'
+
+          # 提示信息
+          stale-issue-message: |
+            📌 这个 issue 已经 **30 天** 没有活动了，标记为 stale。
+
+            如果问题仍然存在，请添加最新信息以移除 stale 标签。
+            如果在 **7 天** 内没有进一步活动，该 issue 将被自动关闭。
+
+            > 如果你有新的进展或信息，请直接回复本 issue。
+          close-issue-message: |
+            🔒 这个 issue 因长期无活动已被自动关闭。
+
+            如果问题仍然存在，欢迎重新打开或创建新的 issue：
+            - 点击下方的「Reopen」按钮重新打开
+            - 或创建新 issue 并附上更多细节
+
+            > 💡 提示：运行 `python setup_wizard.py --diagnose` 可获取完整环境诊断报告。
+
+            > ⚠️ 重要声明：本系统是练习程序，指标因子组合仅为散户自由搭配水平，不具备投产策略水准。
+
+          stale-pr-message: |
+            📌 这个 PR 已经 **60 天** 没有活动了，标记为 stale。
+
+            如果仍在进行中，请更新进度或添加最新提交以移除 stale 标签。
+            如果在 **14 天** 内没有进一步活动，该 PR 将被自动关闭。
+          close-pr-message: |
+            🔒 这个 PR 因长期无活动已被自动关闭。
+
+            如果你仍在进行这项工作，欢迎重新打开：
+            - 点击下方的「Reopen」按钮重新打开
+            - 或创建新的 PR
+
+          # 操作配置
+          operations-per-run: 30             # 每次运行最多处理 30 个 issue/PR
+          remove-stale-when-updated: true    # 有新活动时移除 stale 标签
+          delete-branch: false               # 不自动删除分支

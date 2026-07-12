@@ -1,0 +1,209 @@
+# PR 自动审查 - 检查敏感信息、文件大小和代码规范
+name: PR Auto Checker
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+  issues: write
+
+jobs:
+  check-secrets:
+    name: 检查敏感信息
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 检查敏感信息泄露
+        id: secrets-check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const sensitivePatterns = [
+              { pattern: /gm_[a-f0-9]{32,}/gi, type: '掘金 API Token' },
+              { pattern: /ghp_[A-Za-z0-9]{36,}/g, type: 'GitHub PAT' },
+              { pattern: /sk-[A-Za-z0-9]{20,}/g, type: 'API Key' },
+              { pattern: /AKIA[0-9A-Z]{16}/g, type: 'AWS Access Key' },
+              { pattern: /-----BEGIN (RSA |EC )?PRIVATE KEY-----/g, type: 'Private Key' },
+              { pattern: /token\s*[:=]\s*['"][A-Za-z0-9_-]{16,64}['"]/gi, type: '硬编码 Token' },
+              { pattern: /password\s*[:=]\s*['"][^'"]+['"]/gi, type: '硬编码密码' },
+            ];
+
+            const issues = [];
+            for (const file of files) {
+              // 跳过已删除的文件
+              if (file.status === 'removed') continue;
+
+              // 只检查新增的行
+              const patch = file.patch || '';
+              const addedLines = patch.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++'));
+
+              for (const line of addedLines) {
+                for (const rule of sensitivePatterns) {
+                  if (rule.pattern.test(line)) {
+                    issues.push(`🚨 **${rule.type}** 疑似泄露: \`${file.filename}\` 中发现敏感信息`);
+                    break;
+                  }
+                }
+              }
+            }
+
+            core.setOutput('issues', JSON.stringify(issues));
+            core.setOutput('has_issues', issues.length > 0);
+            return issues;
+
+      - name: 检查 .env 文件
+        id: env-check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const envFiles = files.filter(f =>
+              f.filename.endsWith('.env') ||
+              f.filename.includes('.env.') ||
+              f.filename.includes('credentials') ||
+              f.filename.includes('secret') ||
+              f.filename.includes('token_config')
+            );
+
+            core.setOutput('has_env', envFiles.length > 0);
+            return envFiles.map(f => f.filename);
+
+  check-code-style:
+    name: 检查代码规范
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装检查工具
+        run: pip install flake8 pycodestyle
+
+      - name: 检查 Python 文件
+        id: flake8-check
+        continue-on-error: true
+        run: |
+          # 获取变更的 Python 文件
+          git diff --name-only origin/${{ github.base_ref }} HEAD | grep '\.py$' || true
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep '\.py$' || echo "")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "✅ 没有变更的 Python 文件"
+            echo "result=skip" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "检查以下文件:"
+          echo "$CHANGED_FILES"
+
+          # 运行 flake8（只检查错误，不检查风格）
+          flake8 --select=E9,F63,F7,F82 --max-line-length=120 $CHANGED_FILES
+          RESULT=$?
+
+          if [ $RESULT -eq 0 ]; then
+            echo "result=pass" >> $GITHUB_OUTPUT
+            echo "✅ 代码规范检查通过"
+          else
+            echo "result=fail" >> $GITHUB_OUTPUT
+            echo "❌ 发现代码规范问题"
+          fi
+
+  pr-comment:
+    name: 生成 PR 审查报告
+    runs-on: ubuntu-latest
+    needs: [check-secrets, check-code-style]
+    if: always()
+    steps:
+      - name: 生成审查报告
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const secretsHasIssues = '${{ needs.check-secrets.outputs.has_issues }}' === 'true';
+            const secretsHasEnv = '${{ needs.check-secrets.outputs.has_env }}' === 'true';
+            const codeStyleResult = '${{ needs.check-code-style.outputs.result }}';
+
+            let report = `## 🤖 PR 自动审查报告
+
+            感谢提交 PR！以下是自动检查结果：
+
+            | 检查项 | 状态 |
+            |--------|------|
+            | 敏感信息检查 | ${secretsHasIssues ? '❌ 发现问题' : '✅ 通过'} |
+            | .env 文件检查 | ${secretsHasEnv ? '⚠️ 注意' : '✅ 通过'} |
+            | 代码规范检查 | ${codeStyleResult === 'pass' ? '✅ 通过' : codeStyleResult === 'fail' ? '❌ 有问题' : '⏭️ 跳过'} |
+
+            `;
+
+            if (secretsHasIssues) {
+              const issues = JSON.parse(`${{ needs.check-secrets.outputs.issues }}` || '[]');
+              report += `\n### 🚨 敏感信息警告\n\n检测到以下疑似敏感信息：\n\n${issues.map(i => `- ${i}`).join('\n')}\n\n**请立即检查并移除敏感信息！**\n`;
+            }
+
+            if (secretsHasEnv) {
+              report += `\n### ⚠️ 环境配置文件警告\n\n检测到 PR 中包含环境配置文件（.env 等），请确认这些文件不应包含真实凭据。\n`;
+            }
+
+            if (codeStyleResult === 'fail') {
+              report += `\n### 📝 代码规范建议\n\n发现一些代码规范问题，建议修复：\n- 使用 \`flake8\` 检查具体问题\n- 重点关注 E9（语法错误）和 F 类问题\n`;
+            }
+
+            report += `
+            ---
+
+            > 💡 提示：这是自动生成的审查报告，仅供参考。人工 review 仍然必要。
+            >
+            > ⚠️ 重要声明：本系统是练习程序，指标因子组合仅为散户自由搭配水平，不具备投产策略水准。
+            `;
+
+            // 查找已有的审查评论
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('PR 自动审查报告')
+            );
+
+            if (botComment) {
+              // 更新已有评论
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report
+              });
+            } else {
+              // 创建新评论
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: report
+              });
+            }
+
+            core.info('PR 审查报告已发布');

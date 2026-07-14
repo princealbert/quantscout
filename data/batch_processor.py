@@ -10,15 +10,20 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
-# 添加项目根目录到Python路径，确保模块导入正常
+# 添加项目根目录到Python路径（优先，确保根目录config包被正确识别）
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# 添加ulti-para-seeker目录到Python路径，确保日志模块导入正常
+# 添加cache目录到Python路径
+cache_dir = os.path.join(project_root, "cache")
+if cache_dir not in sys.path:
+    sys.path.insert(1, cache_dir)
+
+# 添加ulti-para-seeker目录到Python路径（放到后面，避免config包冲突）
 ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
 if ulti_para_seeker_dir not in sys.path:
-    sys.path.insert(0, ulti_para_seeker_dir)
+    sys.path.append(ulti_para_seeker_dir)
 
 # 导入日志模块
 from utils.logger import logger

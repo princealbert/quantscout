@@ -1,4 +1,4 @@
-﻿# coding=utf-8
+# coding=utf-8
 """
 QuantScout选股策略 - 重构后的精简版本
 集成KDJ、知行趋势线、深V信号的综合选股器
@@ -13,15 +13,15 @@ import pandas as pd
 import numpy as np
 from typing import List, Dict, Any
 
-# 添加项目根目录到Python路径
+# 添加项目根目录到Python路径（优先）
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# 添加ulti-para-seeker目录到Python路径，确保日志模块导入正常
+# 添加ulti-para-seeker目录到Python路径（放到后面，避免config包冲突）
 ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
 if ulti_para_seeker_dir not in sys.path:
-    sys.path.insert(0, ulti_para_seeker_dir)
+    sys.path.append(ulti_para_seeker_dir)
 
 # 导入日志模块
 from utils.logger import logger

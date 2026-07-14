@@ -3,32 +3,33 @@
 股票数据获取模块 - 负责获取股票基本信息和K线数据
 """
 
+import sys
+import os
 import datetime
 import pandas as pd
 from typing import List, Dict, Any
 from gm.api import get_symbol_infos, history, stk_get_daily_valuation_pt, stk_get_daily_mktvalue_pt, stk_get_daily_basic_pt, set_token, get_previous_trading_date, get_next_trading_date
-from config.weights_config import weight_config
-# 确保正确导入缓存模块
-import sys
-import os
-# 添加项目根目录到Python路径
+
+# 添加项目根目录到Python路径（优先，确保根目录config包被正确识别）
 file_dir = os.path.dirname(os.path.abspath(__file__))  # data目录
 project_root = os.path.dirname(file_dir)  # 项目根目录
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# 确保ulti-para-seeker目录在Python路径中
-ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
-if ulti_para_seeker_dir not in sys.path:
-    sys.path.insert(0, ulti_para_seeker_dir)
-
-# 导入日志模块
-from utils.logger import logger
-
 # 确保cache模块的导入路径正确
 cache_dir = os.path.join(project_root, "cache")
 if cache_dir not in sys.path:
-    sys.path.insert(0, cache_dir)
+    sys.path.insert(1, cache_dir)
+
+# 添加ulti-para-seeker目录到Python路径（放到后面，避免config包冲突）
+ulti_para_seeker_dir = os.path.join(project_root, "ulti-para-seeker")
+if ulti_para_seeker_dir not in sys.path:
+    sys.path.append(ulti_para_seeker_dir)
+
+from config.weights_config import weight_config
+
+# 导入日志模块
+from utils.logger import logger
 
 # 直接从cache包导入全局stock_cache实例，确保使用正确的缓存实例
 from cache import stock_cache

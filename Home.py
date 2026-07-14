@@ -18,14 +18,30 @@ Streamlit 原生多页面架构：
 - 进度监控（解决假死判断问题）
 """
 
-import streamlit as st
 import sys
 import os
 
-# 添加项目根目录到 Python 路径
+# 初始化Python路径 - 确保项目根目录优先，避免ulti-para-seeker/config.py与根目录config包冲突
 project_root = os.path.dirname(os.path.abspath(__file__))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+
+# 确保项目根目录在sys.path最前面
+if project_root in sys.path:
+    sys.path.remove(project_root)
+sys.path.insert(0, project_root)
+
+# 添加cache目录
+_cache_dir = os.path.join(project_root, "cache")
+if _cache_dir in sys.path:
+    sys.path.remove(_cache_dir)
+sys.path.insert(1, _cache_dir)
+
+# ulti-para-seeker放到最后（避免config重名冲突）
+_ulti_dir = os.path.join(project_root, "ulti-para-seeker")
+if _ulti_dir in sys.path:
+    sys.path.remove(_ulti_dir)
+sys.path.append(_ulti_dir)
+
+import streamlit as st
 
 # 页面配置
 st.set_page_config(

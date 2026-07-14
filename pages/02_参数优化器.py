@@ -4,8 +4,29 @@
 参数优化器 Streamlit UI
 """
 
-import os
 import sys
+import os
+
+# 初始化Python路径 - 确保项目根目录优先，避免ulti-para-seeker/config.py与根目录config包冲突
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 确保项目根目录在sys.path最前面
+if _project_root in sys.path:
+    sys.path.remove(_project_root)
+sys.path.insert(0, _project_root)
+
+# 添加cache目录
+_cache_dir = os.path.join(_project_root, "cache")
+if _cache_dir in sys.path:
+    sys.path.remove(_cache_dir)
+sys.path.insert(1, _cache_dir)
+
+# ulti-para-seeker放到最后（避免config重名冲突）
+_ulti_dir = os.path.join(_project_root, "ulti-para-seeker")
+if _ulti_dir in sys.path:
+    sys.path.remove(_ulti_dir)
+sys.path.append(_ulti_dir)
+
 import json
 import time
 import uuid
@@ -19,14 +40,6 @@ import streamlit as st
 
 
 def render_parameter_optimizer_page():
-    # 添加项目根目录和 ulti-para-seeker 目录到Python路径
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    para_seeker_dir = os.path.join(project_root, 'ulti-para-seeker')
-    
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    if para_seeker_dir not in sys.path:
-        sys.path.insert(0, para_seeker_dir)
 
     # 注入自定义CSS样式
     st.markdown("""
@@ -1574,9 +1587,14 @@ def render_parameter_optimizer_page():
                 else:
                     st.error(result_msg)
 
-    # 优化运行中状态提示
+    # 优化运行中状态提示 - 动态点号动画，避免用户以为假死
     if st.session_state.get('optimization_running', False):
-        st.info("⏳ 正在执行参数优化... 详细实时日志请查看终端窗口")
+        opt_anim_frame = st.session_state.get('opt_anim_frame', 0)
+        dots = '.' * ((opt_anim_frame % 6) + 1)  # 1~6个点循环
+        st.session_state.opt_anim_frame = opt_anim_frame + 1
+        st.info(f"⏳ 正在执行参数优化{dots} 详细实时日志请查看终端窗口")
+        time.sleep(1.0)
+        st.rerun()
     
     # 页脚信息
     st.markdown("<p style='text-align: center; color: gray;'>参数优化器 © 2024</p>", unsafe_allow_html=True)

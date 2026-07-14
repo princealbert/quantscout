@@ -1,15 +1,31 @@
-import streamlit as st
-import os
 import sys
+import os
+
+# 初始化Python路径 - 确保项目根目录优先，避免ulti-para-seeker/config.py与根目录config包冲突
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 确保项目根目录在sys.path最前面
+if _project_root in sys.path:
+    sys.path.remove(_project_root)
+sys.path.insert(0, _project_root)
+
+# 添加cache目录
+_cache_dir = os.path.join(_project_root, "cache")
+if _cache_dir in sys.path:
+    sys.path.remove(_cache_dir)
+sys.path.insert(1, _cache_dir)
+
+# ulti-para-seeker放到最后（避免config重名冲突）
+_ulti_dir = os.path.join(_project_root, "ulti-para-seeker")
+if _ulti_dir in sys.path:
+    sys.path.remove(_ulti_dir)
+sys.path.append(_ulti_dir)
+
+import streamlit as st
 import time
 import threading
 from datetime import datetime
 from typing import Dict, List
-
-# 添加项目根目录到Python路径，确保可以正确导入utils模块
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 # 注入自定义CSS样式（不使用st.set_page_config，因为全局页面配置已在Home.py设置）
 def inject_custom_css():
@@ -197,27 +213,38 @@ def render_strategy_controller_page():
             st.session_state.current_progress = 0
             st.session_state.status_message = "正在初始化选股器..."
             st.session_state.strategy_error = None
-            
+            st.session_state.strategy_results = None
+
             # 捕获当前配置到局部变量
             _strategy_type = st.session_state.get('strategy_type', "多维综合策略 (KDJ+知行趋势+深V信号)")
             _weights_config = st.session_state.get('weights_config', {})
             _screening_params = st.session_state.get('screening_params', {})
             _sub_weights_config = st.session_state.get('sub_weights_config', None)
-            
+
+            # 使用普通dict做跨线程通信（st.session_state在子线程中不可靠）
+            _thread_shared = {
+                'running': True,
+                'progress': 0,
+                'status': '正在初始化选股器...',
+                'results': None,
+                'error': None,
+                'run_time': None
+            }
+
             # 启动异步线程执行策略
-            def run_strategy_async():
+            def run_strategy_async(shared):
                 try:
                     logger.info(f"开始执行策略: {_strategy_type}")
                     logger.info(f"股票池类型: {_screening_params.get('stock_pool_type', '全量A股')}")
-                    
+
                     def update_progress(progress):
-                        st.session_state.current_progress = progress * 100
+                        shared['progress'] = progress * 100
                         logger.info(f"进度: {int(progress * 100)}%")
-                    
+
                     def update_status(message):
-                        st.session_state.status_message = message
+                        shared['status'] = message
                         logger.info(message)
-                    
+
                     results = run_strategy(
                         _strategy_type,
                         _weights_config,
@@ -226,15 +253,15 @@ def render_strategy_controller_page():
                         status_callback=update_status,
                         sub_weights_config=_sub_weights_config
                     )
-                    
-                    st.session_state.strategy_results = results if results else []
-                    st.session_state.last_run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    shared['results'] = results if results else []
+                    shared['run_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     logger.success(f"策略执行完成，结果数量: {len(results) if results else 0}")
-                    
+
                 except Exception as e:
                     error_msg = str(e)
-                    st.session_state.strategy_error = error_msg
-                    
+                    shared['error'] = error_msg
+
                     friendly_error_msg = "策略执行失败"
                     if "token" in error_msg.lower() or "api" in error_msg.lower():
                         friendly_error_msg = "API连接失败，请检查Token配置是否正确"
@@ -246,13 +273,17 @@ def render_strategy_controller_page():
                         friendly_error_msg = "请求超时，请稍后重试"
                     elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
                         friendly_error_msg = "权限不足，请检查Token权限"
-                    
+
+                    shared['error_friendly'] = friendly_error_msg
                     logger.error(f"策略执行失败: {friendly_error_msg} ({error_msg})")
                 finally:
-                    st.session_state.strategy_running = False
-            
-            threading.Thread(target=run_strategy_async, daemon=True).start()
-            
+                    shared['running'] = False
+
+            threading.Thread(target=run_strategy_async, args=(_thread_shared,), daemon=True).start()
+
+            # 将共享dict存入session_state供主线程轮询
+            st.session_state._thread_shared = _thread_shared
+
             # 立即触发重绘，进入运行中状态
             st.rerun()
         
@@ -266,36 +297,62 @@ def render_strategy_controller_page():
                     screening_params
                 )
     
-    # 主内容区域
+    # 主内容区域 - 从共享dict同步线程状态到session_state
+    _shared = st.session_state.get('_thread_shared')
+    if _shared:
+        # 同步进度和状态
+        st.session_state.current_progress = _shared.get('progress', 0)
+        st.session_state.status_message = _shared.get('status', '正在执行中')
+
+        # 线程已结束 - 同步最终结果
+        if not _shared.get('running', True):
+            if _shared.get('error'):
+                st.session_state.strategy_error = _shared['error']
+                st.session_state.strategy_error_friendly = _shared.get('error_friendly', '策略执行失败')
+            elif _shared.get('results') is not None:
+                st.session_state.strategy_results = _shared['results']
+                st.session_state.last_run_time = _shared.get('run_time', '')
+
+            # 清理运行状态
+            st.session_state.strategy_running = False
+            st.session_state._thread_shared = None
+
     if st.session_state.get('strategy_running', False):
-        # 策略运行中 - 显示进度条和状态消息
-        status_msg = st.session_state.get('status_message', '正在执行中...')
-        st.info(f"⏳ {status_msg}")
-        
-        # 进度条
+        # 策略运行中 - 显示动态状态（点号循环动画，避免用户以为假死）
+        anim_frame = st.session_state.get('anim_frame', 0)
+        dots = '.' * ((anim_frame % 6) + 1)  # 1~6个点循环
+        st.session_state.anim_frame = anim_frame + 1
+
+        status_msg = st.session_state.get('status_message', '正在执行中')
         progress = st.session_state.get('current_progress', 0) / 100
-        st.progress(min(progress, 1.0), text=f"进度: {int(min(progress, 1.0) * 100)}%")
-        
+        progress_pct = int(min(progress, 1.0) * 100)
+
+        # 根据进度阶段显示不同的动态文字
+        if progress <= 0:
+            dynamic_text = f"⏳ 正在进行选股{dots}"
+        elif progress < 0.2:
+            dynamic_text = f"📊 正在获取股票池数据{dots}"
+        elif progress < 0.8:
+            dynamic_text = f"🚀 正在筛选股票{dots} ({progress_pct}%)"
+        else:
+            dynamic_text = f"🎯 正在排序和整理结果{dots}"
+
+        st.info(dynamic_text)
+
+        # 进度条 - 显示状态文字而非干巴巴的百分比
+        st.progress(min(progress, 1.0), text=status_msg)
+
         st.warning("📺 详细实时日志请查看启动项目的终端窗口")
-        
-        # 轮询刷新：每1.5秒自动刷新一次页面以更新进度
-        time.sleep(1.5)
+
+        # 轮询刷新：每1秒自动刷新一次页面以更新进度和动画
+        time.sleep(1.0)
         st.rerun()
-    
+
     elif st.session_state.get('strategy_error'):
         # 策略执行失败
-        error = st.session_state.strategy_error
-        friendly_msg = "策略执行失败"
-        if "token" in error.lower() or "api" in error.lower():
-            friendly_msg = "API连接失败，请检查Token配置是否正确"
-        elif "network" in error.lower() or "connection" in error.lower():
-            friendly_msg = "网络连接失败，请检查网络状态"
-        elif "gm" in error.lower() or "juejin" in error.lower():
-            friendly_msg = "东财掘金终端连接失败，请确保终端已启动"
-        elif "timeout" in error.lower():
-            friendly_msg = "请求超时，请稍后重试"
-        st.error(f"❌ {friendly_msg}")
+        st.error(f"❌ {st.session_state.get('strategy_error_friendly', '策略执行失败')}")
         st.session_state.strategy_error = None
+        st.session_state.strategy_error_friendly = None
     
     elif st.session_state.strategy_results:
         # 策略执行完成 - 展示结果

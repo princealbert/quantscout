@@ -65,6 +65,40 @@ QuantScout 是一个基于东财掘金量化平台的智能选股与参数优化
 - **实时并行计算**：支持全量A股分批并行处理，提升选股效率
 - **灵活的权重系统**：支持7个核心指标权重调整和子权重配置
 
+## 📸 界面截图
+
+### 系统首页
+
+| 首页概览 | 使用说明 |
+|:---:|:---:|
+| ![首页](screenshots/01_home_page.png) | ![使用说明](screenshots/01b_home_usage.png) |
+
+### 策略控制器
+
+| Token配置 | 权重配置 | 高级子权重 |
+|:---:|:---:|:---:|
+| ![Token配置](screenshots/03_token_config.png) | ![权重配置](screenshots/04_weight_config.png) | ![高级子权重](screenshots/04b_advanced_weight.png) |
+
+| 筛选参数 | 选股执行 | 选股结果 |
+|:---:|:---:|:---:|
+| ![筛选参数](screenshots/05_filter_params.png) | ![选股中](screenshots/选股中.png) | ![选股结果](screenshots/选股结果.png) |
+
+### 参数优化器
+
+| 优化器概览 | 优化配置 | 优化结果 |
+|:---:|:---:|:---:|
+| ![优化器概览](screenshots/07_optimizer_overview.png) | ![参数优化设置](screenshots/参数优化设置.png) | ![优化结果](screenshots/参数优化结果.png) |
+
+### 回测分析
+
+| 回测配置 | 回测图表1 | 回测图表2 |
+|:---:|:---:|:---:|
+| ![回测配置](screenshots/回测配置.png) | ![回测图表1](screenshots/回测可视化图表1.png) | ![回测图表2](screenshots/回测可视化图表2.png) |
+
+| 组合收益率分布 | 东财终端回测 |
+|:---:|:---:|
+| ![组合收益率分布](screenshots/组合收益率分布.png) | ![东财终端回测](screenshots/东财量化终端回测页面.png) |
+
 ## ⚠️ 系统要求
 
 ### 必须满足的条件
